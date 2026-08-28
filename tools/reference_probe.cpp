@@ -38,6 +38,8 @@ int main(int argc, char** argv) {
     std::size_t spawn_pause_rotation = 0, spawn_terrain_effects = 0, spawn_reversed_ranges = 0;
     std::size_t unit_terrain_effects = 0, unit_adjust_owner_scale = 0, unit_player_active_only = 0;
     std::size_t state_lock_owner = 0, state_link_owner = 0, state_orbit_owner = 0;
+    std::size_t state_hunt = 0, state_hold = 0, state_cyclic = 0;
+    std::size_t state_delete_no_player = 0, state_destruct_no_player = 0;
     std::size_t units_with_lock_owner = 0, units_with_link_owner = 0, units_with_orbit_owner = 0;
     std::size_t weapons = 0, weapon_spawns = 0, players = 0;
     std::size_t unresolved_active_actions = 0, unresolved_inert_actions = 0, unknown_rule_conditions = 0;
@@ -86,6 +88,11 @@ int main(int argc, char** argv) {
                 state_lock_owner += lock_owner;
                 state_link_owner += link_owner;
                 state_orbit_owner += orbit_owner;
+                state_hunt += state.fields.bool_value("stateHunts_BOOL").value_or(false);
+                state_hold += state.fields.bool_value("stateHoldPositionToTarget_BOOL").value_or(false);
+                state_cyclic += state.fields.bool_value("stateCyclicMotion_BOOL").value_or(false);
+                state_delete_no_player += state.fields.bool_value("stateDeleteOnNoActivePlayers_BOOL").value_or(false);
+                state_destruct_no_player += state.fields.bool_value("stateDestructOnNoActivePlayers_BOOL").value_or(false);
                 unit_has_lock_owner = unit_has_lock_owner || lock_owner;
                 unit_has_link_owner = unit_has_link_owner || link_owner;
                 unit_has_orbit_owner = unit_has_orbit_owner || orbit_owner;
@@ -148,6 +155,12 @@ int main(int argc, char** argv) {
     }
     const auto reference_issues = definitions->validate_unit_references();
 
+    // Recovered PPC player subsystem: two slots, status==4 active. Use one
+    // deterministic world for constructor/tick corpus validation.
+    deimos::PlayerWorld simulation_players;
+    simulation_players.slots()[0] = {4, 300.0f, 250.0f, 0};
+    simulation_players.slots()[1] = {4, -120.0f, 420.0f, 1};
+
     // Validate the PPC 0x37930 / 0x37B50 initial member math against every
     // canonical Unit Definition independently of group appearance rolls.
     std::size_t constructor_math_units = 0;
@@ -175,12 +188,10 @@ int main(int argc, char** argv) {
             tagged.definition, group, member_rng, constructor_trig);
 
         deimos::EntityInitialMotionFacts motion_facts;
-        // Only one canonical definition (Mine[mine]) uses the hunt branch.
-        // Supplying a deterministic target validates the recovered vector math
-        // without pretending that target selection itself is reconstructed yet.
-        motion_facts.hunt_target_position = deimos::EntityPoint{
-            position.position.x + 100.0f,
-            position.position.y + 50.0f};
+        if (const auto target = simulation_players.closest_active_player(
+                position.position.x, position.position.y)) {
+            motion_facts.hunt_target_position = target->position;
+        }
         const auto motion = deimos::choose_initial_member_motion(
             tagged.definition, group, position.position, false,
             heading_mode, pre_heading, 1.0f,
@@ -231,9 +242,12 @@ int main(int argc, char** argv) {
         deimos::EntityHeadlessConstructionContext context;
         context.preflight.current_tick = 0;
         context.preflight.player_gate.global_gate_enabled = true;
-        context.preflight.player_gate.qualifying_player_present = true;
+        context.preflight.player_gate.qualifying_player_present = simulation_players.any_active_player();
         context.preflight.player_gate.suppression_active = false;
-        context.motion_facts.hunt_target_position = deimos::EntityPoint{300.0f, 250.0f};
+        context.hunt_target_provider = [&](deimos::EntityPoint position) -> std::optional<deimos::EntityPoint> {
+            const auto target = simulation_players.closest_active_player(position.x, position.y);
+            return target ? std::optional<deimos::EntityPoint>{target->position} : std::nullopt;
+        };
         context.motion_facts.parent_heading_degrees = 180;
 
         auto built = deimos::construct_entity_group_headless(
@@ -269,6 +283,48 @@ int main(int argc, char** argv) {
         return 17;
     }
 
+
+    const auto active_members_before_first_tick = constructed_world.active_member_count();
+
+    // Exercise one reconstructed player-aware tick at the same initial tick.
+    // This intentionally triggers zero-delay timer actions exactly as the PPC
+    // equality check does and classifies every lifecycle change by phase.
+    std::size_t player_aware_ticks = 0;
+    std::size_t removed_on_first_tick = 0;
+    std::size_t first_tick_deleted = 0;
+    std::size_t first_tick_destroyed = 0;
+    std::size_t removed_by_timer = 0;
+    std::size_t removed_by_rule = 0;
+    std::size_t removed_by_range = 0;
+    std::size_t removed_by_player_motion = 0;
+    deimos::LegacyRandom motion_rng(1);
+
+    for (auto& member : constructed_world.members()) {
+        if (member.lifecycle != deimos::EntityLifecycle::active) continue;
+        const auto* definition = definitions->find_unit(member.unit_id);
+        if (!definition) {
+            std::cerr << "constructed world member has unknown unit ID\n";
+            return 18;
+        }
+        const auto before = member.lifecycle;
+        deimos::EntityTickContext tick_context;
+        tick_context.current_tick = 0;
+        const auto tick_result = deimos::advance_entity_runtime_with_players(
+            constructed_world, member, *definition, tick_context,
+            simulation_players, motion_rng, constructor_trig);
+        ++player_aware_ticks;
+        if (before == deimos::EntityLifecycle::active &&
+            member.lifecycle != deimos::EntityLifecycle::active) {
+            ++removed_on_first_tick;
+            first_tick_deleted += member.lifecycle == deimos::EntityLifecycle::deleted;
+            first_tick_destroyed += member.lifecycle == deimos::EntityLifecycle::destroyed;
+            if (tick_result.timer_action_processed) ++removed_by_timer;
+            else if (tick_result.rule_matched) ++removed_by_rule;
+            else if (tick_result.range_action_processed) ++removed_by_range;
+            else ++removed_by_player_motion;
+        }
+    }
+
     if (!reference_issues.empty()) {
         for (const auto& issue : reference_issues) {
             std::cerr << issue.source_path << ": unresolved Unit Definition reference "
@@ -296,6 +352,11 @@ int main(int argc, char** argv) {
               << " across " << units_with_link_owner << " units\n"
               << "    Orbit-owner states: " << state_orbit_owner
               << " across " << units_with_orbit_owner << " units\n"
+              << "    Hunt states: " << state_hunt << '\n'
+              << "    Hold-to-target states: " << state_hold << '\n'
+              << "    Cyclic-motion states: " << state_cyclic << '\n'
+              << "    Delete-on-no-player states: " << state_delete_no_player << '\n'
+              << "    Destruct-on-no-player states: " << state_destruct_no_player << '\n'
               << "  unit terrain effects: " << unit_terrain_effects << '\n'
               << "  unit owner-scale spawn-offset flag: " << unit_adjust_owner_scale << '\n'
               << "  unit player-active-only spawn flag: " << unit_player_active_only << '\n'
@@ -326,11 +387,21 @@ int main(int argc, char** argv) {
               << "    groups constructed: " << group_constructed << '\n'
               << "    groups eliminated by appearance rolls: " << group_rejected_by_appearance << '\n'
               << "    live members constructed: " << live_members_constructed << '\n'
-              << "    world-registered active members: " << constructed_world.active_member_count() << '\n'
+              << "    world-registered active members: " << active_members_before_first_tick << '\n'
               << "    spawn records in resulting current states: " << member_spawn_runtime_records << '\n'
               << "    delete-existing-owner intents: " << delete_existing_owner_intents << '\n'
               << "    next group serial: " << identities.next_group_serial << '\n'
               << "    next member serial: " << identities.next_member_serial << '\n'
-              << "    final construction RNG seed: " << construction_rng.seed() << '\n';
+              << "    final construction RNG seed: " << construction_rng.seed() << '\n'
+              << "  player-aware first ticks: " << player_aware_ticks << '\n'
+              << "    active after first tick: " << constructed_world.active_member_count() << '\n'
+              << "    removed on first tick: " << removed_on_first_tick << '\n'
+              << "      deleted: " << first_tick_deleted << '\n'
+              << "      destroyed: " << first_tick_destroyed << '\n'
+              << "      timer phase: " << removed_by_timer << '\n'
+              << "      rule phase: " << removed_by_rule << '\n'
+              << "      range phase: " << removed_by_range << '\n'
+              << "      player/motion phase: " << removed_by_player_motion << '\n'
+              << "    final motion RNG seed: " << motion_rng.seed() << '\n';
     return 0;
 }

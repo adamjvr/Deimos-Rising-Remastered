@@ -20,6 +20,16 @@ float unit_float(const UnitDefinition& unit, const char* key, float fallback) {
     return unit.core_fields.float_value(key).value_or(fallback);
 }
 
+bool state_bool(const UnitDefinition& unit, std::size_t state_index, const char* key, bool fallback = false) {
+    if (state_index >= unit.states.size()) return fallback;
+    return unit.states[state_index].fields.bool_value(key).value_or(fallback);
+}
+
+float state_float(const UnitDefinition& unit, std::size_t state_index, const char* key, float fallback = 0.0f) {
+    if (state_index >= unit.states.size()) return fallback;
+    return unit.states[state_index].fields.float_value(key).value_or(fallback);
+}
+
 float f32_mul(float a, float b) {
     return static_cast<float>(a * b);
 }
@@ -58,6 +68,24 @@ int wrap_heading_once_or_zero(int heading) {
     else if (heading > 359) heading -= 360;
     if (heading < 0 || heading > 359) return 0;
     return heading;
+}
+
+float approach_axis(float current, float target, float delta) {
+    const float step = std::fabs(delta);
+    if (step == 0.0f || current == target) return current;
+    if (current < target) return std::min(target, static_cast<float>(current + step));
+    return std::max(target, static_cast<float>(current - step));
+}
+
+int heading_from_velocity(float x, float y, int fallback) {
+    if (x == 0.0f && y == 0.0f) return wrap_heading_once_or_zero(fallback);
+    // 0x42CD0 is the floating-vector counterpart of the integer angle helper.
+    // Scale before truncation so small sub-unit velocities retain direction; the
+    // legacy quadrant convention remains the same as the startup atan table.
+    const int sx = static_cast<int>(std::trunc(static_cast<double>(x) * 1024.0));
+    const int sy = static_cast<int>(std::trunc(static_cast<double>(y) * 1024.0));
+    if (sx == 0 && sy == 0) return wrap_heading_once_or_zero(fallback);
+    return legacy_angle_between_integer_points(0, 0, sx, sy);
 }
 
 void initialize_state_spawn_runtime(
@@ -103,6 +131,11 @@ void enter_entity_state_impl(
     }
 
     const auto& compiled = entity.behavior.states[state_index];
+    const bool first_state_entry = std::all_of(
+        entity.state.state_entry_counts.begin(), entity.state.state_entry_counts.end(),
+        [](int value) { return value == 0; });
+    const std::optional<std::size_t> previous_state_index =
+        first_state_entry ? std::nullopt : std::optional<std::size_t>{entity.state.current_state};
     // Original state changes call PPC 0x33600 after the new state becomes
     // current. The world layer owns owner/parent resolution, so invalidate
     // its clean initialization marker here and reinitialize at the recovered
@@ -113,6 +146,7 @@ void enter_entity_state_impl(
     const auto entry = enter_unit_state(
         entity.state, entity.behavior, state_index, current_tick, timer_random);
 
+    initialize_entity_state_motion(entity, unit, previous_state_index);
     initialize_state_spawn_runtime(entity, unit, state_index, current_tick, random);
 
     if (!entry.counter_threshold_reached) return;
@@ -383,6 +417,158 @@ EntityInitialMotionResult choose_initial_member_motion(
     return result;
 }
 
+
+void initialize_entity_state_motion(
+    EntityRuntime& entity,
+    const UnitDefinition& unit,
+    std::optional<std::size_t> previous_state_index) {
+    const auto state_index = entity.state.current_state;
+    if (state_index >= unit.states.size()) {
+        throw std::out_of_range("motion current state outside Unit Definition");
+    }
+
+    // PPC 0x146F0 clears the motion block for Lock states.  This is distinct
+    // from stationary construction: a later state can lock an already-moving
+    // member to its owner and therefore must zero both target and delta fields.
+    if (state_bool(unit, state_index, "stateLockToOwnerLoc_BOOL")) {
+        entity.target_velocity_x = 0.0f;
+        entity.target_velocity_y = 0.0f;
+        entity.velocity_delta_x = 0.0f;
+        entity.velocity_delta_y = 0.0f;
+        return;
+    }
+
+    int heading = entity.heading_degrees;
+    if (previous_state_index && *previous_state_index < unit.states.size() &&
+        state_bool(unit, *previous_state_index, "stateOrbitOwner_BOOL")) {
+        heading = entity.orbit_angle_degrees;
+    } else if (previous_state_index) {
+        heading = heading_from_velocity(entity.velocity_x, entity.velocity_y, entity.heading_degrees);
+    }
+    heading = wrap_heading_once_or_zero(heading);
+
+    static const LegacyTrigTables trig;
+    const float max_speed = state_float(unit, state_index, "stateMaxSpeed_FLOAT", 0.0f);
+    const float delta = state_float(unit, state_index, "stateDelta_FLOAT", 0.0f);
+    const auto target = legacy_heading_vector(heading, max_speed, trig);
+    const auto step = legacy_heading_vector(heading, delta, trig);
+    entity.target_velocity_x = target.x;
+    entity.target_velocity_y = target.y;
+    entity.velocity_delta_x = step.x;
+    entity.velocity_delta_y = step.y;
+}
+
+void advance_entity_hunt_motion(
+    EntityRuntime& entity,
+    const UnitDefinition& unit,
+    LegacyRandom& random) {
+    const auto state_index = entity.state.current_state;
+    if (state_index >= unit.states.size() ||
+        !state_bool(unit, state_index, "stateHunts_BOOL")) return;
+
+    // PPC 0x16FE0 derives a fresh envelope from the Hold maximum-speed field,
+    // using two LCG draws in this exact order.  Hunt remains RNG-active even
+    // when the closest-player query found no active player.
+    const int maximum = static_cast<int>(std::trunc(
+        state_float(unit, state_index, "stateHoldMaxSpeed_FLOAT", 0.0f)));
+    const int half = maximum / 2;
+    const float coarse = static_cast<float>(choose_inclusive_integer(half, maximum, random));
+    const float fine = static_cast<float>(choose_inclusive_integer(1, 100, random)) / 100.0f;
+    const float envelope = static_cast<float>(coarse + fine);
+
+    auto hunt_axis = [&](float& velocity, float& delta) {
+        if (velocity > envelope) {
+            velocity = envelope;
+            delta = -std::fabs(delta);
+        } else if (velocity < -envelope) {
+            velocity = -envelope;
+            delta = std::fabs(delta);
+        }
+        velocity = static_cast<float>(velocity + delta);
+    };
+    hunt_axis(entity.velocity_x, entity.velocity_delta_x);
+    hunt_axis(entity.velocity_y, entity.velocity_delta_y);
+    entity.target_velocity_x = entity.velocity_x;
+    entity.target_velocity_y = entity.velocity_y;
+}
+
+void advance_entity_hold_motion(
+    EntityRuntime& entity,
+    const UnitDefinition& unit) {
+    const auto state_index = entity.state.current_state;
+    if (state_index >= unit.states.size() ||
+        !state_bool(unit, state_index, "stateHoldPositionToTarget_BOOL") ||
+        !entity.has_active_target || entity.target_player_distance <= 0.0f) return;
+
+    const float max_speed = state_float(unit, state_index, "stateHoldMaxSpeed_FLOAT", 0.0f);
+    const float dx = static_cast<float>(entity.target_player_x - entity.x);
+    const float dy = static_cast<float>(entity.target_player_y - entity.y);
+    const float inv_distance = static_cast<float>(1.0f / entity.target_player_distance);
+    // PPC 0x17C40 deliberately negates the normalized target displacement.
+    entity.target_velocity_x = static_cast<float>(-dx * inv_distance * max_speed);
+    entity.target_velocity_y = static_cast<float>(-dy * inv_distance * max_speed);
+
+    const float hold_delta = state_float(unit, state_index, "stateHoldDelta_FLOAT", 0.0f);
+    const float magnitude = std::sqrt(static_cast<float>(dx * dx + dy * dy));
+    if (magnitude > 0.0f) {
+        entity.velocity_delta_x = static_cast<float>(std::fabs(dx / magnitude * hold_delta));
+        entity.velocity_delta_y = static_cast<float>(std::fabs(dy / magnitude * hold_delta));
+    }
+}
+
+void advance_entity_cyclic_motion(
+    EntityRuntime& entity,
+    const UnitDefinition& unit) {
+    const auto state_index = entity.state.current_state;
+    if (state_index >= unit.states.size() ||
+        !state_bool(unit, state_index, "stateCyclicMotion_BOOL") ||
+        !entity.has_active_target) return;
+
+    const float maximum = std::fabs(state_float(unit, state_index, "stateMaxSpeed_FLOAT", 0.0f));
+    const float delta = std::fabs(state_float(unit, state_index, "stateDelta_FLOAT", 0.0f));
+    entity.velocity_delta_x = entity.x < entity.target_player_x ? delta : -delta;
+    entity.velocity_delta_y = entity.y < entity.target_player_y ? delta : -delta;
+    entity.velocity_x = std::clamp(static_cast<float>(entity.velocity_x + entity.velocity_delta_x), -maximum, maximum);
+    entity.velocity_y = std::clamp(static_cast<float>(entity.velocity_y + entity.velocity_delta_y), -maximum, maximum);
+    entity.target_velocity_x = entity.velocity_x;
+    entity.target_velocity_y = entity.velocity_y;
+}
+
+void advance_entity_flee_motion(
+    EntityRuntime& entity,
+    const UnitDefinition& unit) {
+    const auto state_index = entity.state.current_state;
+    if (state_index >= unit.states.size() || !entity.fleeing || !entity.has_active_target) return;
+
+    const float maximum = std::fabs(state_float(unit, state_index, "stateFleeSpeed_FLOAT", 0.0f));
+    const float delta = std::fabs(state_float(unit, state_index, "stateFleeDelta_FLOAT", 0.0f));
+    entity.velocity_delta_x = entity.x < entity.target_player_x ? -delta : delta;
+    entity.velocity_delta_y = entity.y < entity.target_player_y ? -delta : delta;
+    entity.velocity_x = std::clamp(static_cast<float>(entity.velocity_x + entity.velocity_delta_x), -maximum, maximum);
+    entity.velocity_y = std::clamp(static_cast<float>(entity.velocity_y + entity.velocity_delta_y), -maximum, maximum);
+    entity.target_velocity_x = entity.velocity_x;
+    entity.target_velocity_y = entity.velocity_y;
+}
+
+void converge_entity_velocity(
+    EntityRuntime& entity,
+    const UnitDefinition& unit) {
+    if (entity.stationary) {
+        entity.velocity_x = 0.0f;
+        entity.velocity_y = 0.0f;
+        entity.target_velocity_x = 0.0f;
+        entity.target_velocity_y = 0.0f;
+        entity.velocity_delta_x = 0.0f;
+        entity.velocity_delta_y = 0.0f;
+        return;
+    }
+
+    const auto state_index = entity.state.current_state;
+    if (state_index >= unit.states.size()) return;
+    entity.velocity_x = approach_axis(entity.velocity_x, entity.target_velocity_x, entity.velocity_delta_x);
+    entity.velocity_y = approach_axis(entity.velocity_y, entity.target_velocity_y, entity.velocity_delta_y);
+}
+
 int append_group_member_delay(
     const UnitDefinition& unit,
     int accumulated_delay,
@@ -511,10 +697,14 @@ EntityGroupBuildResult construct_entity_group_headless(
         member.x = position.position.x;
         member.y = position.position.y;
 
+        auto member_motion_facts = context.motion_facts;
+        if (unit_bool(unit, "initiallyHuntsClosestPlayer_BOOL") && context.hunt_target_provider) {
+            member_motion_facts.hunt_target_position = context.hunt_target_provider(position.position);
+        }
         const auto motion = choose_initial_member_motion(
             unit, *result.group, position.position, request.stationary,
             heading_mode, member.heading_degrees,
-            request.initial_velocity_multiplier, context.motion_facts,
+            request.initial_velocity_multiplier, member_motion_facts,
             random, trig);
         if (motion.status == EntityInitialMotionStatus::missing_hunt_target) {
             result.status = EntityGroupBuildStatus::missing_hunt_target;
@@ -581,16 +771,34 @@ EntityTickResult advance_entity_runtime(
         }
     }
 
+    // PPC 0x15280 refreshes target-player facts and executes Hunt/no-player
+    // lifecycle work here, before range handling.  Use the just-refreshed
+    // distance when the world phase supplies one; otherwise preserve the older
+    // explicit range-input hook for isolated state-machine tests.
+    std::optional<float> measured_range = context.measured_player_range;
+    if (context.pre_range_motion_phase) {
+        const auto refreshed = context.pre_range_motion_phase(entity);
+        if (refreshed) measured_range = refreshed;
+        if (entity.lifecycle != EntityLifecycle::active) return result;
+    }
+
     // PPC range handling occurs later than rules.  A state change above means
     // this check intentionally uses the newly current state.
-    if (context.measured_player_range) {
+    if (measured_range) {
         const auto state_index = entity.state.current_state;
         const auto& state = entity.behavior.states[state_index];
-        if (state_range_transition_due(state.range, *context.measured_player_range)) {
+        if (state_range_transition_due(state.range, *measured_range)) {
             result.range_action_processed = true;
             apply_entity_state_action(entity, unit, state.on_range, context.current_tick, random);
             if (entity.lifecycle != EntityLifecycle::active) return result;
         }
+    }
+
+    // After a possible range state change, 0x15280 reloads current state and
+    // performs Hold/Cyclic/Flee/convergence before owner-location behavior.
+    if (context.post_range_motion_phase) {
+        context.post_range_motion_phase(entity);
+        if (entity.lifecycle != EntityLifecycle::active) return result;
     }
 
     // PPC 0x3401C..0x34054: owner-location Lock/Link/Orbit is evaluated

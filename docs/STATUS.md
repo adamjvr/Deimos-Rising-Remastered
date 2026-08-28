@@ -1,6 +1,6 @@
 # Status
 
-## 2026-08-28 — Phase 1 world/owner-runtime milestone
+## 2026-08-28 — Phase 1 player-target/motion-runtime milestone
 
 ### Evidence corpus
 
@@ -76,7 +76,7 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **19/19**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **20/20**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Spawn runtime findings now binary-confirmed
 
@@ -119,10 +119,24 @@ Synthetic repository tests pass **19/19**. Original assets/binaries are used onl
 - Canonical data uses 156 Lock states / 10 Link states / 8 Orbit states across 71 / 5 / 4 Unit Definitions.
 - All 546 members from the shared-RNG corpus constructor register as active clean-world members.
 
+
+### Player-target/motion findings now binary-confirmed
+
+- The player target subsystem owns exactly two slots; player status `4` is active.
+- Closest-player replacement uses strict `<`, preserving first-slot ties, and returns the player's signed index byte.
+- Live `+0x108/+0x10C` = target velocity, `+0x110/+0x114` = velocity delta, `+0x118/+0x11C/+0x120` = target player/index/position.
+- Live `+0xCC` selects PPC `0x16CC0`, the recovered Flee motion path.
+- `0x15280` order is target refresh/no-player lifecycle/Hunt -> range -> Hold/Cyclic/Flee/convergence.
+- Hunt `0x16FE0` uses two original LCG draws to build a random velocity envelope and remains RNG-active with no players unless a lifecycle action removes the entity.
+- Hold `0x17C40` uses the deliberately negated normalized target vector; Cyclic `0x17B70` and Flee `0x16CC0` use their decoded speed/delta pairs.
+- Canonical counts: 30 Hunt states, 7 Hold states, 40 Cyclic states, 9 Delete-on-no-player states, 9 Destruct-on-no-player states.
+- The Mine constructor now uses the recovered two-slot player query instead of a synthetic fixed target.
+- Shared-RNG first player-aware tick regression: 546 ticked -> 544 active; exactly two zero-delay timer removals (`grob` Destroy, `tptf` Delete); no removal from player/motion, rules, or range.
+
 ### Active reverse-engineering fronts
 
 1. Recover the rare special single-member parent-container path and remaining original intrusive-list/pool details around `0x33220`.
-2. Recover target selection/tracking/hunting and bind the rest of movement/rotation fields.
+2. Recover collision candidate scanning, hit/damage/destruction, and the remaining Flee-trigger/lifecycle edges.
 3. Recover hit/damage/destruction and collision/terrain behavior, beginning with collision scan `0x36CF0`.
 4. Finish v10005 replay bit assignment/two-player semantics and turn films into deterministic simulation oracles.
 5. Expand/correlate the Windows executable payload.

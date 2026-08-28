@@ -8,7 +8,7 @@ Maintain hashes, forks, provenance, build relationships, and separation of offic
 
 ## Phase 1 — Binary, resource, serialization, and behavior-contract reconstruction
 
-**Current active phase; transition kernel, spawn path, normal entity construction, and the first world/owner-location layer are now substantially recovered.**
+**Current active phase; transition kernel, spawn path, normal entity construction, and the world/owner-location and player-target/motion layers are now substantially recovered.**
 
 Completed/confirmed:
 
@@ -34,11 +34,15 @@ Completed/confirmed:
 - clean world registry implements active-member identity, safe handle+serial validation, duplicate/owned-type queries, and parent-first/player-fallback owner resolution;
 - Lock/Link/Orbit owner-location state initialization and per-tick behavior recovered and placed in the original post-range/pre-spawn update slot;
 - 1,024-entry atan-table generation and integer heading helper reconstructed.
+- two-slot active-player table and closest-player query reconstructed;
+- recurring Hunt/Hold/Cyclic/Flee motion primitives and no-player lifecycle behavior reconstructed;
+- player-aware tick ordering integrated before owner-location/spawn phases;
+- first-tick shared-world regression classified to two zero-delay timer removals;
 
 Remaining Phase 1 exit criteria:
 
 - recover the rare special single-member parent-container path and remaining original intrusive-list/pool semantics around `0x33220`;
-- recover target-selection/tracking/hunting and bind the remaining movement/rotation/hit/damage/collision routines to decoded fields;
+- recover the remaining Flee trigger plus hit/damage/collision/removal routines and bind them to decoded fields;
 - expand Windows installer and establish Mac↔Windows code/data correspondences;
 - finish replay action-bit mapping including second-player semantics;
 - document remaining behavioral defaults/bounds with confidence labels.
@@ -61,7 +65,7 @@ Already implemented from binary-confirmed behavior:
 
 Exit criteria:
 
-- extend the now-registered headless world and owner-location interpreter through target selection, movement, collision, damage, and removal;
+- extend the now player-aware headless world through collision, damage, destruction consequences, and removal;
 - integrate world/entity construction, then reconstruct movement, weapons, projectiles, collision, damage, scoring, power-ups, camera/scrolling, two-player behavior, menus/preferences, timing, and audio triggers;
 - feed v10005 recordings into the clean simulation as deterministic regression oracles;
 - retain original assets as the canonical content tier.

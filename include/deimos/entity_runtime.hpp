@@ -134,6 +134,25 @@ struct EntityInitialMotionResult {
     EntityInitialMotionStatus status = EntityInitialMotionStatus::complete;
     float velocity_x = 0.0f;
     float velocity_y = 0.0f;
+
+    // PPC live-member motion/target block. Direct disassembly of 1.0.6 maps
+    // +0x108/+0x10C to target velocity, +0x110/+0x114 to per-axis velocity
+    // delta, and +0x118/+0x11C/+0x120 to target-player identity/position.
+    float target_velocity_x = 0.0f;
+    float target_velocity_y = 0.0f;
+    float velocity_delta_x = 0.0f;
+    float velocity_delta_y = 0.0f;
+    std::int8_t target_player_index = -1;
+    float target_player_x = 0.0f;
+    float target_player_y = 0.0f;
+    float target_player_distance = 0.0f;
+    bool has_active_target = false;
+
+    // Live-member +0xCC selects PPC 0x16CC0, the recovered Flee motion path.
+    // The transition that raises this runtime flag is kept separate until its
+    // caller is fully mapped; canonical code can still execute the proven path.
+    bool fleeing = false;
+
     int heading_degrees = 0;
     int rng_draws = 0;
 };
@@ -142,6 +161,12 @@ struct EntityHeadlessConstructionContext {
     EntityConstructionContext preflight{};
     int world_y_origin = 0; // result of PPC 0xFEC0 for request +0x0C
     EntityInitialMotionFacts motion_facts{};
+
+    // PPC's initially-hunting constructor query is position-dependent.  The
+    // provider lets the world choose the closest active player separately for
+    // each randomized group member while retaining motion_facts as a fallback
+    // for isolated synthetic tests.
+    std::function<std::optional<EntityPoint>(EntityPoint)> hunt_target_provider;
 };
 
 enum class EntityGroupBuildStatus {
@@ -195,6 +220,25 @@ struct EntityRuntime {
     float y = 0.0f;
     float velocity_x = 0.0f;
     float velocity_y = 0.0f;
+
+    // PPC live-member motion/target block. Direct disassembly of 1.0.6 maps
+    // +0x108/+0x10C to target velocity, +0x110/+0x114 to per-axis velocity
+    // delta, and +0x118/+0x11C/+0x120 to target-player identity/position.
+    float target_velocity_x = 0.0f;
+    float target_velocity_y = 0.0f;
+    float velocity_delta_x = 0.0f;
+    float velocity_delta_y = 0.0f;
+    std::int8_t target_player_index = -1;
+    float target_player_x = 0.0f;
+    float target_player_y = 0.0f;
+    float target_player_distance = 0.0f;
+    bool has_active_target = false;
+
+    // Live-member +0xCC selects PPC 0x16CC0, the recovered Flee motion path.
+    // The transition that raises this runtime flag is kept separate until its
+    // caller is fully mapped; canonical code can still execute the proven path.
+    bool fleeing = false;
+
     int heading_degrees = 0;
     int group_delay_ticks = 0; // original live member +0xB0
     bool stationary = false;
@@ -307,6 +351,36 @@ struct EntityGroupBuildResult {
     LegacyRandom& random,
     const LegacyTrigTables& trig);
 
+
+// Motion primitives mapped from PPC 0x146F0 / 0x16FE0 / 0x17A10 / 0x17B70 /
+// 0x17C40 / 0x16CC0. They deliberately operate only on the proven live-member
+// motion block and state fields so they remain deterministic and testable.
+void initialize_entity_state_motion(
+    EntityRuntime& entity,
+    const UnitDefinition& unit,
+    std::optional<std::size_t> previous_state_index = std::nullopt);
+
+void advance_entity_hunt_motion(
+    EntityRuntime& entity,
+    const UnitDefinition& unit,
+    LegacyRandom& random);
+
+void advance_entity_hold_motion(
+    EntityRuntime& entity,
+    const UnitDefinition& unit);
+
+void advance_entity_cyclic_motion(
+    EntityRuntime& entity,
+    const UnitDefinition& unit);
+
+void advance_entity_flee_motion(
+    EntityRuntime& entity,
+    const UnitDefinition& unit);
+
+void converge_entity_velocity(
+    EntityRuntime& entity,
+    const UnitDefinition& unit);
+
 struct EntityTickContext {
     std::uint32_t current_tick = 0;
 
@@ -318,6 +392,16 @@ struct EntityTickContext {
     // Range transition is evaluated later than rules. A missing measurement
     // means the world layer has not supplied a player-distance result yet.
     std::optional<float> measured_player_range;
+
+    // PPC 0x15280 refreshes the target-player facts and executes the pre-range
+    // Hunt/no-player portion after rules but before the range transition.  The
+    // callback can return the just-measured player range for that exact tick.
+    std::function<std::optional<float>(EntityRuntime&)> pre_range_motion_phase;
+
+    // After a possible range state change, 0x15280 reloads the current state and
+    // executes Hold/Cyclic/Flee/convergence work.  Keep this separate from owner
+    // Lock/Link/Orbit, which the caller performs immediately afterward.
+    std::function<void(EntityRuntime&)> post_range_motion_phase;
 
     // Main member update 0x3401C..0x34054 executes Lock/Link/Orbit owner
     // location behavior after range handling and before spawn scheduling. The
@@ -341,9 +425,10 @@ struct EntityTickResult {
 };
 
 // Recovered headless subset of the 1.0.6 per-member update order:
-// timer action -> (animation/world facts supplied by caller) -> first matching
-// rule -> range action -> spawn scheduling. State actions refresh current state
-// immediately, so later phases in the same tick observe the new state.
+// timer -> animation/world facts -> first matching rule -> target/Hunt/no-player
+// phase -> range -> Hold/Cyclic/Flee/convergence -> owner Lock/Link/Orbit ->
+// spawn scheduling. State actions refresh current state immediately, so later
+// phases in the same tick observe the new state.
 [[nodiscard]] EntityTickResult advance_entity_runtime(
     EntityRuntime& entity,
     const UnitDefinition& unit,

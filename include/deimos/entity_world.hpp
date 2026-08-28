@@ -3,6 +3,7 @@
 #include "deimos/entity_runtime.hpp"
 #include "deimos/legacy_math.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -10,6 +11,39 @@
 #include <vector>
 
 namespace deimos {
+
+
+// The original player target subsystem owns exactly two slots. PPC 0x5D40 /
+// 0x5ED0 / 0x6090 / 0x6110 treats status byte 4 as active and returns the
+// player's signed index byte rather than assuming the slot number is identity.
+struct PlayerRuntimeSlot {
+    int status = 0;
+    float x = 0.0f;
+    float y = 0.0f;
+    std::int8_t player_index = -1;
+};
+
+struct ClosestPlayerResult {
+    std::size_t slot = 0;
+    std::int8_t player_index = -1;
+    EntityPoint position{};
+    float distance = 0.0f;
+};
+
+class PlayerWorld {
+public:
+    static constexpr std::size_t kPlayerSlots = 2;
+
+    [[nodiscard]] const std::array<PlayerRuntimeSlot, kPlayerSlots>& slots() const { return slots_; }
+    [[nodiscard]] std::array<PlayerRuntimeSlot, kPlayerSlots>& slots() { return slots_; }
+
+    [[nodiscard]] bool any_active_player() const;
+    [[nodiscard]] std::optional<EntityPoint> position_for_player_index(std::int8_t player_index) const;
+    [[nodiscard]] std::optional<ClosestPlayerResult> closest_active_player(float x, float y) const;
+
+private:
+    std::array<PlayerRuntimeSlot, kPlayerSlots> slots_{};
+};
 
 // Portable world registry for the recovered live-member identity contract.
 // The original uses intrusive lists and raw pointers; clean code uses stable
@@ -95,6 +129,20 @@ enum class EntityOwnerLocationMode {
     EntityRuntime& entity,
     const UnitDefinition& unit,
     const PlayerPositionProvider& player_position,
+    const LegacyTrigTables& trig);
+
+
+// Player-aware wrapper over the recovered 0x15280 motion/target dispatcher.
+// It refreshes the two-slot closest-player facts in the exact pre-range phase,
+// applies Delete/Destruct-on-no-player, Hunt, then post-range Hold/Cyclic/Flee
+// and velocity convergence before the existing owner-location/spawn phases.
+[[nodiscard]] EntityTickResult advance_entity_runtime_with_players(
+    EntityWorld& world,
+    EntityRuntime& entity,
+    const UnitDefinition& unit,
+    const EntityTickContext& context,
+    const PlayerWorld& players,
+    LegacyRandom& random,
     const LegacyTrigTables& trig);
 
 // World-aware wrapper over advance_entity_runtime(). It installs the recovered

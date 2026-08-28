@@ -56,6 +56,7 @@ if(BUILD_TESTING)
         spawn_runtime_test
         entity_runtime_test
         entity_world_test
+        player_motion_test
         game_definitions_test)
         add_executable(${test_name} tests/${test_name}.cpp)
         target_link_libraries(${test_name} PRIVATE deimos_core)

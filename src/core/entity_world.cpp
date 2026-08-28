@@ -42,7 +42,47 @@ int wrap_heading(int heading) {
     return heading;
 }
 
+float legacy_player_distance(float x1, float y1, float x2, float y2) {
+    const float dx = static_cast<float>(x2 - x1);
+    const float dy = static_cast<float>(y2 - y1);
+    const float squared = std::fma(dx, dx, static_cast<float>(dy * dy));
+    const int squared_integer = static_cast<int>(std::trunc(squared));
+    if (squared_integer <= 0) return 0.0f;
+    return static_cast<float>(std::sqrt(static_cast<float>(squared_integer)));
+}
+
 } // namespace
+
+bool PlayerWorld::any_active_player() const {
+    return std::any_of(slots_.begin(), slots_.end(), [](const auto& slot) {
+        return slot.status == 4;
+    });
+}
+
+std::optional<EntityPoint> PlayerWorld::position_for_player_index(std::int8_t player_index) const {
+    for (const auto& slot : slots_) {
+        if (slot.status == 4 && slot.player_index == player_index) {
+            return EntityPoint{slot.x, slot.y};
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<ClosestPlayerResult> PlayerWorld::closest_active_player(float x, float y) const {
+    std::optional<ClosestPlayerResult> best;
+    for (std::size_t i = 0; i < slots_.size(); ++i) {
+        const auto& slot = slots_[i];
+        if (slot.status != 4) continue;
+        const float distance = legacy_player_distance(x, y, slot.x, slot.y);
+        // PPC replaces only on strict <. Exact ties therefore remain with the
+        // first active slot encountered.
+        if (!best || distance < best->distance) {
+            best = ClosestPlayerResult{
+                i, slot.player_index, EntityPoint{slot.x, slot.y}, distance};
+        }
+    }
+    return best;
+}
 
 void EntityWorld::register_group(EntityGroupBuildResult&& build) {
     if (!build.constructed() || !build.group) {
@@ -282,6 +322,83 @@ bool advance_entity_owner_location_from_world(
     const LegacyTrigTables& trig) {
     const auto owner = resolve_entity_owner_position(world, entity, player_position);
     return advance_entity_owner_location(entity, unit, owner, trig);
+}
+
+
+EntityTickResult advance_entity_runtime_with_players(
+    EntityWorld& world,
+    EntityRuntime& entity,
+    const UnitDefinition& unit,
+    const EntityTickContext& context,
+    const PlayerWorld& players,
+    LegacyRandom& random,
+    const LegacyTrigTables& trig) {
+    auto world_context = context;
+    world_context.measured_player_range.reset();
+    bool fleeing_early_path = false;
+
+    world_context.pre_range_motion_phase = [&](EntityRuntime& live) -> std::optional<float> {
+        if (live.fleeing) {
+            // 0x15280 enters 0x16CC0 immediately for a member already flagged
+            // fleeing and skips target refresh/range/Hold/Cyclic for this call.
+            advance_entity_flee_motion(live, unit);
+            fleeing_early_path = true;
+            return std::nullopt;
+        }
+
+        const auto closest = players.closest_active_player(live.x, live.y);
+        if (closest) {
+            live.has_active_target = true;
+            live.target_player_index = closest->player_index;
+            live.target_player_x = closest->position.x;
+            live.target_player_y = closest->position.y;
+            live.target_player_distance = closest->distance;
+        } else {
+            live.has_active_target = false;
+            live.target_player_index = -1;
+            live.target_player_distance = 0.0f;
+
+            const auto state_index = live.state.current_state;
+            if (state_index >= unit.states.size()) {
+                throw std::out_of_range("player-motion state outside Unit Definition");
+            }
+            const auto& fields = unit.states[state_index].fields;
+            if (fields.bool_value("stateDeleteOnNoActivePlayers_BOOL").value_or(false)) {
+                live.lifecycle = EntityLifecycle::deleted;
+                return std::nullopt;
+            }
+            if (fields.bool_value("stateDestructOnNoActivePlayers_BOOL").value_or(false)) {
+                live.lifecycle = EntityLifecycle::destroyed;
+                return std::nullopt;
+            }
+        }
+
+        // Hunt is independent of whether closest-player lookup succeeded; the
+        // original still consumes its RNG when no player is active and no
+        // no-player lifecycle action removed the entity.
+        advance_entity_hunt_motion(live, unit, random);
+        return closest ? std::optional<float>{closest->distance} : std::nullopt;
+    };
+
+    world_context.post_range_motion_phase = [&](EntityRuntime& live) {
+        if (fleeing_early_path) return;
+        // A range transition above may have entered a new state; every helper
+        // intentionally reloads live.state.current_state.
+        advance_entity_hold_motion(live, unit);
+        advance_entity_cyclic_motion(live, unit);
+        if (live.fleeing) advance_entity_flee_motion(live, unit);
+        else converge_entity_velocity(live, unit);
+    };
+
+    world_context.owner_location_phase = [&](EntityRuntime& live) {
+        const PlayerPositionProvider provider = [&](std::int8_t index) {
+            return players.position_for_player_index(index);
+        };
+        (void)advance_entity_owner_location_from_world(
+            world, live, unit, provider, trig);
+    };
+
+    return advance_entity_runtime(entity, unit, world_context, random);
 }
 
 EntityTickResult advance_entity_runtime_in_world(

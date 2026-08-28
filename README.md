@@ -47,7 +47,7 @@ ctest --test-dir build --output-on-failure
 ./build/deimos_reference_probe reference/DR-EVID-002/canonical/Paks/Game.pak
 ```
 
-Committed tests use synthetic fixtures only; the current suite passes 18/18. Original assets remain in the ignored local reference workspace.
+Committed tests use synthetic fixtures only; the current suite passes 20/20. Original assets remain in the ignored local reference workspace.
 
 See `docs/STATUS.md`, `docs/ROADMAP.md`, and `reverse/formats/` for current reconstruction details.
 
@@ -58,3 +58,7 @@ binary-confirmed owner-location state layer. Canonical 1.0.6 contains 156
 Lock-to-owner states, 10 Link-to-owner states, and 8 Orbit-owner states. The
 world-aware entity tick executes those modes in the recovered post-range,
 pre-spawn-scheduler slot. See `reverse/formats/ENTITY_WORLD_RUNTIME.md`.
+
+## Current player-target/motion milestone
+
+The portable world now includes the recovered two-slot player target table and the PPC `0x15280` player-aware motion dispatcher. Hunt, Hold, Cyclic, Flee, velocity convergence, and Delete/Destruct-on-no-player behavior are integrated before the existing Lock/Link/Orbit and spawn-scheduler phases. The canonical shared-world first-tick regression is 546 ticked -> 544 active, with only `Ground Obstacle[grob]` and `Tank - Pulse Track Flag[tptf]` removed by zero-delay timer actions. See `reverse/formats/PLAYER_TARGET_MOTION_RUNTIME.md`.

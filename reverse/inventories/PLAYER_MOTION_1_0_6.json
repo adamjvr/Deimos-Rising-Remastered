@@ -1,0 +1,35 @@
+{
+  "build": "1.0.6",
+  "player_slots": 2,
+  "active_player_status": 4,
+  "state_counts": {
+    "hunt": 30,
+    "hold_position_to_target": 7,
+    "cyclic_motion": 40,
+    "delete_on_no_active_players": 9,
+    "destruct_on_no_active_players": 9
+  },
+  "shared_constructor_regression": {
+    "requests": 386,
+    "groups": 386,
+    "live_members": 546,
+    "construction_rng_final_seed": 2249411936
+  },
+  "first_player_aware_tick_regression": {
+    "tick": 0,
+    "members_ticked": 546,
+    "members_active_after": 544,
+    "removed": 2,
+    "deleted": 1,
+    "destroyed": 1,
+    "removed_by_timer": 2,
+    "removed_by_rule": 0,
+    "removed_by_range": 0,
+    "removed_by_player_motion": 0,
+    "motion_rng_final_seed": 2633739833,
+    "removed_units": [
+      {"id": "grob", "name": "Ground Obstacle", "action": "Destroy"},
+      {"id": "tptf", "name": "Tank - Pulse Track Flag", "action": "Delete"}
+    ]
+  }
+}
