@@ -98,9 +98,12 @@ Any actual scale change marks live `+0x34` dirty. Merely changing the target
 scale does not. Sprite face/frame changes also invalidate geometry.
 
 `0x12940` later rebuilds scaled dimensions and half extents from the current
-sprite/frame and current scale; a `none` face yields zero half extents. The
-clean core currently owns the dirty-state contract while native sprite-resource
-dimension lookup remains in the renderer/resource milestone.
+sprite/frame and current scale. That path is now wired to the reconstructed
+`0x19AD0/0x19C10/0x19CA0` sprite cache and dimension helpers: lazy resource
+lookup, high-frame fallback to frame zero, and PPC `fctiwz` scaled dimensions
+are preserved. A `none` face yields zero half extents while deliberately leaving
+the prior width/height values stale, matching the original routine. See
+`SPRITE_RESOURCE_RUNTIME.md` for the exact cache and atlas contract.
 
 ## Main draw layers
 
@@ -187,12 +190,13 @@ plef=0, plui=10, atmo=0, hud=17, none=50, other=0`.
 This milestone intentionally does not claim:
 
 - exact sprite/frame selection for all direction/animation modes;
-- sprite resource decode and cached-handle internals behind `0x19AD0`;
-- exact world x-offset/camera transform semantics behind `0x100A0`;
+- the deeper frame bitmap/pixel-object construction inside the `0x18D20` loader after atlas rectangles are known;
+- exact color-plate composition and original QuickDraw bitmap allocation;
+- the semantic identity of the single global integer returned by `0x100A0`;
 - the `+0x35` alternate submission backend identity;
-- full shadow coordinate formulas;
+- full shadow coordinate formulas in `0x13460`;
 - terrain raster/pixel mutation behind the `+0x90` sequence path;
-- QuickDraw/native renderer submission internals behind `0x18A40/0x19570`.
+- QuickDraw/native renderer submission internals beneath `0x18A40/0x19570`.
 
 Those are now downstream of a stable clean render-request contract rather than
 entangled with gameplay state reconstruction.

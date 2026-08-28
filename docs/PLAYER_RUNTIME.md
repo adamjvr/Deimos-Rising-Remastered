@@ -264,6 +264,6 @@ Synthetic regression coverage verifies:
 - status-1 game-over delay/disable;
 - strict entry-invulnerability expiry and both blocker gates.
 
-The repository suite is **27/27 PASS**. Canonical `Game.pak` remains at 386
+The repository suite is **28/28 PASS**. Canonical `Game.pak` remains at 386
 constructed groups / 546 live members, construction RNG seed `2249411936`, 544
 active after the first player-aware tick, and motion RNG seed `2633739833`.

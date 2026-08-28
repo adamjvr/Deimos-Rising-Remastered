@@ -10,6 +10,7 @@
 #include "deimos/pak_archive.hpp"
 #include "deimos/player_definition.hpp"
 #include "deimos/player_runtime.hpp"
+#include "deimos/sprite_resource.hpp"
 #include "deimos/terrain_runtime.hpp"
 #include "deimos/unit_definition.hpp"
 #include "deimos/unit_behavior.hpp"
@@ -19,6 +20,7 @@
 #include <iostream>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -73,6 +75,12 @@ int main(int argc, char** argv) {
     std::size_t state_destroy_with_owner = 0, state_delete_with_owner = 0;
     std::size_t state_destroy_owner = 0;
     std::size_t units_with_lock_owner = 0, units_with_link_owner = 0, units_with_orbit_owner = 0;
+    std::size_t sprite_alpha_plates = 0, sprite_color_plates = 0, sprite_frames = 0;
+    std::size_t sprite_plate_pairs = 0;
+    std::size_t pl1b_frames = 0, exlg_frames = 0, bocr_frames = 0, glow_frames = 0;
+    std::pair<int, int> pl1b_frame0{};
+    std::unordered_map<std::string, std::pair<int, int>> sprite_alpha_dimensions;
+    std::unordered_map<std::string, std::pair<int, int>> sprite_color_dimensions;
     std::size_t weapons = 0, weapon_spawns = 0, players = 0;
     std::vector<std::pair<std::string, deimos::CompiledPlayerRuntimeDefinition>> player_runtime_defs;
     std::size_t unresolved_active_actions = 0, unresolved_inert_actions = 0, unknown_rule_conditions = 0;
@@ -92,6 +100,38 @@ int main(int argc, char** argv) {
         const auto dot = entry.path.find_last_of('.');
         if (dot == std::string::npos) continue;
         const auto ext = entry.path.substr(dot);
+
+        if (ext == ".gif") {
+            const auto resource_name = deimos::parse_resource_name(entry.path);
+            if (resource_name && resource_name->plate != deimos::PlateKind::none) {
+                auto decoded = deimos::decode_legacy_gif_indices(*bytes, &error);
+                if (!decoded) {
+                    std::cerr << entry.path << ": GIF index decode failed: " << error << '\n';
+                    return 20;
+                }
+                const auto dimensions = std::pair<int, int>{decoded->width, decoded->height};
+                if (resource_name->plate == deimos::PlateKind::alpha) {
+                    ++sprite_alpha_plates;
+                    sprite_alpha_dimensions[resource_name->display_name] = dimensions;
+                    auto frames = deimos::extract_legacy_sprite_frames(*decoded, &error);
+                    if (!frames) {
+                        std::cerr << entry.path << ": legacy sprite-frame scan failed: " << error << '\n';
+                        return 21;
+                    }
+                    sprite_frames += frames->size();
+                    const auto tag = resource_name->tag.str();
+                    if (tag == "PL1B") {
+                        pl1b_frames = frames->size();
+                        if (!frames->empty()) pl1b_frame0 = {(*frames)[0].width, (*frames)[0].height};
+                    } else if (tag == "EXLG") exlg_frames = frames->size();
+                    else if (tag == "BOCR") bocr_frames = frames->size();
+                    else if (tag == "GLOW") glow_frames = frames->size();
+                } else {
+                    ++sprite_color_plates;
+                    sprite_color_dimensions[resource_name->display_name] = dimensions;
+                }
+            }
+        }
 
         if (ext == ".leve") {
             auto level = deimos::decode_and_parse_level(*bytes, &error);
@@ -611,6 +651,22 @@ int main(int argc, char** argv) {
         }
     }
 
+    for (const auto& [name, alpha_dimensions] : sprite_alpha_dimensions) {
+        const auto color = sprite_color_dimensions.find(name);
+        if (color == sprite_color_dimensions.end()) continue; // PDLI is alpha-only in stock Game.pak.
+        ++sprite_plate_pairs;
+        if (color->second != alpha_dimensions) {
+            std::cerr << "sprite alpha/color plate dimensions disagree for " << name << '\n';
+            return 22;
+        }
+    }
+    if (sprite_alpha_plates != 124 || sprite_color_plates != 124 || sprite_plate_pairs != 123 ||
+        sprite_frames != 2463 || pl1b_frames != 7 || pl1b_frame0 != std::pair<int,int>{53,43} ||
+        exlg_frames != 12 || bocr_frames != 3 || glow_frames != 12) {
+        std::cerr << "canonical sprite plate/frame contract changed unexpectedly\n";
+        return 23;
+    }
+
     if (!reference_issues.empty()) {
         for (const auto& issue : reference_issues) {
             std::cerr << issue.source_path << ": unresolved Unit Definition reference "
@@ -689,6 +745,13 @@ int main(int argc, char** argv) {
               << player_runtime_resources->money_10.str() << ','
               << player_runtime_resources->money_5.str() << ','
               << player_runtime_resources->money_1.str() << '\n'
+              << "  sprite resource cache/plates:\n"
+              << "    alpha plates: " << sprite_alpha_plates << '\n'
+              << "    color plates: " << sprite_color_plates << '\n'
+              << "    matched alpha/color pairs: " << sprite_plate_pairs << '\n'
+              << "    extracted alpha frames: " << sprite_frames << '\n'
+              << "    PL1B frames/frame0: " << pl1b_frames << '/' << pl1b_frame0.first << 'x' << pl1b_frame0.second << '\n'
+              << "    EXLG/BOCR/GLOW frames: " << exlg_frames << '/' << bocr_frames << '/' << glow_frames << '\n'
               << "  visual/render fields:\n"
               << "    scale-tolerance units: " << unit_scale_tolerance << '\n'
               << "    adjust-shadow-for-scaling units: " << unit_adjust_shadow_scaling << '\n'

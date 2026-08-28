@@ -1,6 +1,7 @@
 #pragma once
 
 #include "deimos/state_runtime.hpp"
+#include "deimos/sprite_resource.hpp"
 #include "deimos/unit_behavior.hpp"
 
 #include <cstddef>
@@ -36,6 +37,11 @@ struct LegacySpriteVisualRuntime {
     float scale = 0.0f;
     float required_scale = 0.0f;
     float scale_delta = 0.0f;
+
+    int sprite_width = 0;
+    int sprite_height = 0;
+    int half_width = 0;
+    int half_height = 0;
     bool bounds_dirty = true;
 
     // 0x12F20 uses temporary main/shadow gates while the world renderer runs
@@ -105,6 +111,16 @@ void apply_legacy_state_visual_targets(
 // Exact scalar movement semantics recovered from 0x12750/0x12840.
 [[nodiscard]] LegacyVisualTickResult tick_legacy_visual_scalars(
     LegacySpriteVisualRuntime& runtime);
+
+// 0x12940 geometry refresh. A `none` face clears half-extents but leaves the
+// stale width/height words untouched, exactly as the PPC routine does. Normal
+// sprite faces resolve dimensions through the 0x19CA0-style cache API and then
+// halve each signed dimension with truncation toward zero. Returns false only
+// when a non-none resource could not be resolved by the clean cache/loader.
+[[nodiscard]] bool refresh_legacy_sprite_geometry(
+    LegacySpriteVisualRuntime& runtime,
+    LegacySpriteCache& cache,
+    const LegacySpriteCache::Loader& loader = {});
 
 // 0x12FA0 FourCC -> numeric render-layer switch. Unknown values retain the
 // request template's zero/default layer code.

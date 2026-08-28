@@ -497,4 +497,36 @@ The clean `render_runtime` emits ordered headless requests rather than fabricati
 legacy QuickDraw backend. Canonical `Game.pak` validates all newly compiled fields and
 reports 17 scale-tolerance units, 62 colorise states, 2 terrain-draw states, 111 nonzero
 tint states, 584 non-100 visibility states, and 506 non-100 scale states. The suite is
-27/27 PASS and the established constructor/first-tick RNG oracle remains unchanged.
+28/28 PASS and the established constructor/first-tick RNG oracle remains unchanged.
+
+
+## 2026-08-28 — Sprite resource cache, GIF atlas grammar, and `0x12940` geometry
+
+Traced the resource path under the recovered render boundary through PPC `0x18D20`,
+`0x19530`, `0x19AD0`, `0x19C10`, `0x19CA0`, `0x19EE0`, and the alpha-plate
+scanner `0x1F140/0x1F1C0/0x1F340/0x1F4E0/0x1F540/0x1F5B0`. Loaded sprite
+groups are 16-byte records containing a runtime marker, FourCC, frame count, and
+frame-pointer list. The loader publishes the group only after all frame objects
+are built. `0x19AD0` clamps an over-high requested frame to frame zero; `0x19C10`
+uses stored dimensions at scale 1.0 and otherwise PPC `fctiwz` truncation;
+`0x19CA0` lazily loads an absent group and retries. State entry stores the resolved
+frame pointer at live sprite-base `+0x50`.
+
+The atlas grammar is now exact. The scanner operates on decoded 8-bit GIF palette
+indices, takes alpha-plate byte 1 as the separator marker, discovers marker-bounded
+row bands and full marker columns, and trims each candidate cell using that cell's
+own top-left palette value. A dependency-free clean GIF87a/89a indexed decoder and
+exact scanner reproduce stock variable-size frames rather than assuming a regular
+grid. Canonical results are 124 alpha plates, 124 color plates, 123 existing
+alpha/color pairs with equal dimensions, and 2,463 alpha frames; `PDLI` is the
+stock alpha-only exception. `PL1B` yields 7 frames with a 53x43 first frame,
+`EXLG` 12, `BOCR` 3, and `GLOW` 12.
+
+The resource cache is now wired into `0x12940`: dirty geometry resolves current
+face/frame, applies lazy/high-frame cache semantics and PPC-truncated scaling,
+then writes width/height and signed trunc-toward-zero half extents. A `none` face
+zeros only the half extents and leaves width/height stale, matching the binary.
+Negative frame indices are safely rejected rather than reproducing the original
+out-of-bounds legacy indexing. The new sprite-resource regression raises the suite
+to 28/28 PASS; canonical constructor/first-tick counts and RNG seeds remain
+unchanged.

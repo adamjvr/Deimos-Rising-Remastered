@@ -126,7 +126,7 @@ composition remain downstream.
 
 ## Validation
 
-The repository suite is **27/27 PASS**. The canonical `Game.pak` probe verifies
+The repository suite is **28/28 PASS**. The canonical `Game.pak` probe verifies
 all new compiled fields and the fixed water-impact labels/IDs while retaining
 the established deterministic baseline:
 

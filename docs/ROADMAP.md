@@ -59,7 +59,7 @@ Completed/confirmed:
 Remaining Phase 1 exit criteria:
 
 - recover the rare special single-member parent-container path and remaining original intrusive-list/pool semantics around `0x33220`;
-- integrate the recovered player lifecycle spawn/audio/UI side effects into full world orchestration and continue below the recovered render-request boundary into sprite-resource decode, exact shadow/world transforms, backend submission, and terrain pixel mutation;
+- integrate the recovered player lifecycle spawn/audio/UI side effects into full world orchestration and continue below the recovered sprite-cache/render-request boundary into frame bitmap construction, exact shadow transforms, backend submission, and terrain pixel mutation;
 - finish remaining Flee trigger/lifecycle edges and bind them to decoded fields;
 - expand Windows installer and establish Mac↔Windows code/data correspondences;
 - finish replay action-bit mapping including second-player semantics;
@@ -87,10 +87,11 @@ Already implemented from binary-confirmed behavior:
 - level-scaled shield initialization;
 - ordinary destruction effects and two-stage group/member teardown, including child/owner propagation, reward facts, random-bonus selection, deletion spawns, obstacle/terrain requests, and `SERM` behavior.
 - deterministic visual-state runtime and headless render intents for scale/visibility/tint, sprite face/frame, main/shadow layer selection, colorise/glow ordering, and terrain-submission distinction.
+- exact indexed GIF sprite-plate decode, alpha-atlas frame extraction, loaded sprite-group cache semantics, lazy/high-frame dimension lookup, and `0x12940` scaled geometry refresh.
 
 Exit criteria:
 
-- bind recovered player lifecycle spawn/audio/UI facts into full world orchestration, finish remaining destruction entry-site orchestration, and implement sprite-resource/frame decode plus the renderer/backend/terrain-raster work below the recovered request boundary;
+- bind recovered player lifecycle spawn/audio/UI facts into full world orchestration, finish remaining destruction entry-site orchestration, and complete frame-pixel construction plus renderer/backend/terrain-raster work below the recovered sprite-cache/request boundary;
 - integrate world/entity construction, then reconstruct movement, weapons, projectiles, collision, damage, scoring, power-ups, camera/scrolling, two-player behavior, menus/preferences, timing, and audio triggers;
 - feed v10005 recordings into the clean simulation as deterministic regression oracles;
 - retain original assets as the canonical content tier.

@@ -147,6 +147,41 @@ LegacyVisualTickResult tick_legacy_visual_scalars(LegacySpriteVisualRuntime& run
     return result;
 }
 
+bool refresh_legacy_sprite_geometry(
+    LegacySpriteVisualRuntime& runtime,
+    LegacySpriteCache& cache,
+    const LegacySpriteCache::Loader& loader) {
+    if (!runtime.bounds_dirty) return true;
+
+    if (runtime.sprite_face == fourcc('n', 'o', 'n', 'e')) {
+        runtime.half_width = 0;
+        runtime.half_height = 0;
+        runtime.bounds_dirty = false;
+        return true;
+    }
+
+    // 0x12940 prefers live +0x50 when already cached; the clean cache lookup
+    // yields the same metadata result and only invokes the loader if the whole
+    // group is absent, matching the normal 0x19CA0 path.
+    const auto* already_loaded = cache.find_loaded_frame(runtime.sprite_face, runtime.sprite_frame);
+    std::pair<int, int> dimensions{};
+    if (already_loaded) {
+        dimensions = legacy_scaled_sprite_dimensions(*already_loaded, runtime.scale);
+    } else {
+        dimensions = cache.dimensions(runtime.sprite_face, runtime.sprite_frame, runtime.scale, loader);
+        if (!cache.find_loaded_frame(runtime.sprite_face, runtime.sprite_frame)) return false;
+    }
+
+    runtime.sprite_width = dimensions.first;
+    runtime.sprite_height = dimensions.second;
+    // C++ signed integer division truncates toward zero, matching the PPC
+    // sign-adjust + srawi sequence used for each half extent.
+    runtime.half_width = runtime.sprite_width / 2;
+    runtime.half_height = runtime.sprite_height / 2;
+    runtime.bounds_dirty = false;
+    return true;
+}
+
 int legacy_draw_layer_code(FourCC draw_layer, bool air_domain) {
     // 0x130C4..0x130E4 mutates zero/none to 'defa' before the switch.
     if (draw_layer == FourCC{} || draw_layer == fourcc('n', 'o', 'n', 'e')) {

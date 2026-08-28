@@ -256,5 +256,32 @@ int main() {
     assert(!hud_runtime.world_space);
 
     std::cout << "render runtime tests passed\n";
+    // 0x12940 sprite-resource geometry refresh.
+    deimos::LegacySpriteCache sprite_cache;
+    assert(sprite_cache.publish({id("vis1"), {
+        {deimos::LegacySpriteRect{0,0,53,43}, 53, 43},
+        {deimos::LegacySpriteRect{0,0,20,10}, 20, 10},
+    }}));
+    deimos::LegacySpriteVisualRuntime geometry;
+    geometry.sprite_face = id("vis1");
+    geometry.sprite_frame = 0;
+    geometry.scale = 1.5f;
+    geometry.bounds_dirty = true;
+    assert(deimos::refresh_legacy_sprite_geometry(geometry, sprite_cache));
+    assert(geometry.sprite_width == 79 && geometry.sprite_height == 64);
+    assert(geometry.half_width == 39 && geometry.half_height == 32);
+    assert(!geometry.bounds_dirty);
+
+    // `none` only zeros half extents; 0x12940 leaves width/height stale.
+    geometry.sprite_face = id("none");
+    geometry.sprite_width = 123;
+    geometry.sprite_height = 456;
+    geometry.half_width = 61;
+    geometry.half_height = 228;
+    geometry.bounds_dirty = true;
+    assert(deimos::refresh_legacy_sprite_geometry(geometry, sprite_cache));
+    assert(geometry.sprite_width == 123 && geometry.sprite_height == 456);
+    assert(geometry.half_width == 0 && geometry.half_height == 0);
+
     return 0;
 }

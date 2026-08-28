@@ -69,7 +69,7 @@ The binary-confirmed collision layer has a dedicated synthetic regression execut
 - scan early exit after self becomes inactive;
 - level-scaled shield base/increment/max behavior, including the no-max-clamp branch when increment is non-positive.
 
-The repository suite is currently **27/27 PASS**. The optional canonical `Game.pak` probe additionally validates all compiled collision/destruction/terrain-media/player-runtime fields and reports 436 collision-enabled states, 135 air / 251 ground Unit Definitions, 8 pickup Unit Definitions (4 coin / 1 mult / 1 exli / 2 shie), 2 Player Definitions, player globals 100/10/1, death-money IDs `calg/cals/casg/cass`, 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units, and fixed water IDs `spti/spsm/spme/spla`, **0** stock
+The repository suite is currently **28/28 PASS**. The optional canonical `Game.pak` probe additionally validates all compiled collision/destruction/terrain-media/player-runtime fields and reports 436 collision-enabled states, 135 air / 251 ground Unit Definitions, 8 pickup Unit Definitions (4 coin / 1 mult / 1 exli / 2 shie), 2 Player Definitions, player globals 100/10/1, death-money IDs `calg/cals/casg/cass`, 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units, and fixed water IDs `spti/spsm/spme/spla`, **0** stock
 `stateUseThisStateOnShieldDepletion_BOOL` states / affected units, plus the other corpus counts recorded in `STATUS.md`. It also verifies that the existing shared constructor and first player-aware tick remain deterministic at RNG seeds `2249411936` and `2633739833` respectively.
 
 ### Player-runtime regression rules
@@ -113,6 +113,20 @@ The renderer-boundary regression executable covers:
 - terrain-draw bypass of ordinary layer numbering and HUD world-space handling.
 
 The canonical `Game.pak` probe additionally checks every newly compiled visual field against parsed source data. Current canonical coverage is 17 scale-tolerance Unit Definitions, 62 colorise states, 2 terrain-draw states, 111 nonzero-tint states, 584 non-100 visibility states, and 506 non-100 scale states. The raw layer distribution is `defa=156, grou=17, grhi=68, ailo=10, aihi=51, plwe=5, play=0, plsh=2, plef=0, plui=10, atmo=0, hud=17, none=50`.
+
+### Sprite-resource regression rules
+
+The sprite-resource regression and canonical probe cover:
+
+- indexed GIF87a/89a decoding in the palette-index domain consumed by the Mac alpha-plate scanner;
+- exact marker-row/marker-column discovery and per-cell corner-value trimming from `0x1F140..0x1F5B0`;
+- source-rectangle ordering and deliberately variable frame bounds;
+- atomic loaded-group publication, absent-group behavior, frame count, and high-frame fallback to frame zero;
+- PPC `fctiwz` scaled dimensions and `0x19CA0` lazy-load retry;
+- `0x12940` width/height and signed half-extent refresh, including the stale width/height behavior for a `none` face;
+- explicit safe rejection of negative frame indices instead of reproducing the original unsafe pre-array access.
+
+Canonical corpus validation decodes all 124 alpha plates, extracts 2,463 alpha-frame rectangles, confirms 123 existing alpha/color pairs have matching plate dimensions, and records `PDLI` as the stock alpha-only exception. Sample identities are bound as `PL1B=7` frames with 53x43 frame zero, `EXLG=12`, `BOCR=3`, and `GLOW=12`.
 
 ### Destruction/group-removal regression rules
 

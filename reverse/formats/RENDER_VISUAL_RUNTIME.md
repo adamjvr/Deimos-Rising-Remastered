@@ -1,91 +1,202 @@
-# Render / visual-state runtime correspondence — Mac 1.0.6
+# Visual State and Render-Request Runtime — Mac 1.0.6
 
-Status: **PPC and parser-correlated through the renderer request boundary**.
+Status: **deterministic clean boundary reconstructed; legacy pixel backend still open**.
 
-## Function map
+This milestone reconstructs the gameplay-visible state that feeds Deimos
+Rising's sprite renderer without claiming that the original QuickDraw/image
+submission backend has been cloned. The clean core can now carry the same
+visibility, tint, scale, layer, shadow, and terrain-draw facts that the PPC
+engine produced and can emit ordered render intents for a future native
+renderer.
 
-| PPC offset | Recovered role |
+## Recovered sprite base
+
+Entities and players begin with the same 0x94-byte legacy sprite base. Important
+live fields are now mapped as:
+
+| Live offset | Meaning |
 | ---: | --- |
-| `0x12650` | initialize shared 0x94-byte sprite base |
-| `0x12750` | visibility + tint scalar ramps |
-| `0x12840` | scale scalar ramp; marks geometry dirty |
-| `0x12940` | refresh scaled dimensions / half extents |
-| `0x12F20` | draw wrapper; shadow pass before main pass |
-| `0x12FA0` | main sprite/tint/glow request builder |
-| `0x13460` | shadow request builder |
-| `0x146F0` | entity state entry / visual reset path |
-| `0x19AD0` | sprite/frame cached-handle lookup boundary |
-| `0x1A260` | integer percent -> legacy scale factor |
-| `0x33E0C` | current-state visual target refresh |
-| `0x34AC8..0x34AE4` | temporary shadow-only selector choreography |
-| `0x34B48..0x34B5C` | temporary main-only selector choreography |
+| `+0x00/+0x04` | world position x/y |
+| `+0x10/+0x14` | velocity x/y |
+| `+0x18` | world-space transform gate; HUD entities clear it |
+| `+0x19` | entity air-domain cache |
+| `+0x1A` | adjust-shadow-location-for-scaling flag |
+| `+0x1C/+0x20` | current sprite face / frame |
+| `+0x24/+0x28` | scaled sprite dimensions |
+| `+0x2C/+0x30` | collision/render half extents |
+| `+0x34` | geometry/bounds dirty |
+| `+0x36` | current state draw-to-terrain flag |
+| `+0x37/+0x38` | temporary main/shadow pass selectors |
+| `+0x4C` | draw-layer FourCC |
+| `+0x50` | cached sprite/frame handle |
+| `+0x54` | `stateDoColorise_BOOL` |
+| `+0x58/+0x5C/+0x60` | tint current / required / delta |
+| `+0x64` | tint color |
+| `+0x68/+0x6C/+0x70` | visibility current / required / delta |
+| `+0x74/+0x78/+0x80` | collision-glow active / amount / color |
+| `+0x84/+0x88/+0x8C` | scale current / required / delta |
+| `+0x90` | terrain submission sequence/cache boundary |
 
-## Shared sprite-base offsets
+`+0x37/+0x38` are not persistent semantic properties. The world renderer
+temporarily changes them to call `0x12F20` in shadow-only and main-only sorted
+passes, then restores them.
 
-`0x12650` initializes a shared base embedded at object offset zero. Relevant
-members: face/frame `+0x1C/+0x20`, dimensions `+0x24/+0x28`, half extents
-`+0x2C/+0x30`, dirty `+0x34`, terrain flag `+0x36`, pass selectors
-`+0x37/+0x38`, layer `+0x4C`, cached sprite `+0x50`, colorise `+0x54`, tint
-triplet `+0x58/+0x5C/+0x60`, tint color `+0x64`, visibility triplet
-`+0x68/+0x6C/+0x70`, glow `+0x74/+0x78/+0x80`, scale triplet
-`+0x84/+0x88/+0x8C`, terrain submission sequence/cache `+0x90`.
+## Unit Definition visual defaults
 
-Live `+0x18` starts at 1 and the entity constructor clears it for `drawLayer_ID
-== 'hud '`. Live `+0x19` and `+0x1A` are entity-specific overlays already
-proven as the air-domain cache and `adjustShadowLocForScaling_BOOL`.
+Direct parser/runtime correlation establishes:
 
-## Parser anchors
+- `initialScalePercent_INT` -> compiled UnitDef `+0x1AC`;
+- `initialScalePercentTolerance_INT` -> `+0x1B0`;
+- `initialVisibilityPercent_INT` -> `+0x1B4`;
+- `drawLayer_ID` -> `+0x2E0`;
+- `castsShadows_BOOL` -> `+0x11E`;
+- `adjustShadowLocForScaling_BOOL` -> `+0x12C`.
 
-UnitDef:
+Initial visibility remains a percentage-domain float. Initial scale is converted
+to a scale factor. When scale tolerance is nonzero, the engine takes signed
+`tolerance / 2`, draws an inclusive integer in `[-half,+half]`, adds it to the
+base percentage, clamps a negative result to zero, and then converts to scale.
+The clean implementation uses the existing PPC-compatible shared RNG helper, so
+this draw participates in deterministic RNG ordering.
 
-- `+0x11E` casts shadows;
-- `+0x12C` adjust shadow location for scaling;
-- `+0x1AC` initial scale percent;
-- `+0x1B0` initial scale tolerance percent;
-- `+0x1B4` initial visibility percent;
-- `+0x2E0` draw layer.
+## State visual fields
 
-State base = `UnitDef +0x4E0 + stateIndex*0x5E0`:
+The state parser and state-entry/update paths bind:
 
-- `+0x304` sprite face;
-- `+0x30C/+0x310` frame min/max;
-- `+0x324` use parent direction;
-- `+0x332` tint color;
-- `+0x34D` do colorise;
-- `+0x353` draw to terrain;
-- `+0x3BC/+0x3C0` required scale / scale delta;
-- `+0x3C4/+0x3C8` required visibility / visibility delta;
-- `+0x3CC/+0x3D0` tint / tint delta.
+| Serialized state key | Compiled offset |
+| --- | ---: |
+| `stateSpriteFace_ID` | `+0x304` |
+| `stateSpriteFrameMin_INT` | `+0x30C` |
+| `stateSpriteFrameMax_INT` | `+0x310` |
+| `stateUseParentDirection_BOOL` | `+0x324` |
+| `stateTintColor_COLOR` | `+0x332` |
+| `stateDoColorise_BOOL` | `+0x34D` |
+| `stateDrawToTerrain_BOOL` | `+0x353` |
+| `stateRequiredScalePercent_INT` | `+0x3BC` |
+| `stateScaleDeltaPercent_INT` | `+0x3C0` |
+| `stateRequiredVisibilityPercent_INT` | `+0x3C4` |
+| `stateVisibilityDeltaPercent_INT` | `+0x3C8` |
+| `stateTintPercent_INT` | `+0x3CC` |
+| `stateTintDeltaPercent_INT` | `+0x3D0` |
 
-## Layer switch correction
+Initial visual setup seeds current visibility from the Unit Definition and
+current tint from the first state's tint. Ordinary later state changes replace
+required values/deltas while preserving current visibility/tint/scale, allowing
+the original per-tick ramps to converge naturally.
 
-PPC literal construction at `0x1318C..0x131D8` uses one `lis 0x706c` base and
-forms `plsh`, `plef`, `play`, `plwe`, and `plui`. Earlier working notes that
-transcribed the middle two as `moay/mowe` were incorrect. The main-layer switch
-is therefore:
+## Exact scalar ramps
 
-`defa: 3 ground / 7 air; grou:3; grhi:5; ailo:7; aihi:8; plwe:9; play:10;
-plsh:11; plef:12; plui:13; atmo:14; hud:15`.
+PPC `0x12750` updates visibility and tint. PPC `0x12840` updates scale.
 
-Zero/`none` is rewritten to `defa` at `0x130C4..0x130E4` before this switch.
+For a current value below its target the engine adds the configured delta and
+clamps overshoot to the target. For a current value above its target it
+subtracts the delta and clamps overshoot to the target. Visibility and tint
+also clamp the decreasing side at zero. Scale deliberately does **not** have
+that extra zero clamp.
 
-Shadow builder `0x13460` has its own numeric layer assignment: default ground
-and `grou` use 2, `grhi` uses 4, while default air and recognized air/player/HUD
-layers use 6. Do not reuse main-sprite layer values for shadows.
+Any actual scale change marks live `+0x34` dirty. Merely changing the target
+scale does not. Sprite face/frame changes also invalidate geometry.
 
-## Submission facts
+`0x12940` later rebuilds scaled dimensions and half extents from the current
+sprite/frame and current scale. That path is now wired to the reconstructed
+`0x19AD0/0x19C10/0x19CA0` sprite cache and dimension helpers: lazy resource
+lookup, high-frame fallback to frame zero, and PPC `fctiwz` scaled dimensions
+are preserved. A `none` face yields zero half extents while deliberately leaving
+the prior width/height values stale, matching the original routine. See
+`SPRITE_RESOURCE_RUNTIME.md` for the exact cache and atlas contract.
 
-`0x12F20` checks visibility first, then shadow selector/global-shadow gate, then
-main selector. `0x12FA0` submits base only when live `+0x54 == 0`, then a tint
-pass when `+0x58 > 0`, then a collision-glow pass when `+0x74 != 0`.
+## Main draw layers
 
-State-draw-to-terrain (`+0x36`) bypasses normal main-layer assignment and uses
-`0x5CE0`, live `+0x90`, flag bit 8, and a terrain/backend preparation call.
-The precise raster target remains unresolved and is not represented as a fake
-pixel implementation in the clean core.
+For non-terrain main sprite submissions, `0x12FA0` maps draw-layer FourCCs to
+numeric renderer layers:
 
-## Clean boundary
+| Draw layer | Main layer |
+| --- | ---: |
+| zero / `none` / `defa`, ground | 3 |
+| zero / `none` / `defa`, air | 7 |
+| `grou` | 3 |
+| `grhi` | 5 |
+| `ailo` | 7 |
+| `aihi` | 8 |
+| `plwe` | 9 |
+| `play` | 10 |
+| `plsh` | 11 |
+| `plef` | 12 |
+| `plui` | 13 |
+| `atmo` | 14 |
+| `hud ` | 15 |
 
-`render_runtime.{hpp,cpp}` compiles these source fields, reproduces the scalar
-ramps and scale-tolerance RNG, maps main/shadow layers, and emits ordered
-headless render intents. No platform graphics API is present in this layer.
+Zero and `none` are converted to `defa` by the original routine before the
+switch. The earlier research transcription `mowe/moay` was corrected by
+re-reading the PPC literal construction: the actual FourCCs are `plwe/play`.
+Canonical `Game.pak` uses `plwe` on five Unit Definitions.
+
+## Shadow layers
+
+`0x13460` uses a companion layer domain:
+
+- default ground and `grou` -> 2;
+- `grhi` -> 4;
+- default air and the recognized air/player/HUD layers -> 6.
+
+Shadow submission requires both outer entity `castsShadows_BOOL` eligibility and
+the global/user shadow gate. The complex original shadow coordinate adjustment,
+including `adjustShadowLocForScaling_BOOL` and float-table indices 48..51, is
+still intentionally outside the clean boundary.
+
+## Render intent order
+
+`0x12F20` exits immediately for visibility `<= 0`. For an eligible entity it
+then orders work as:
+
+1. shadow request, when the selected shadow pass and global shadow setting allow;
+2. main sprite request path.
+
+Inside `0x12FA0` the main path is:
+
+1. ordinary base sprite only when `stateDoColorise_BOOL == false`;
+2. tint effect when current tint is greater than zero;
+3. collision-glow effect when the glow-active byte is set.
+
+Thus `stateDoColorise_BOOL` does **not** mean "draw a tint on top of the normal
+sprite". It suppresses the normal base submission; tint and glow remain
+independent effect requests.
+
+`stateDrawToTerrain_BOOL` bypasses the ordinary main-layer switch and enters a
+separate terrain submission/sequence path involving live `+0x90`. The clean
+render intent preserves that distinction but does not fabricate a stable layer
+number or claim that pixel compositing is complete.
+
+## Canonical corpus
+
+The Mac 1.0.6 `Game.pak` probe validates every newly compiled visual field
+against its parsed `.unde` source:
+
+- 17 Unit Definitions use nonzero initial scale tolerance;
+- 0 stock Unit Definitions enable `adjustShadowLocForScaling_BOOL`;
+- 2 states enable `stateDrawToTerrain_BOOL`;
+- 62 states enable `stateDoColorise_BOOL`;
+- 111 states have nonzero tint;
+- 584 states request visibility other than 100%;
+- 506 states request scale other than 100%.
+
+Raw draw-layer distribution is:
+
+`defa=156, grou=17, grhi=68, ailo=10, aihi=51, plwe=5, play=0, plsh=2,
+plef=0, plui=10, atmo=0, hud=17, none=50, other=0`.
+
+## Still open
+
+This milestone intentionally does not claim:
+
+- exact sprite/frame selection for all direction/animation modes;
+- the deeper frame bitmap/pixel-object construction inside the `0x18D20` loader after atlas rectangles are known;
+- exact color-plate composition and original QuickDraw bitmap allocation;
+- the semantic identity of the single global integer returned by `0x100A0`;
+- the `+0x35` alternate submission backend identity;
+- full shadow coordinate formulas in `0x13460`;
+- terrain raster/pixel mutation behind the `+0x90` sequence path;
+- QuickDraw/native renderer submission internals beneath `0x18A40/0x19570`.
+
+Those are now downstream of a stable clean render-request contract rather than
+entangled with gameplay state reconstruction.

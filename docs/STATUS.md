@@ -1,6 +1,6 @@
 # Status
 
-## 2026-08-28 — visual/render-request runtime milestone
+## 2026-08-28 — sprite resource/cache runtime milestone
 
 ### Evidence corpus
 
@@ -76,7 +76,7 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **27/27**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **28/28**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Spawn runtime findings now binary-confirmed
 
@@ -140,7 +140,7 @@ Synthetic repository tests pass **27/27**. Original assets/binaries are used onl
 - Member constructor `0x35DAC..0x35DF0` caches the existence of any such state in live `+0xCD`.
 - On zero shields, `0x14F10` awards score and either calls ordinary destruction (`+0xCD == 0`) or `0x17E70`, which enters the first marked state (`+0xCD != 0`).
 - Stock canonical `Game.pak` has 0 marked shield-depletion states; the executable path is retained through synthetic compatibility regression.
-- Core-edge checkpoint remains covered inside the current **27/27 PASS** suite; canonical constructor/first-tick seeds remain unchanged.
+- Core-edge checkpoint remains covered inside the current **28/28 PASS** suite; canonical constructor/first-tick seeds remain unchanged.
 
 
 ### Visual/render-request findings now binary-confirmed
@@ -152,8 +152,17 @@ Synthetic repository tests pass **27/27**. Original assets/binaries are used onl
 - `0x12F20` is now bounded as the render wrapper: visibility gate -> optional shadow request -> main request. Live `+0x37/+0x38` are temporary pass selectors used by the world renderer, not persistent entity properties.
 - `0x12FA0` main requests preserve base/tint/collision-glow ordering; `stateDoColorise_BOOL` suppresses only the normal base request. `stateDrawToTerrain_BOOL` bypasses the ordinary layer switch and remains a distinct terrain submission path.
 - Main draw-layer mapping is recovered, including the corrected PPC FourCCs `plwe -> 9` and `play -> 10`; zero/`none` is normalized to `defa`. Shadow requests use a separate recovered layer domain: default/grou ground 2, grhi 4, default air/recognized air-player-HUD 6.
-- `0x12940` ties current scale to sprite dimensions and collision/render half extents; the clean core owns the exact dirty/rebuild contract while sprite-resource dimension lookup remains downstream.
+- `0x12940` now closes the geometry loop through the recovered sprite cache: current face/frame resolve through `0x19AD0`, `0x19C10/0x19CA0` apply PPC-truncated scaled dimensions with lazy loading/high-frame fallback, and signed half extents are rebuilt exactly. A `none` face zeros half extents while leaving stale width/height, matching the binary.
 - Canonical visual corpus: 17 scale-tolerance units, 62 colorise states, 2 terrain-draw states, 111 nonzero-tint states, 584 non-100 visibility states, and 506 non-100 scale states. Raw draw-layer counts are `defa=156, grou=17, grhi=68, ailo=10, aihi=51, plwe=5, play=0, plsh=2, plef=0, plui=10, atmo=0, hud=17, none=50`.
+
+### Sprite-resource/cache findings now binary-confirmed
+
+- `0x19AD0` is the loaded sprite-group/frame lookup; frame indices at or above the loaded count fall back to frame 0, while `none` does not resolve.
+- `0x19C10` returns stored frame dimensions at scale 1.0 and otherwise multiplies each axis by scale and truncates toward zero with PPC `fctiwz`. `0x19CA0` adds absent-group lazy loading and retry; `0x19EE0` exposes loaded frame count.
+- `0x18D20` builds a 16-byte loaded-group record (marker, FourCC, frame count, frame-pointer list) and publishes it only after the complete frame set succeeds, so failed/partial loads are not observable. State entry stores the resolved frame pointer at live sprite-base `+0x50`.
+- `0x1F140/0x1F1C0/0x1F340/0x1F4E0/0x1F540/0x1F5B0` form the exact alpha-plate atlas scanner. It consumes decoded GIF palette indices, uses the alpha plate's second byte as the separator marker, finds marker-bounded cells, then trims each cell by its own top-left palette value.
+- The clean resource layer includes a dependency-free indexed GIF87a/89a decoder, exact atlas extraction, atomic cache publication, high-frame fallback, lazy dimensions, and the `0x12940` geometry integration. Negative frame indices are rejected as an explicit safety divergence from the original out-of-bounds legacy behavior.
+- Canonical sprite corpus: 124 alpha plates, 124 color plates, 123 existing alpha/color pairs with equal dimensions, and 2,463 extracted alpha frames. `PDLI` is the stock alpha-only exception. Examples: `PL1B` 7 frames (frame 0 = 53x43), `EXLG` 12, `BOCR` 3, `GLOW` 12.
 
 ### Collision/damage findings now binary-confirmed
 
@@ -212,7 +221,7 @@ Synthetic repository tests pass **27/27**. Original assets/binaries are used onl
 
 ### Active reverse-engineering fronts
 
-1. Continue below the recovered `0x12F20` request boundary: decode sprite/frame resources and cached handles (`0x19AD0/0x19C10/0x19CA0`), recover exact shadow/world transforms (`0x13460`/`0x100A0`), identify alternate/backend submission (`0x18A40/0x19570`), and reconstruct the terrain-raster path behind live `+0x90`.
+1. Continue below the recovered sprite-cache/request boundary: reconstruct the frame bitmap/pixel object built inside `0x18D20`, recover exact shadow coordinates in `0x13460`, identify the global integer exposed by `0x100A0` and backend submission below `0x18A40/0x19570`, then reconstruct terrain pixel composition behind live `+0x90`.
 2. Bind the recovered player life/respawn/game-over lifecycle spawn/audio/UI facts into full world orchestration and continue into the remaining active-player movement/weapon boundaries.
 3. Wire every remaining non-collision destruction entry site through the same clean teardown orchestration.
 4. Recover the rare special single-member parent-container / intrusive-list semantics around `0x33220` and bind an actual decoded Media Mask provider to the terrain/media runtime.
