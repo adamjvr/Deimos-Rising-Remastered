@@ -2,31 +2,42 @@
 
 Evidence-driven, clean-code reconstruction and native remaster of **Deimos Rising**.
 
-## Current reconstruction baseline
+## Evidence baseline
 
-The evidence corpus now includes:
-
-- an older StuffIt/disc-image distribution (`DR-EVID-001`);
-- a fully extracted Mac **1.0.6** installation (`DR-EVID-002`);
-- a Windows PE32/NSIS distribution (`DR-EVID-003`);
-- an add-ons/update/reference/mod/music corpus (`DR-EVID-004`).
-
-The Mac 1.0.6 install gives us the complete canonical game resource set: all four PAKs, twelve levels, unit/weapon/player definitions, sprites, interface art, sound, music, replay films, and the PowerPC PEF application/resource fork.
+The working corpus includes an older Mac distribution, a fully recovered Mac **1.0.6** installation, a Windows PE32/NSIS distribution, and an add-ons/update/reference/mod/music corpus. Phase 0 remains open for additional evidence, but active development is in Phase 1.
 
 ## Reconstruction rule
 
-**Game code is independently reconstructed. Original supplied art/audio/data are intentionally used as the canonical asset baseline until restored/upscaled replacements are produced.** See `docs/CLEAN_ROOM.md` and `docs/ASSET_POLICY.md`.
+**Game executable logic is independently reconstructed. Original supplied art/audio/data are intentionally used as the canonical asset baseline until restored/upscaled replacements are produced.** Exact resource identities remain stable so restored content can override originals one asset at a time. See `docs/CLEAN_ROOM.md` and `docs/ASSET_POLICY.md`.
 
-## Clean implementation
+## Clean core status
 
-The first portable core code lives under `include/` and `src/`. It begins with the recovered four-character resource-ID/plate namespace so later loaders and gameplay systems can reference original and restored assets through the same stable identity.
+The portable C++20 core now contains:
 
-Build the current clean core/tests with:
+- exact four-byte resource/FourCC naming;
+- IA/IC alpha/color plate parsing;
+- a dependency-free reader for the original stored-ZIP PAKs with CRC32 validation;
+- `Data/Local`-over-PAK lookup;
+- the recovered legacy seven-bit tagged-text decoder/parser;
+- typed scalar/FourCC/RECT/RGB helpers;
+- a strict level loader validated against all 12 original levels;
+- typed ID/float/color/rect/string-table and Text Format loaders;
+- a conservative v10005 replay parser for fields proven from the corpus;
+- a `deimos_reference_probe` executable that validates an original `Game.pak` through the clean implementation.
+
+The original 1.0.6 `Game.pak` has been loaded directly through this clean code: all 763 files CRC-validate, all 12 levels parse, all 565 level placements reconcile, and all four canonical PAK films parse. Across all four original PAKs, **871 actual files** pass CRC validation.
+
+## Build tests
 
 ```sh
 cmake -S . -B build -DBUILD_TESTING=ON
 cmake --build build -j
 ctest --test-dir build --output-on-failure
+
+# Optional: validate your local canonical reference PAK directly
+./build/deimos_reference_probe reference/DR-EVID-002/paks/Game.pak
 ```
 
-See `docs/STATUS.md` and `docs/ROADMAP.md` for the active reverse-engineering fronts.
+Committed tests use synthetic fixtures only. Original assets remain in the ignored local reference workspace.
+
+See `docs/STATUS.md`, `docs/ROADMAP.md`, and `reverse/formats/` for current reconstruction details.

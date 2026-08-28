@@ -11,9 +11,21 @@ namespace deimos {
 enum class PlateKind { none, alpha, color };
 
 enum class ResourceKind {
-    unknown, image8, image16, audio, level, unit, weapon, player,
-    film, id_list, game_list, color_list, terrain_formation,
-    string_list, relation_list
+    unknown,
+    image8,
+    image16,
+    audio,
+    level,
+    unit,
+    weapon,
+    player,
+    film,
+    id_list,
+    float_list,
+    color_list,
+    text_format,
+    string_list,
+    rect_list
 };
 
 struct FourCC {

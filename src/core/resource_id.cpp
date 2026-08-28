@@ -33,11 +33,11 @@ ResourceKind classify_resource_extension(std::string_view extension) {
     if (e == ".plde") return ResourceKind::player;
     if (e == ".film") return ResourceKind::film;
     if (e == ".idli" || e == ".idlist") return ResourceKind::id_list;
-    if (e == ".flli") return ResourceKind::game_list;
+    if (e == ".flli") return ResourceKind::float_list;
     if (e == ".coli") return ResourceKind::color_list;
-    if (e == ".tefo") return ResourceKind::terrain_formation;
+    if (e == ".tefo") return ResourceKind::text_format;
     if (e == ".stli") return ResourceKind::string_list;
-    if (e == ".reli") return ResourceKind::relation_list;
+    if (e == ".reli") return ResourceKind::rect_list;
     return ResourceKind::unknown;
 }
 

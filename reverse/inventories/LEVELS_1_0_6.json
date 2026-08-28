@@ -1,0 +1,260 @@
+{
+  "schema": "deimos-level-inventory-v1",
+  "version": "1.0.6",
+  "level_count": 12,
+  "total_placed_objects": 565,
+  "levels": [
+    {
+      "resource_file": "Level 01[le01].leve",
+      "resource_id": "le01",
+      "name": "Kepler Massif",
+      "identifier": "Leonidas",
+      "description": "",
+      "copyright": "Map by Sheryn Wareing.",
+      "background_rect": [
+        0,
+        0,
+        480,
+        3600
+      ],
+      "background_image_id": "cam1",
+      "preview_image_id": "cap1",
+      "music_id": "mu03",
+      "media_mask_id": "cat1",
+      "briefing_id": "none",
+      "object_count": 46,
+      "sha256": "4a81270ef709cc4735b28fd30e1da86a621041804fec5017897a91bc55622774"
+    },
+    {
+      "resource_file": "Level 02[le02].leve",
+      "resource_id": "le02",
+      "name": "Darius",
+      "identifier": "Vista",
+      "description": "",
+      "copyright": "Map by Sheryn Wareing.",
+      "background_rect": [
+        0,
+        0,
+        480,
+        3600
+      ],
+      "background_image_id": "cam2",
+      "preview_image_id": "cap2",
+      "music_id": "mu03",
+      "media_mask_id": "cat2",
+      "briefing_id": "none",
+      "object_count": 44,
+      "sha256": "d321d2bb2a1acd715b23fa7c95f97693c87f3322df8a244eebba91845d155d6c"
+    },
+    {
+      "resource_file": "Level 03[le03].leve",
+      "resource_id": "le03",
+      "name": "Ticonderoga",
+      "identifier": "Saratoga",
+      "description": "",
+      "copyright": "Map by Sheryn Wareing.",
+      "background_rect": [
+        0,
+        0,
+        480,
+        3600
+      ],
+      "background_image_id": "ism1",
+      "preview_image_id": "isp1",
+      "music_id": "mu03",
+      "media_mask_id": "ist1",
+      "briefing_id": "none",
+      "object_count": 44,
+      "sha256": "fb9dc1ece1410a20442b7a3780c3a9aad16c53a6f99ef179974fe752d57f5cd7"
+    },
+    {
+      "resource_file": "Level 04[le04].leve",
+      "resource_id": "le04",
+      "name": "Bellerephon",
+      "identifier": "Delos",
+      "description": "",
+      "copyright": "Map by Sheryn Wareing.",
+      "background_rect": [
+        0,
+        0,
+        480,
+        3600
+      ],
+      "background_image_id": "cam3",
+      "preview_image_id": "cap3",
+      "music_id": "mu03",
+      "media_mask_id": "cat3",
+      "briefing_id": "none",
+      "object_count": 43,
+      "sha256": "3dd7245abf85687aab0b5d7945fc536caf4f989084f80a46e57b874e3f4b03d1"
+    },
+    {
+      "resource_file": "Level 05[le05].leve",
+      "resource_id": "le05",
+      "name": "Yucatan Rift",
+      "identifier": "Hannibal",
+      "description": "",
+      "copyright": "Map by Sheryn Wareing.",
+      "background_rect": [
+        0,
+        0,
+        480,
+        3600
+      ],
+      "background_image_id": "jum3",
+      "preview_image_id": "jup3",
+      "music_id": "mu03",
+      "media_mask_id": "jut3",
+      "briefing_id": "none",
+      "object_count": 51,
+      "sha256": "9c419c1903f3f5e18028242a2113632482699d1c1e83693fa930ac5fc2cb4bde"
+    },
+    {
+      "resource_file": "Level 06[le06].leve",
+      "resource_id": "le06",
+      "name": "Cydonia Plateau",
+      "identifier": "Yippe",
+      "description": "",
+      "copyright": "Map by Sheryn Wareing.",
+      "background_rect": [
+        0,
+        0,
+        480,
+        3600
+      ],
+      "background_image_id": "inm3",
+      "preview_image_id": "inp3",
+      "music_id": "mu03",
+      "media_mask_id": "int3",
+      "briefing_id": "none",
+      "object_count": 43,
+      "sha256": "31c2602a8bbab4c6762da93465f26cb6b2b84516ede2bfa04f8285c7992bad3e"
+    },
+    {
+      "resource_file": "Level 07[le07].leve",
+      "resource_id": "le07",
+      "name": "Mariner Valley",
+      "identifier": "Lucena",
+      "description": "Jungle combat over the Mariner Valley forestation project.",
+      "copyright": "Map by Sheryn Wareing.",
+      "background_rect": [
+        0,
+        0,
+        480,
+        3600
+      ],
+      "background_image_id": "jum2",
+      "preview_image_id": "jup2",
+      "music_id": "mu03",
+      "media_mask_id": "jut2",
+      "briefing_id": "none",
+      "object_count": 38,
+      "sha256": "f6c407e98e3da7cfa7af5583de87bb52fc10143a4ebfdb50e49a08507ff72e3a"
+    },
+    {
+      "resource_file": "Level 08[le08].leve",
+      "resource_id": "le08",
+      "name": "Neo Kowloon",
+      "identifier": "Swoop",
+      "description": "",
+      "copyright": "Map by Sheryn Wareing.",
+      "background_rect": [
+        0,
+        0,
+        480,
+        3600
+      ],
+      "background_image_id": "ism3",
+      "preview_image_id": "isp3",
+      "music_id": "mu03",
+      "media_mask_id": "ist3",
+      "briefing_id": "none",
+      "object_count": 49,
+      "sha256": "3f0c8e3592053bebcaa57f84b1679320e737f5e8aab28527a249b82785a6cc33"
+    },
+    {
+      "resource_file": "Level 09[le09].leve",
+      "resource_id": "le09",
+      "name": "Carthage",
+      "identifier": "Yamato",
+      "description": "",
+      "copyright": "Map by Sheryn Wareing.",
+      "background_rect": [
+        0,
+        0,
+        480,
+        3600
+      ],
+      "background_image_id": "ism2",
+      "preview_image_id": "isp2",
+      "music_id": "mu03",
+      "media_mask_id": "ist2",
+      "briefing_id": "none",
+      "object_count": 67,
+      "sha256": "d451dd0c188e642ca9fb6206b78084700858a9dfa2af3f4a2516a0d5e5e57dba"
+    },
+    {
+      "resource_file": "Level 10[le10].leve",
+      "resource_id": "le10",
+      "name": "Thermopylae",
+      "identifier": "Thebes",
+      "description": "",
+      "copyright": "Map by Sheryn Wareing.",
+      "background_rect": [
+        0,
+        0,
+        480,
+        3600
+      ],
+      "background_image_id": "inm2",
+      "preview_image_id": "inp2",
+      "music_id": "mu03",
+      "media_mask_id": "int2",
+      "briefing_id": "none",
+      "object_count": 60,
+      "sha256": "083cfa6d80d4500e2b25a5e76d3742a5875dd81e45a712c532bc18f662ae68b4"
+    },
+    {
+      "resource_file": "Level 11[le11].leve",
+      "resource_id": "le11",
+      "name": "Heart of Darkness",
+      "identifier": "Conrad",
+      "description": "",
+      "copyright": "Map by Sheryn Wareing.",
+      "background_rect": [
+        0,
+        0,
+        480,
+        3600
+      ],
+      "background_image_id": "jum1",
+      "preview_image_id": "jup1",
+      "music_id": "mu03",
+      "media_mask_id": "jut1",
+      "briefing_id": "none",
+      "object_count": 40,
+      "sha256": "f114f56f10ed6cf601a383635e7be6aada4c21d6645f6ed0be18145e1f6db633"
+    },
+    {
+      "resource_file": "Level 12[le12].leve",
+      "resource_id": "le12",
+      "name": "Greater Babylon",
+      "identifier": "Sparta",
+      "description": "",
+      "copyright": "Map by Sheryn Wareing.",
+      "background_rect": [
+        0,
+        0,
+        480,
+        3600
+      ],
+      "background_image_id": "inm1",
+      "preview_image_id": "inp1",
+      "music_id": "mu03",
+      "media_mask_id": "int1",
+      "briefing_id": "none",
+      "object_count": 40,
+      "sha256": "9ab49460b24a45f3b5590345c61f0fbf1bb506dc87597cd851b6bd86e02493a8"
+    }
+  ]
+}

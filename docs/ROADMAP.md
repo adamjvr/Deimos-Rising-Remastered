@@ -2,70 +2,79 @@
 
 ## Phase 0 — Evidence intake and provenance
 
-**Current: substantially complete; remains open for additional archives.**
+**Substantially complete; intentionally remains open for additional archives.**
 
-Exit criteria:
+Exit/maintenance criteria:
 
 - hash/catalog every supplied archive;
 - preserve Mac data/resource forks;
 - identify build/version relationships;
 - separate official material, reference material, and community modifications;
-- maintain a local, untracked evidence workspace while committing reproducible manifests and findings.
+- keep proprietary evidence local/untracked while committing reproducible manifests and findings.
 
 ## Phase 1 — Binary, resource, and serialization reconstruction
 
-**Current active phase.**
+**Current active phase; resource/data half is now well advanced.**
 
-Exit criteria:
+Completed/confirmed:
 
-- map PowerPC PEF sections, loader/imports, relocations, entry points, TOC usage, and major functions;
-- expand the Windows build and establish Mac↔Windows correspondences;
-- reconstruct the PAK/Local resource manager and exact four-character tag semantics;
-- decode all game-data formats (`leve`, `unde`, `plde`, `wede`, `idli`, `flli`, `coli`, `tefo`, `stli`, `reli`, `film`);
-- record field meanings, defaults, bounds, and cross-references with confidence levels;
-- preserve original art/audio as the canonical asset tier for the remaster.
+- Mac 1.0.6 PEF/container and import baseline;
+- four canonical PAKs recovered and read directly by clean code;
+- Local-over-PAK provider architecture reconstructed;
+- legacy tagged-text transform/grammar decoded across 473 resources;
+- all level placement records parsed and validated;
+- v10005 film header/input-stream boundaries substantially mapped.
+
+Remaining Phase 1 exit criteria:
+
+- map PEF relocations, TOC/import glue, entry points, and major gameplay functions;
+- expand Windows installer and establish Mac↔Windows code/data correspondences;
+- produce typed definitions for unit, weapon, player, ID/float/color/text/string/rect tables;
+- finish replay layout/action-bit mapping including two-player semantics;
+- document defaults, bounds, and cross-resource references with confidence levels;
+- keep original art/audio/data as the canonical asset tier.
 
 ## Phase 2 — Deterministic gameplay reconstruction
 
 Exit criteria:
 
-- reconstruct world/level sequencing, terrain, spawning, entities, weapons, projectiles, collision, damage, scoring, power-ups, camera/scrolling, two-player behavior, menus, preferences, timing, and audio triggers;
-- parse and replay captured `.film` recordings against the clean simulation;
-- add behavior probes where recorded films are insufficient;
-- create regression fixtures from independently described observations.
+- implement entity/state-machine interpreter from recovered unit definitions;
+- reconstruct level sequencing, terrain/media sampling, spawning, movement, weapons, projectiles, collision, damage, scoring, power-ups, camera/scrolling, two-player behavior, menus/preferences, timing, and audio triggers;
+- feed v10005 input films into the clean simulation and use them as deterministic regression oracles;
+- add controlled behavior probes where recordings are insufficient.
 
-## Phase 3 — Portable clean core
+## Phase 3 — Portable clean core completion
 
 Exit criteria:
 
-- deterministic simulation/gameplay core independent of UI/platform APIs;
-- resource provider supports original PAKs plus loose `Data/Local` overrides;
-- exact original resource IDs remain stable while restored/upscaled assets can replace them;
-- reconstructed parsers load all canonical game definitions and 12 levels;
-- automated tests cover resource lookup, serialization, timing, and gameplay invariants.
+- deterministic simulation independent of platform/UI APIs;
+- original PAK + loose Local provider fully integrated;
+- restored/upscaled resources can override by the same exact resource identities;
+- all canonical game definitions and levels load through typed clean parsers;
+- automated tests cover resource lookup, serialization, replay input, timing, and gameplay invariants.
 
 ## Phase 4 — Native playable remaster
 
 Exit criteria:
 
 - macOS and iPadOS playable end-to-end using the clean core;
-- original assets serve as the initial canonical presentation layer;
-- keyboard/controller/touch input, rendering, audio, save/preferences, menus, campaign, two-player behavior, and replay support operational;
-- fidelity mode matches original behavior before optional modernization changes.
+- original assets serve as initial canonical presentation;
+- keyboard/controller/touch, rendering, audio, preferences, menus, campaign, two-player behavior, and replay support operational;
+- fidelity mode matches original behavior before optional modernization.
 
 ## Phase 5 — Cross-platform completion
 
 Exit criteria:
 
 - Linux and Windows targets operational;
-- cross-platform deterministic tests agree;
-- platform packaging and controller/audio/rendering integration complete.
+- deterministic cross-platform tests agree;
+- packaging/controller/audio/rendering integration complete.
 
 ## Phase 6 — Restoration, upscale, and fidelity hardening
 
 Exit criteria:
 
-- original graphics are restored/upscaled systematically while retaining tag identity and original fallbacks;
-- audio restoration is nondestructive and comparison-tested;
+- graphics restored/upscaled systematically while retaining exact resource identity and original fallbacks;
+- audio restoration remains nondestructive/comparison-tested;
 - collision/timing/rendering discrepancies closed against original evidence;
-- optional modernization features remain separable from canonical behavior.
+- optional modernization remains separable from canonical behavior.

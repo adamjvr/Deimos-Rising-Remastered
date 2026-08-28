@@ -1,17 +1,19 @@
 # Game-data format ledger
 
-| Extension | Count in Game.pak | Current confidence | Meaning / next step |
-| --- | ---: | --- | --- |
-| `.leve` | 12 | confirmed identity | levels 01–12; decode object lists, terrain/background, sequence/timing |
-| `.unde` | 386 | strong | unit/entity definitions; correlate with sprite/sound/weapon tags and source strings |
-| `.wede` | 5 | confirmed identity | Bacta Gun, Ion Cannon, Photon Beam, Rear Gun, Plasma Bomb |
-| `.plde` | 2 | confirmed identity | player 1/2 definitions |
-| `.film` | 4 | strong | built-in demo/replay recordings; add-on corpus expands this dramatically |
-| `.idli` | 6 | strong | Editor, Fonts, Formats, Objects, Sounds, Sprites ID lists |
-| `.flli` | 1 | tentative structure | global/game list (`Game[gafl]`) |
-| `.coli` | 1 | confirmed identity | color table (`Colors[gaco]`) |
-| `.tefo` | 54 | tentative | decode by cross-references and image/level use |
-| `.stli` | 5 | tentative | decode by field-key/source-string correspondence |
-| `.reli` | 1 | tentative | decode by field-key/source-string correspondence |
+The canonical 1.0.6 game-data serialization is now substantially understood. Ten resource families share the same reversible legacy tagged-text encoding; `.film` is a separate fixed-size binary replay format.
 
-The binary data files share recurring signatures/structure but are not yet semantically decoded. The next milestone is a field-level parser, not a guessed struct dump.
+| Extension | Count in Game.pak | Confidence | Meaning / status |
+| --- | ---: | --- | --- |
+| `.leve` | 12 | confirmed | typed clean loader implemented; 565 placements reconcile |
+| `.unde` | 386 | confirmed serialization / strong semantics | unit/entity state-machine definitions; typed behavioral mapping underway |
+| `.wede` | 5 | confirmed serialization/identity | weapon definitions |
+| `.plde` | 2 | confirmed serialization/identity | player definitions |
+| `.film` | 4 canonical + 11 Perfect Demos | partial binary layout confirmed | v10005 replay/input recordings; input bit semantics still being proven |
+| `.idli` | 6 | confirmed | ID lists |
+| `.flli` | 1 | confirmed | float list / global constants (`Game[gafl]`) |
+| `.coli` | 1 | confirmed | color list (`Colors[gaco]`) |
+| `.tefo` | 54 | confirmed | text-format definitions |
+| `.stli` | 5 | confirmed | bare string lists |
+| `.reli` | 1 | confirmed | rectangle list |
+
+The clean core now contains the generic byte decoder/tagged-text parser, typed primitives, a strict level loader, a v10005 film parser for proven fields, and the original stored-ZIP PAK/Local provider layer.

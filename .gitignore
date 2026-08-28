@@ -1,4 +1,4 @@
-# Proprietary/reference evidence must stay local.
+# Original/proprietary evidence and runtime reference content
 reference/
 evidence/raw/
 evidence/extracted/
@@ -8,16 +8,23 @@ evidence/extracted/
 *.dmg
 *.toast
 *.img
-*.bin
+*.smi
 *.app/
 *.exe
 
-# Reverse-engineering tool output
+# Reverse-engineering workspaces / generated bulk output
 reverse/work/
 reverse/ghidra/
 reverse/disassembly/raw/
 
-# Builds
+# Builds and caches
 build/
 out/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+__pycache__/
+*.pyc
 .DS_Store

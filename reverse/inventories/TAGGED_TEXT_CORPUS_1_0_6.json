@@ -1,0 +1,700 @@
+{
+  "schema": "deimos-tagged-text-corpus-v1",
+  "version": "1.0.6",
+  "resource_count": 473,
+  "extensions": {
+    "leve": {
+      "count": 12,
+      "unique_keys": 18,
+      "bare_lines": 0,
+      "most_common_keys": [
+        [
+          "unit_ID",
+          565
+        ],
+        [
+          "layer_ID",
+          565
+        ],
+        [
+          "xLoc_INT",
+          565
+        ],
+        [
+          "yLoc_INT",
+          565
+        ],
+        [
+          "headingDegrees_INT",
+          565
+        ],
+        [
+          "isStationary_BOOL",
+          565
+        ],
+        [
+          "enableTerrainEffects_BOOL",
+          565
+        ],
+        [
+          "name_STR",
+          12
+        ],
+        [
+          "indentifier_STR",
+          12
+        ],
+        [
+          "description_STR",
+          12
+        ],
+        [
+          "copyright_STR",
+          12
+        ],
+        [
+          "background_RECT",
+          12
+        ],
+        [
+          "backgroundImage_ID",
+          12
+        ],
+        [
+          "previewImage_ID",
+          12
+        ],
+        [
+          "music_ID",
+          12
+        ],
+        [
+          "mediaMask_ID",
+          12
+        ],
+        [
+          "briefing_ID",
+          12
+        ],
+        [
+          "numObjects_INT",
+          12
+        ]
+      ]
+    },
+    "unde": {
+      "count": 386,
+      "unique_keys": 223,
+      "bare_lines": 0,
+      "most_common_keys": [
+        [
+          "stateRuleName_STR",
+          5835
+        ],
+        [
+          "stateRuleUnit_ID",
+          5835
+        ],
+        [
+          "stateRuleRange_INT",
+          5835
+        ],
+        [
+          "stateRuleCondition_STR",
+          5835
+        ],
+        [
+          "stateRuleAction_STR",
+          5835
+        ],
+        [
+          "stateName_STR",
+          1167
+        ],
+        [
+          "stateOnRange_FLOAT",
+          1167
+        ],
+        [
+          "stateOnRangeChangeTo_STR",
+          1167
+        ],
+        [
+          "stateOnHitChangeTo_STR",
+          1167
+        ],
+        [
+          "stateOnHitChangeStateDelay_INT",
+          1167
+        ],
+        [
+          "stateOnTimerMin_INT",
+          1167
+        ],
+        [
+          "stateOnTimerMax_INT",
+          1167
+        ],
+        [
+          "stateOnTimerChangeTo_STR",
+          1167
+        ],
+        [
+          "stateOnCounter_INT",
+          1167
+        ],
+        [
+          "stateOnCounterChangeTo_STR",
+          1167
+        ],
+        [
+          "stateSpriteFace_ID",
+          1167
+        ],
+        [
+          "stateSpriteFrameMin_INT",
+          1167
+        ],
+        [
+          "stateSpriteFrameMax_INT",
+          1167
+        ],
+        [
+          "stateUseParentDirection_BOOL",
+          1167
+        ],
+        [
+          "stateRequiredVisibilityPercent_INT",
+          1167
+        ]
+      ]
+    },
+    "plde": {
+      "count": 2,
+      "unique_keys": 57,
+      "bare_lines": 0,
+      "most_common_keys": [
+        [
+          "name_STR",
+          2
+        ],
+        [
+          "spriteHighScore_ID",
+          2
+        ],
+        [
+          "spriteHighScoreFrame_INT",
+          2
+        ],
+        [
+          "spriteScoreBar_ID",
+          2
+        ],
+        [
+          "spriteScoreBarFrame_INT",
+          2
+        ],
+        [
+          "spriteScoreBarPower_ID",
+          2
+        ],
+        [
+          "spriteScoreBarPowerFrame_INT",
+          2
+        ],
+        [
+          "spriteScoreBarShield_ID",
+          2
+        ],
+        [
+          "spriteScoreBarShieldFrame_INT",
+          2
+        ],
+        [
+          "defaultShieldPercentage_INT",
+          2
+        ],
+        [
+          "shieldWarningPercentage_INT",
+          2
+        ],
+        [
+          "shieldBaseHitPercentage_INT",
+          2
+        ],
+        [
+          "shieldHitDelay_INT",
+          2
+        ],
+        [
+          "hitGlowColor_COLOR",
+          2
+        ],
+        [
+          "hitGlowSpeed_INT",
+          2
+        ],
+        [
+          "life_MaxNum_INT",
+          2
+        ],
+        [
+          "life_NumInitial_INT",
+          2
+        ],
+        [
+          "life_InitialRequiredScore_INT",
+          2
+        ],
+        [
+          "life_AdditionalRequiredScore_INT",
+          2
+        ],
+        [
+          "life_Spawn_ID",
+          2
+        ]
+      ]
+    },
+    "wede": {
+      "count": 5,
+      "unique_keys": 58,
+      "bare_lines": 0,
+      "most_common_keys": [
+        [
+          "spawn_Name_STR",
+          15
+        ],
+        [
+          "spawn_Unit_ID",
+          15
+        ],
+        [
+          "spawn_XLoc_INT",
+          15
+        ],
+        [
+          "spawn_YLoc_INT",
+          15
+        ],
+        [
+          "spawn_SetHeading_BOOL",
+          15
+        ],
+        [
+          "spawn_Angle_INT",
+          15
+        ],
+        [
+          "type_ID",
+          5
+        ],
+        [
+          "default_ID",
+          5
+        ],
+        [
+          "name_STR",
+          5
+        ],
+        [
+          "description1_STR",
+          5
+        ],
+        [
+          "description2_STR",
+          5
+        ],
+        [
+          "scoreBarPreviewFace_ID",
+          5
+        ],
+        [
+          "scoreBarPreviewFrame_INT",
+          5
+        ],
+        [
+          "maxAllowed_INT",
+          5
+        ],
+        [
+          "minimumLevelAvailable_INT",
+          5
+        ],
+        [
+          "maximumLevelAvailable_INT",
+          5
+        ],
+        [
+          "player1AppearanceFace_ID",
+          5
+        ],
+        [
+          "player2AppearanceFace_ID",
+          5
+        ],
+        [
+          "playerGlow_COLOR",
+          5
+        ],
+        [
+          "selectionSound_ID",
+          5
+        ]
+      ]
+    },
+    "idli": {
+      "count": 6,
+      "unique_keys": 129,
+      "bare_lines": 0,
+      "most_common_keys": [
+        [
+          "Interface_GameLogo",
+          2
+        ],
+        [
+          "Player 1",
+          1
+        ],
+        [
+          "Player 2",
+          1
+        ],
+        [
+          "MoneyUnit_50",
+          1
+        ],
+        [
+          "MoneyUnit_10",
+          1
+        ],
+        [
+          "MoneyUnit_5",
+          1
+        ],
+        [
+          "MoneyUnit_1",
+          1
+        ],
+        [
+          "MediaImpact_Water_Tiny",
+          1
+        ],
+        [
+          "MediaImpact_Water_Small",
+          1
+        ],
+        [
+          "MediaImpact_Water_Medium",
+          1
+        ],
+        [
+          "MediaImpact_Water_Large",
+          1
+        ],
+        [
+          "Notice_Level_01",
+          1
+        ],
+        [
+          "Notice_Level_02",
+          1
+        ],
+        [
+          "Notice_Level_03",
+          1
+        ],
+        [
+          "Notice_Level_04",
+          1
+        ],
+        [
+          "Notice_Level_05",
+          1
+        ],
+        [
+          "Notice_Level_06",
+          1
+        ],
+        [
+          "Notice_Level_07",
+          1
+        ],
+        [
+          "Notice_Level_08",
+          1
+        ],
+        [
+          "Notice_Level_09",
+          1
+        ]
+      ]
+    },
+    "flli": {
+      "count": 1,
+      "unique_keys": 220,
+      "bare_lines": 0,
+      "most_common_keys": [
+        [
+          "WepSelector_FadeOutRate",
+          1
+        ],
+        [
+          "WepSelectorAppearanceTime",
+          1
+        ],
+        [
+          "WepSelectorXLoc",
+          1
+        ],
+        [
+          "WepSelectorYLoc",
+          1
+        ],
+        [
+          "WepSelectorPreviewXLoc",
+          1
+        ],
+        [
+          "WepSelectorPreviewYLoc",
+          1
+        ],
+        [
+          "WepSelectorTimeBetweenSelections",
+          1
+        ],
+        [
+          "WepSelector_ScoreBarDigitScale",
+          1
+        ],
+        [
+          "WepSelector_SelectorDigitScale",
+          1
+        ],
+        [
+          "WepSelector_MaxDisplayableAmmoCount",
+          1
+        ],
+        [
+          "WepSelector_InfinitySymbolFrame",
+          1
+        ],
+        [
+          "WepSelector_InfinitySymbolYOffset",
+          1
+        ],
+        [
+          "WepSelector_CancelFrame",
+          1
+        ],
+        [
+          "Game_GameOverNoticeDuration",
+          1
+        ],
+        [
+          "Game_EntityFleeNorthLocation",
+          1
+        ],
+        [
+          "Game_EntityFleeSouthLocation",
+          1
+        ],
+        [
+          "Game_EntityFleeWestLocation",
+          1
+        ],
+        [
+          "Game_EntityFleeEastLocation",
+          1
+        ],
+        [
+          "Game_NumFramesUntilGameAppears",
+          1
+        ],
+        [
+          "Text_ShadowXAdjust",
+          1
+        ]
+      ]
+    },
+    "coli": {
+      "count": 1,
+      "unique_keys": 1,
+      "bare_lines": 0,
+      "most_common_keys": [
+        [
+          "scoreBar_Digit",
+          1
+        ]
+      ]
+    },
+    "tefo": {
+      "count": 54,
+      "unique_keys": 17,
+      "bare_lines": 0,
+      "most_common_keys": [
+        [
+          "Loc_X_INT",
+          54
+        ],
+        [
+          "Loc_Y_INT",
+          54
+        ],
+        [
+          "Size_INT",
+          54
+        ],
+        [
+          "Format_ID",
+          54
+        ],
+        [
+          "Monospaced_BOOL",
+          54
+        ],
+        [
+          "DrawShadows_BOOL",
+          54
+        ],
+        [
+          "BlendAmount_0To32_INT",
+          54
+        ],
+        [
+          "SpaceBetweenChars_INT",
+          54
+        ],
+        [
+          "Colorise_Do_BOOL",
+          54
+        ],
+        [
+          "ColoriseColor_RGB",
+          54
+        ],
+        [
+          "ColorStrip_Do_BOOL",
+          54
+        ],
+        [
+          "ColorStrip_HOffset_INT",
+          54
+        ],
+        [
+          "ColorStrip_VOffset_INT",
+          54
+        ],
+        [
+          "ColorStrip_BlendAmount_0To32_INT",
+          54
+        ],
+        [
+          "ColorStrip_Color_RGB",
+          54
+        ],
+        [
+          "ColorStrip_MinWidth_INT",
+          54
+        ],
+        [
+          "ColorStrip_MinHeight_INT",
+          54
+        ]
+      ]
+    },
+    "stli": {
+      "count": 5,
+      "unique_keys": 0,
+      "bare_lines": 154,
+      "most_common_keys": []
+    },
+    "reli": {
+      "count": 1,
+      "unique_keys": 22,
+      "bare_lines": 0,
+      "most_common_keys": [
+        [
+          "Scorebar Player 1 Score",
+          1
+        ],
+        [
+          "Scorebar Player 1 Life Symbol",
+          1
+        ],
+        [
+          "Scorebar Player 1 Life Count",
+          1
+        ],
+        [
+          "Scorebar Player 1 Weapon 1",
+          1
+        ],
+        [
+          "Scorebar Player 1 Weapon 2",
+          1
+        ],
+        [
+          "Scorebar Player 1 Weapon 3",
+          1
+        ],
+        [
+          "Scorebar Player 1 Shields",
+          1
+        ],
+        [
+          "Scorebar Player 1 Power",
+          1
+        ],
+        [
+          "Scorebar Player 2 Score",
+          1
+        ],
+        [
+          "Scorebar Player 2 Life Symbol",
+          1
+        ],
+        [
+          "Scorebar Player 2 Life Count",
+          1
+        ],
+        [
+          "Scorebar Player 2 Weapon 1",
+          1
+        ],
+        [
+          "Scorebar Player 2 Weapon 2",
+          1
+        ],
+        [
+          "Scorebar Player 2 Weapon 3",
+          1
+        ],
+        [
+          "Scorebar Player 2 Shields",
+          1
+        ],
+        [
+          "Scorebar Player 2 Power",
+          1
+        ],
+        [
+          "LevSel_Instructions",
+          1
+        ],
+        [
+          "LevSel_Description",
+          1
+        ],
+        [
+          "LevSel_Button_Previous",
+          1
+        ],
+        [
+          "LevSel_Button_Current",
+          1
+        ]
+      ]
+    }
+  }
+}
