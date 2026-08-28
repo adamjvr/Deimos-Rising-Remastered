@@ -5,7 +5,7 @@ Status: **binary-confirmed clean subset**.
 This milestone closes the destruction/deletion media helper at PPC `0x16880`
 and reconstructs the persistent rectangle store used by ground-obstacle
 collision (`0x2A6D0`, `0x2A770`, `0x2A830`, `0x2A950`). It deliberately does
-not claim that terrain pixels or renderer records are fully reconstructed.
+does not claim that terrain pixels or the legacy graphics backend are fully reconstructed.
 
 ## Direct Unit Definition anchors
 
@@ -117,13 +117,16 @@ Outer inactive-member cleanup performs a distinct conversion path:
 - `0x12F20` rebuilds/refreshes the live render record before normal member
   teardown continues.
 
-The clean destruction trace now captures the obstacle rect and `castsShadows`
-fact. Exact renderer-record mutation and any underlying bitmap composition are
-not yet claimed as reconstructed.
+The clean destruction trace captures the obstacle rect and `castsShadows` fact.
+The deterministic `0x12F20` visual/render-request boundary is now reconstructed:
+visibility gating, shadow/main pass selection, layer mapping, base/tint/glow ordering,
+and the distinct terrain-submission path are represented headlessly. Sprite-resource
+lookup, exact shadow/world transforms, backend submission, and underlying bitmap/terrain
+composition remain downstream.
 
 ## Validation
 
-The repository suite is **26/26 PASS**. The canonical `Game.pak` probe verifies
+The repository suite is **27/27 PASS**. The canonical `Game.pak` probe verifies
 all new compiled fields and the fixed water-impact labels/IDs while retaining
 the established deterministic baseline:
 
@@ -134,8 +137,8 @@ the established deterministic baseline:
 
 ## Remaining terrain-facing boundaries
 
-- reconstruct the renderer/bitmap consequences behind `0x12F20` and any actual
-  terrain-image mutation beyond the proven rectangle store;
+- continue below the recovered `0x12F20` request boundary into sprite/frame resource
+  lookup, exact transforms/backend submission, and actual terrain-image mutation;
 - bind a decoded Media Mask resource/provider instead of the clean callback
   boundary;
 - route remaining destruction entry sites through the recovered teardown

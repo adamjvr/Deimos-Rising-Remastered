@@ -69,7 +69,7 @@ The binary-confirmed collision layer has a dedicated synthetic regression execut
 - scan early exit after self becomes inactive;
 - level-scaled shield base/increment/max behavior, including the no-max-clamp branch when increment is non-positive.
 
-The repository suite is currently **26/26 PASS**. The optional canonical `Game.pak` probe additionally validates all compiled collision/destruction/terrain-media/player-runtime fields and reports 436 collision-enabled states, 135 air / 251 ground Unit Definitions, 8 pickup Unit Definitions (4 coin / 1 mult / 1 exli / 2 shie), 2 Player Definitions, player globals 100/10/1, death-money IDs `calg/cals/casg/cass`, 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units, and fixed water IDs `spti/spsm/spme/spla`, **0** stock
+The repository suite is currently **27/27 PASS**. The optional canonical `Game.pak` probe additionally validates all compiled collision/destruction/terrain-media/player-runtime fields and reports 436 collision-enabled states, 135 air / 251 ground Unit Definitions, 8 pickup Unit Definitions (4 coin / 1 mult / 1 exli / 2 shie), 2 Player Definitions, player globals 100/10/1, death-money IDs `calg/cals/casg/cass`, 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units, and fixed water IDs `spti/spsm/spme/spla`, **0** stock
 `stateUseThisStateOnShieldDepletion_BOOL` states / affected units, plus the other corpus counts recorded in `STATUS.md`. It also verifies that the existing shared constructor and first player-aware tick remain deterministic at RNG seeds `2249411936` and `2633739833` respectively.
 
 ### Player-runtime regression rules
@@ -96,6 +96,23 @@ The binary-confirmed player runtime has a dedicated synthetic regression executa
 - ordinary versus final-life dying timers and gameplay-start-gated life decrement;
 - status-1 game-over countdown/disable;
 - strict status-4 entry-invulnerability expiry plus external/live blocker gates.
+
+
+### Visual/render-request regression rules
+
+The renderer-boundary regression executable covers:
+
+- Unit/state visual source fields and the recovered compiled offsets;
+- initial visibility/tint/scale setup plus shared-RNG scale tolerance;
+- exact `0x12750` visibility/tint convergence and `0x12840` scale convergence/clamping behavior;
+- geometry-dirty behavior for actual scale movement and sprite face/frame changes;
+- main layer mapping including zero/`none` normalization and corrected `plwe`/`play`;
+- the separate shadow-layer mapping;
+- shadow-before-main `0x12F20` request order and temporary pass selection;
+- base/tint/collision-glow request ordering and `stateDoColorise_BOOL` base suppression;
+- terrain-draw bypass of ordinary layer numbering and HUD world-space handling.
+
+The canonical `Game.pak` probe additionally checks every newly compiled visual field against parsed source data. Current canonical coverage is 17 scale-tolerance Unit Definitions, 62 colorise states, 2 terrain-draw states, 111 nonzero-tint states, 584 non-100 visibility states, and 506 non-100 scale states. The raw layer distribution is `defa=156, grou=17, grhi=68, ailo=10, aihi=51, plwe=5, play=0, plsh=2, plef=0, plui=10, atmo=0, hud=17, none=50`.
 
 ### Destruction/group-removal regression rules
 

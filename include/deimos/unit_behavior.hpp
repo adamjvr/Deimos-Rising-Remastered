@@ -68,6 +68,24 @@ struct CompiledUnitStateBehavior {
     float range = 0.0f;
     ResolvedStateAction on_range;
 
+    // Visual-state fields reconstructed from the state parser and the
+    // 0x146F0 / 0x33E0C state-entry/update paths. Percent values are kept in
+    // their serialized integer domain here; render_runtime converts scale
+    // percentages to the original floating-point scale domain.
+    FourCC sprite_face{};                              // state +0x304
+    int sprite_frame_min = 0;                         // state +0x30C
+    int sprite_frame_max = 0;                         // state +0x310
+    bool use_parent_direction = false;                // state +0x324
+    int required_visibility_percent = 0;              // state +0x3C4
+    int visibility_delta_percent = 0;                 // state +0x3C8
+    int required_scale_percent = 0;                   // state +0x3BC
+    int scale_delta_percent = 0;                      // state +0x3C0
+    int tint_percent = 0;                             // state +0x3CC
+    int tint_delta_percent = 0;                       // state +0x3D0
+    Rgb24 tint_color{};                               // state +0x332
+    bool do_colorise = false;                         // state +0x34D
+    bool draw_to_terrain = false;                     // state +0x353
+
     // Collision/damage fields mapped directly from the 1.0.6 compiled-state
     // parser and runtime consumers at PPC 0x36CF0 / 0x14F10.
     bool can_be_destroyed_on_owner_destruction = false; // state +0x329
@@ -103,6 +121,14 @@ struct CompiledDestructionSoundBehavior {
 };
 
 struct CompiledUnitBehavior {
+    // Unit-level visual defaults reconstructed from the Unit Definition
+    // parser and sprite-base constructor/state-entry paths.
+    int initial_scale_percent = 0;                    // UnitDef +0x1AC
+    int initial_scale_tolerance_percent = 0;          // UnitDef +0x1B0
+    int initial_visibility_percent = 0;               // UnitDef +0x1B4
+    FourCC draw_layer{};                              // UnitDef +0x2E0
+    bool adjust_shadow_location_for_scaling = false;  // UnitDef +0x12C
+
     // Unit-level collision contract. The original loader derives collision
     // domain +0x08 from isGroundBased_BOOL: FourCC 'grnd' or 'air '.
     FourCC collision_domain{};

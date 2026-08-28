@@ -16,7 +16,7 @@ zero-velocity/stationary consequence of a ground-obstacle hit.
 | `0x2A770` | shift all stored Rect top/bottom values by vertical scroll delta |
 | `0x2A830` | inclusive rectangle overlap query |
 | `0x2A950` | free/clear stored Rect list |
-| `0x12F20` | refresh/rebuild live render record during obstacle conversion; internals not yet named |
+| `0x12F20` | visual draw wrapper; visibility gate, shadow request, then main request |
 
 ## `0x16880` control flow
 
@@ -87,8 +87,8 @@ consequence around `0x34544..0x34558` copies a shared `{0,0}` vector into live
 is the engine's canonical zero vector and that `+0x10/+0x14` are velocity, not
 position. The entity therefore remains at its current x/y, stops moving, and
 becomes stationary. If `destructDrawToTerrain_BOOL` is set, its current Rect is
-then appended to the same obstacle list. The preceding live `+0x19 == 0` gate
-remains conservatively unnamed in clean tick orchestration.
+then appended to the same obstacle list. The preceding live `+0x19 == 0` gate is proven as the constructor-cached air-domain bit,
+so only ground-domain members enter this obstacle query.
 
 `destructDrawToTerrain_BOOL` calls `0x2A6D0` with the entity Rect during
 `0x16300`, tying destruction terrain draw requests to the same later collision
@@ -98,6 +98,9 @@ store.
 
 When `destructCreateObstacle_BOOL` is processed by outer cleanup, the executable
 sets live render/obstacle bytes, copies UnitDef `+0x11E` (`castsShadows_BOOL`),
-and calls `0x12F20`. The clean trace retains the entity Rect plus shadow flag.
-The precise renderer-record rebuild/pixel composition behind `0x12F20` remains
-outside this recovered subset.
+and calls `0x12F20`. The clean core now owns the deterministic visual/request
+boundary reached there: visibility, separate shadow/main pass selection, recovered
+layer domains, base/tint/glow request ordering, and the terrain-submission distinction.
+Sprite/frame resource lookup, exact shadow/world transforms, backend submission, and
+pixel/terrain composition remain outside this recovered subset; see
+`RENDER_VISUAL_RUNTIME.md`.

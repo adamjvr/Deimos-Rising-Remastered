@@ -8,7 +8,7 @@ Maintain hashes, forks, provenance, build relationships, and separation of offic
 
 ## Phase 1 — Binary, resource, serialization, and behavior-contract reconstruction
 
-**Current active phase; transition kernel, spawn path, normal entity construction, world/owner-location, player-target/motion, and the bounded entity collision/damage layer are now substantially recovered.**
+**Current active phase; transition/construction/gameplay cores plus the deterministic visual-state/render-request boundary are now substantially recovered.**
 
 Completed/confirmed:
 
@@ -54,11 +54,12 @@ Completed/confirmed:
 - live `+0x19` proven as constructor-cached `air ` collision-domain bit, closing the obstacle-query gate;
 - state `+0x356` / live `+0xCD` proven as `stateUseThisStateOnShieldDepletion_BOOL` cache; zero shields route to first marked state through `0x17E70` instead of ordinary destruction;
 - concrete player pickup dispatcher/stat mutations, `0x27100` shield/damage, immediate `0x27E50` death entry, lifecycle switch `0x2A150`, and respawn initializer `0x29CC0` implemented, including strict timers, gameplay-start-gated life consumption, solo/multi entry coordinates, entry invulnerability, and game-over disable;
+- shared 0x94-byte sprite visual base, state-entry visual targets, exact visibility/tint/scale ramps, scale-tolerance RNG, main/shadow layer mapping, `0x12F20` pass ordering, and ordered base/tint/glow/terrain render intents reconstructed as a headless renderer-request boundary;
 
 Remaining Phase 1 exit criteria:
 
 - recover the rare special single-member parent-container path and remaining original intrusive-list/pool semantics around `0x33220`;
-- integrate the recovered player lifecycle spawn/audio/UI side effects into full world orchestration and recover renderer/terrain mutation beyond the persistent Rect store; the former live `+0x19` and `+0xCD -> 0x17E70` edges are now resolved;
+- integrate the recovered player lifecycle spawn/audio/UI side effects into full world orchestration and continue below the recovered render-request boundary into sprite-resource decode, exact shadow/world transforms, backend submission, and terrain pixel mutation;
 - finish remaining Flee trigger/lifecycle edges and bind them to decoded fields;
 - expand Windows installer and establish Mac↔Windows code/data correspondences;
 - finish replay action-bit mapping including second-player semantics;
@@ -85,10 +86,11 @@ Already implemented from binary-confirmed behavior:
 - concrete player pickup/money/life/multiplier/shield mutation, damage/death-entry runtime, and status-1..4 life/respawn/game-over lifecycle;
 - level-scaled shield initialization;
 - ordinary destruction effects and two-stage group/member teardown, including child/owner propagation, reward facts, random-bonus selection, deletion spawns, obstacle/terrain requests, and `SERM` behavior.
+- deterministic visual-state runtime and headless render intents for scale/visibility/tint, sprite face/frame, main/shadow layer selection, colorise/glow ordering, and terrain-submission distinction.
 
 Exit criteria:
 
-- bind recovered player lifecycle spawn/audio/UI facts into full world orchestration, recover renderer/terrain mutation beyond the persistent Rect store, and finish remaining destruction entry-site orchestration;
+- bind recovered player lifecycle spawn/audio/UI facts into full world orchestration, finish remaining destruction entry-site orchestration, and implement sprite-resource/frame decode plus the renderer/backend/terrain-raster work below the recovered request boundary;
 - integrate world/entity construction, then reconstruct movement, weapons, projectiles, collision, damage, scoring, power-ups, camera/scrolling, two-player behavior, menus/preferences, timing, and audio triggers;
 - feed v10005 recordings into the clean simulation as deterministic regression oracles;
 - retain original assets as the canonical content tier.

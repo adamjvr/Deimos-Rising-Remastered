@@ -57,6 +57,12 @@ int main(int argc, char** argv) {
     std::size_t pickup_coin = 0, pickup_multiplier = 0, pickup_extra_life = 0, pickup_shield = 0;
     std::size_t pickup_air = 0, pickup_ground = 0, pickup_special = 0, pickup_other = 0;
     std::size_t unit_casts_shadows = 0, unit_ground_obstacle_collision = 0;
+    std::size_t unit_adjust_shadow_scaling = 0, unit_scale_tolerance = 0;
+    std::size_t state_draw_to_terrain_visual = 0, state_do_colorise = 0;
+    std::size_t state_nondefault_visibility = 0, state_nondefault_scale = 0, state_nonzero_tint = 0;
+    std::size_t layer_defa = 0, layer_grou = 0, layer_grhi = 0, layer_ailo = 0, layer_aihi = 0;
+    std::size_t layer_plwe = 0, layer_play = 0, layer_plsh = 0, layer_plef = 0, layer_plui = 0;
+    std::size_t layer_atmo = 0, layer_hud = 0, layer_none = 0, layer_other = 0;
     std::size_t unit_death_spawn_any_media = 0, unit_media_impact_size = 0;
     std::size_t unit_destruction_spawns = 0, unit_deletion_spawns = 0;
     std::size_t unit_destruction_particles = 0, unit_destruction_notices = 0;
@@ -110,7 +116,12 @@ int main(int argc, char** argv) {
             const deimos::FourCC expected_domain = ground
                 ? deimos::FourCC{{'g','r','n','d'}}
                 : deimos::FourCC{{'a','i','r',' '}};
-            if (!(behavior.collision_domain == expected_domain) ||
+            if (behavior.initial_scale_percent != unit->core_fields.int_value("initialScalePercent_INT").value_or(0) ||
+                behavior.initial_scale_tolerance_percent != unit->core_fields.int_value("initialScalePercentTolerance_INT").value_or(0) ||
+                behavior.initial_visibility_percent != unit->core_fields.int_value("initialVisibilityPercent_INT").value_or(0) ||
+                !(behavior.draw_layer == unit->core_fields.id_value("drawLayer_ID").value_or(deimos::FourCC{})) ||
+                behavior.adjust_shadow_location_for_scaling != unit->core_fields.bool_value("adjustShadowLocForScaling_BOOL").value_or(false) ||
+                !(behavior.collision_domain == expected_domain) ||
                 behavior.harmless_to_players != unit->core_fields.bool_value("harmlessToPlayers_BOOL").value_or(false) ||
                 behavior.player_projectile != unit->core_fields.bool_value("playerProjectile_BOOL").value_or(false) ||
                 behavior.can_be_hit_by_player_projectile != unit->core_fields.bool_value("canBeHitByPlayerProjectile_BOOL").value_or(false) ||
@@ -142,7 +153,7 @@ int main(int argc, char** argv) {
                 behavior.destruction_sound.max_pitch != unit->core_fields.float_value("destructSound_MaxPitch_FLOAT").value_or(0.0f) ||
                 !(behavior.pickup_type == unit->core_fields.id_value("pickup_Type_ID").value_or(deimos::FourCC{})) ||
                 behavior.pickup_value != unit->core_fields.int_value("pickup_Value_INT").value_or(0)) {
-                std::cerr << entry.path << ": compiled collision/destruction UnitDef fields disagree with parsed source\n";
+                std::cerr << entry.path << ": compiled visual/collision/destruction UnitDef fields disagree with parsed source\n";
                 return 19;
             }
             unit_ground_collision_domain += ground;
@@ -169,6 +180,23 @@ int main(int argc, char** argv) {
                 return !(value == deimos::FourCC{}) && value.str() != "none" && value.str() != "NULL";
             };
             unit_casts_shadows += behavior.casts_shadows;
+            unit_adjust_shadow_scaling += behavior.adjust_shadow_location_for_scaling;
+            unit_scale_tolerance += behavior.initial_scale_tolerance_percent != 0;
+            const auto layer = behavior.draw_layer.str();
+            if (layer == "defa") ++layer_defa;
+            else if (layer == "grou") ++layer_grou;
+            else if (layer == "grhi") ++layer_grhi;
+            else if (layer == "ailo") ++layer_ailo;
+            else if (layer == "aihi") ++layer_aihi;
+            else if (layer == "plwe") ++layer_plwe;
+            else if (layer == "play") ++layer_play;
+            else if (layer == "plsh") ++layer_plsh;
+            else if (layer == "plef") ++layer_plef;
+            else if (layer == "plui") ++layer_plui;
+            else if (layer == "atmo") ++layer_atmo;
+            else if (layer == "hud ") ++layer_hud;
+            else if (layer == "none" || behavior.draw_layer == deimos::FourCC{}) ++layer_none;
+            else ++layer_other;
             unit_ground_obstacle_collision += behavior.collides_with_ground_obstacles;
             unit_death_spawn_any_media += behavior.death_spawn_on_any_media;
             unit_media_impact_size += present(behavior.media_impact_size);
@@ -208,7 +236,33 @@ int main(int argc, char** argv) {
                     "canBeDeletedOnOwnerDeletion_BOOL").value_or(false);
                 const bool expected_destroy_owner = state.fields.bool_value(
                     "destroyOwnerOnDestruction_BOOL").value_or(false);
-                if (compiled_state.collides != expected_collides ||
+                const auto expected_sprite_face = state.fields.id_value("stateSpriteFace_ID").value_or(deimos::FourCC{});
+                const int expected_frame_min = state.fields.int_value("stateSpriteFrameMin_INT").value_or(0);
+                const int expected_frame_max = state.fields.int_value("stateSpriteFrameMax_INT").value_or(0);
+                const bool expected_parent_direction = state.fields.bool_value("stateUseParentDirection_BOOL").value_or(false);
+                const int expected_visibility = state.fields.int_value("stateRequiredVisibilityPercent_INT").value_or(0);
+                const int expected_visibility_delta = state.fields.int_value("stateVisibilityDeltaPercent_INT").value_or(0);
+                const int expected_scale = state.fields.int_value("stateRequiredScalePercent_INT").value_or(0);
+                const int expected_scale_delta = state.fields.int_value("stateScaleDeltaPercent_INT").value_or(0);
+                const int expected_tint = state.fields.int_value("stateTintPercent_INT").value_or(0);
+                const int expected_tint_delta = state.fields.int_value("stateTintDeltaPercent_INT").value_or(0);
+                const auto expected_tint_color = state.fields.color_value("stateTintColor_COLOR").value_or(deimos::Rgb24{});
+                const bool expected_colorise = state.fields.bool_value("stateDoColorise_BOOL").value_or(false);
+                const bool expected_draw_to_terrain = state.fields.bool_value("stateDrawToTerrain_BOOL").value_or(false);
+                if (!(compiled_state.sprite_face == expected_sprite_face) ||
+                    compiled_state.sprite_frame_min != expected_frame_min ||
+                    compiled_state.sprite_frame_max != expected_frame_max ||
+                    compiled_state.use_parent_direction != expected_parent_direction ||
+                    compiled_state.required_visibility_percent != expected_visibility ||
+                    compiled_state.visibility_delta_percent != expected_visibility_delta ||
+                    compiled_state.required_scale_percent != expected_scale ||
+                    compiled_state.scale_delta_percent != expected_scale_delta ||
+                    compiled_state.tint_percent != expected_tint ||
+                    compiled_state.tint_delta_percent != expected_tint_delta ||
+                    !(compiled_state.tint_color == expected_tint_color) ||
+                    compiled_state.do_colorise != expected_colorise ||
+                    compiled_state.draw_to_terrain != expected_draw_to_terrain ||
+                    compiled_state.collides != expected_collides ||
                     compiled_state.pass_hits_to_owner != expected_pass ||
                     compiled_state.invulnerable_on_collision != expected_invulnerable ||
                     compiled_state.collides_with_players != expected_players ||
@@ -218,7 +272,7 @@ int main(int argc, char** argv) {
                     compiled_state.can_be_destroyed_on_owner_destruction != expected_destroy_with_owner ||
                     compiled_state.can_be_deleted_on_owner_deletion != expected_delete_with_owner ||
                     compiled_state.destroy_owner_on_destruction != expected_destroy_owner) {
-                    std::cerr << entry.path << ": compiled collision/destruction state fields disagree with parsed source\n";
+                    std::cerr << entry.path << ": compiled visual/collision/destruction state fields disagree with parsed source\n";
                     return 20;
                 }
                 state_collides += expected_collides;
@@ -232,6 +286,11 @@ int main(int argc, char** argv) {
                 state_destroy_with_owner += expected_destroy_with_owner;
                 state_delete_with_owner += expected_delete_with_owner;
                 state_destroy_owner += expected_destroy_owner;
+                state_draw_to_terrain_visual += expected_draw_to_terrain;
+                state_do_colorise += expected_colorise;
+                state_nondefault_visibility += expected_visibility != 100;
+                state_nondefault_scale += expected_scale != 100;
+                state_nonzero_tint += expected_tint != 0;
 
                 const bool lock_owner = state.fields.bool_value("stateLockToOwnerLoc_BOOL").value_or(false);
                 const bool link_owner = state.fields.bool_value("stateLinkToOwnerLoc_BOOL").value_or(false);
@@ -630,6 +689,28 @@ int main(int argc, char** argv) {
               << player_runtime_resources->money_10.str() << ','
               << player_runtime_resources->money_5.str() << ','
               << player_runtime_resources->money_1.str() << '\n'
+              << "  visual/render fields:\n"
+              << "    scale-tolerance units: " << unit_scale_tolerance << '\n'
+              << "    adjust-shadow-for-scaling units: " << unit_adjust_shadow_scaling << '\n'
+              << "    draw-to-terrain states: " << state_draw_to_terrain_visual << '\n'
+              << "    colorise states: " << state_do_colorise << '\n'
+              << "    non-100 visibility states: " << state_nondefault_visibility << '\n'
+              << "    non-100 scale states: " << state_nondefault_scale << '\n'
+              << "    nonzero tint states: " << state_nonzero_tint << '\n'
+              << "    draw layers: defa=" << layer_defa
+              << " grou=" << layer_grou
+              << " grhi=" << layer_grhi
+              << " ailo=" << layer_ailo
+              << " aihi=" << layer_aihi
+              << " plwe=" << layer_plwe
+              << " play=" << layer_play
+              << " plsh=" << layer_plsh
+              << " plef=" << layer_plef
+              << " plui=" << layer_plui
+              << " atmo=" << layer_atmo
+              << " hud=" << layer_hud
+              << " none=" << layer_none
+              << " other=" << layer_other << '\n'
               << "  terrain/media fields:\n"
               << "    casts-shadows units: " << unit_casts_shadows << '\n'
               << "    ground-obstacle-collision units: " << unit_ground_obstacle_collision << '\n'

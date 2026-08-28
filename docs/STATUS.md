@@ -1,6 +1,6 @@
 # Status
 
-## 2026-08-28 — terrain/media-runtime milestone
+## 2026-08-28 — visual/render-request runtime milestone
 
 ### Evidence corpus
 
@@ -76,7 +76,7 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **25/25**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **27/27**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Spawn runtime findings now binary-confirmed
 
@@ -140,7 +140,20 @@ Synthetic repository tests pass **25/25**. Original assets/binaries are used onl
 - Member constructor `0x35DAC..0x35DF0` caches the existence of any such state in live `+0xCD`.
 - On zero shields, `0x14F10` awards score and either calls ordinary destruction (`+0xCD == 0`) or `0x17E70`, which enters the first marked state (`+0xCD != 0`).
 - Stock canonical `Game.pak` has 0 marked shield-depletion states; the executable path is retained through synthetic compatibility regression.
-- Full suite: 26/26 PASS; canonical constructor/first-tick seeds remain unchanged.
+- Core-edge checkpoint remains covered inside the current **27/27 PASS** suite; canonical constructor/first-tick seeds remain unchanged.
+
+
+### Visual/render-request findings now binary-confirmed
+
+- Entities and players share the 0x94-byte sprite base initialized by `0x12650`; face/frame, scaled dimensions/half extents, geometry dirty, tint/visibility/scale triplets, draw layer, terrain-draw, colorise, collision glow, and the cached sprite/frame handle are now offset-mapped.
+- UnitDef visual defaults are compiled directly from `initialScalePercent_INT +0x1AC`, `initialScalePercentTolerance_INT +0x1B0`, `initialVisibilityPercent_INT +0x1B4`, `drawLayer_ID +0x2E0`, `castsShadows_BOOL +0x11E`, and `adjustShadowLocForScaling_BOOL +0x12C`.
+- State visual fields are parser/runtime-correlated for sprite face/frame, parent direction, tint color, colorise, terrain draw, required scale/visibility/tint, and their deltas.
+- `0x12750` reproduces visibility/tint convergence and `0x12840` reproduces scale convergence, including the original asymmetric zero clamp and geometry-dirty behavior. Initial scale tolerance consumes the shared legacy RNG in its original signed inclusive range.
+- `0x12F20` is now bounded as the render wrapper: visibility gate -> optional shadow request -> main request. Live `+0x37/+0x38` are temporary pass selectors used by the world renderer, not persistent entity properties.
+- `0x12FA0` main requests preserve base/tint/collision-glow ordering; `stateDoColorise_BOOL` suppresses only the normal base request. `stateDrawToTerrain_BOOL` bypasses the ordinary layer switch and remains a distinct terrain submission path.
+- Main draw-layer mapping is recovered, including the corrected PPC FourCCs `plwe -> 9` and `play -> 10`; zero/`none` is normalized to `defa`. Shadow requests use a separate recovered layer domain: default/grou ground 2, grhi 4, default air/recognized air-player-HUD 6.
+- `0x12940` ties current scale to sprite dimensions and collision/render half extents; the clean core owns the exact dirty/rebuild contract while sprite-resource dimension lookup remains downstream.
+- Canonical visual corpus: 17 scale-tolerance units, 62 colorise states, 2 terrain-draw states, 111 nonzero-tint states, 584 non-100 visibility states, and 506 non-100 scale states. Raw draw-layer counts are `defa=156, grou=17, grhi=68, ailo=10, aihi=51, plwe=5, play=0, plsh=2, plef=0, plui=10, atmo=0, hud=17, none=50`.
 
 ### Collision/damage findings now binary-confirmed
 
@@ -194,13 +207,13 @@ Synthetic repository tests pass **25/25**. Original assets/binaries are used onl
 - `0xFEE0` samples the 16-bit Media Mask and recognizes value `31` on the water-impact path. Sample coordinates are `trunc(x)+32`, `trunc(y)+worldYOrigin`.
 - `Objects[gaob]` 6..9 are label-verified water-impact IDs `spti/spsm/spme/spla`; `tiny/smal/med /larg/smra/mera/lara` routing and RNG order are reproduced exactly.
 - Ground-obstacle store `0x2A6D0/0x2A770/0x2A830/0x2A950` is reconstructed as an append-only persistent Rect list with vertical scroll shifting, inclusive edge overlap, and reset. `destructDrawToTerrain_BOOL` appends to this same store.
-- `destructCreateObstacle_BOOL` is distinct: outer cleanup copies `castsShadows_BOOL` into live render state and calls `0x12F20`; the clean trace retains the obstacle rect/shadow fact while exact renderer/pixel mutation remains bounded.
+- `destructCreateObstacle_BOOL` is distinct: outer cleanup copies `castsShadows_BOOL` into live render state and calls `0x12F20`; the clean core now reconstructs the deterministic visual/render-request boundary reached there, while sprite-resource lookup, exact shadow transforms, backend submission, and terrain pixel mutation remain bounded.
 - Canonical terrain/media corpus: 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units; fixed water IDs are `spti/spsm/spme/spla`.
 
 ### Active reverse-engineering fronts
 
-1. Recover renderer/bitmap effects behind `0x12F20` and any terrain-image mutation beyond the persistent Rect store; live `+0x19` is now closed as the constructor-cached air-domain flag.
+1. Continue below the recovered `0x12F20` request boundary: decode sprite/frame resources and cached handles (`0x19AD0/0x19C10/0x19CA0`), recover exact shadow/world transforms (`0x13460`/`0x100A0`), identify alternate/backend submission (`0x18A40/0x19570`), and reconstruct the terrain-raster path behind live `+0x90`.
 2. Bind the recovered player life/respawn/game-over lifecycle spawn/audio/UI facts into full world orchestration and continue into the remaining active-player movement/weapon boundaries.
-3. Wire every remaining non-collision destruction entry site through the same clean teardown orchestration; live `+0xCD -> 0x17E70` is now closed as a shield-depletion state transition, not destruction.
+3. Wire every remaining non-collision destruction entry site through the same clean teardown orchestration.
 4. Recover the rare special single-member parent-container / intrusive-list semantics around `0x33220` and bind an actual decoded Media Mask provider to the terrain/media runtime.
 5. Expand Windows evidence and replay/action mapping after the remaining Mac gameplay-core boundaries are stable.

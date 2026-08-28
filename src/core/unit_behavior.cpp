@@ -22,6 +22,10 @@ FourCC field_id(const UnitStateDefinition& state, std::string_view key) {
     if (auto value = state.fields.id_value(key)) return *value;
     return {};
 }
+Rgb24 field_color(const UnitStateDefinition& state, std::string_view key) {
+    if (auto value = state.fields.color_value(key)) return *value;
+    return {};
+}
 bool core_bool(const UnitDefinition& unit, std::string_view key) {
     if (auto value = unit.core_fields.bool_value(key)) return *value;
     return false;
@@ -90,6 +94,11 @@ ResolvedStateAction resolve_state_action(const UnitDefinition& unit, std::string
 
 CompiledUnitBehavior compile_unit_behavior(const UnitDefinition& unit) {
     CompiledUnitBehavior out;
+    out.initial_scale_percent = core_int(unit, "initialScalePercent_INT");
+    out.initial_scale_tolerance_percent = core_int(unit, "initialScalePercentTolerance_INT");
+    out.initial_visibility_percent = core_int(unit, "initialVisibilityPercent_INT");
+    out.draw_layer = core_id(unit, "drawLayer_ID");
+    out.adjust_shadow_location_for_scaling = core_bool(unit, "adjustShadowLocForScaling_BOOL");
     out.collision_domain = core_bool(unit, "isGroundBased_BOOL")
         ? fourcc('g', 'r', 'n', 'd')
         : fourcc('a', 'i', 'r', ' ');
@@ -135,6 +144,19 @@ CompiledUnitBehavior compile_unit_behavior(const UnitDefinition& unit) {
     for (const auto& state : unit.states) {
         CompiledUnitStateBehavior compiled;
         compiled.range = field_float(state, "stateOnRange_FLOAT");
+        compiled.sprite_face = field_id(state, "stateSpriteFace_ID");
+        compiled.sprite_frame_min = field_int(state, "stateSpriteFrameMin_INT");
+        compiled.sprite_frame_max = field_int(state, "stateSpriteFrameMax_INT");
+        compiled.use_parent_direction = field_bool(state, "stateUseParentDirection_BOOL");
+        compiled.required_visibility_percent = field_int(state, "stateRequiredVisibilityPercent_INT");
+        compiled.visibility_delta_percent = field_int(state, "stateVisibilityDeltaPercent_INT");
+        compiled.required_scale_percent = field_int(state, "stateRequiredScalePercent_INT");
+        compiled.scale_delta_percent = field_int(state, "stateScaleDeltaPercent_INT");
+        compiled.tint_percent = field_int(state, "stateTintPercent_INT");
+        compiled.tint_delta_percent = field_int(state, "stateTintDeltaPercent_INT");
+        compiled.tint_color = field_color(state, "stateTintColor_COLOR");
+        compiled.do_colorise = field_bool(state, "stateDoColorise_BOOL");
+        compiled.draw_to_terrain = field_bool(state, "stateDrawToTerrain_BOOL");
         compiled.on_range = resolve_state_action(unit, field_string(state, "stateOnRangeChangeTo_STR"));
         compiled.can_be_destroyed_on_owner_destruction = field_bool(
             state, "canBeDestroyedOnOwnerDestruction_BOOL");

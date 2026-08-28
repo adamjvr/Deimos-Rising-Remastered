@@ -465,3 +465,36 @@ Direct constructor disassembly closes live `+0x19`: `0x35F88..0x35FA0` compares 
 State parser `0x41698..0x416A8` writes the Boolean key `stateUseThisStateOnShieldDepletion_BOOL` to compiled state `+0x356`. Constructor `0x35DAC..0x35DF0` scans those state bytes and caches whether any is set in live `+0xCD`. Damage routine `0x14F10` awards score after shields reach zero, then ordinary `+0xCD == 0` members enter `0x16300`; `+0xCD != 0` calls `0x17E70`, which scans states in file order and enters the first marked state through `0x146F0`, skipping ordinary destruction.
 
 Canonical stock `Game.pak` contains 0 marked states among 1,167 states, so this executable-supported path requires synthetic compatibility coverage. The new `core_edge_runtime_test` raises the suite to 26/26 PASS. Canonical construction/first-tick outputs remain 386 groups / 546 members -> 544 active, with RNG seeds `2249411936` and `2633739833`.
+
+
+## 2026-08-28 — Visual-state ramps and `0x12F20` render-request boundary
+
+Re-entered PPC `0x12650`, `0x12750`, `0x12840`, `0x12940`, `0x12F20`, `0x12FA0`,
+`0x13460`, state entry `0x146F0`, and the world draw loops around `0x34AC8/0x34B48`.
+Entities and players share the first 0x94 bytes as a sprite/visual base. Face/frame,
+scaled dimensions and half extents, geometry dirty, draw-to-terrain, draw layer, cached
+sprite/frame handle, colorise, tint/visibility/scale current-target-delta triplets, and
+collision-glow request fields are now offset-mapped. Live `+0x37/+0x38` are temporary
+main/shadow pass selectors toggled by the world renderer, not persistent entity properties.
+
+Parser/runtime correlation binds UnitDef initial scale/tolerance/visibility and draw-layer
+fields plus state face/frame, parent-direction, tint/colorise/terrain-draw, required
+scale/visibility/tint and deltas. `0x12750` and `0x12840` are reproduced exactly as scalar
+ramps; visibility/tint clamp the decreasing side at zero while scale does not. Actual scale
+movement dirties geometry, and `0x12940` later refreshes sprite dimensions/half extents.
+Initial scale tolerance consumes the shared PPC-compatible RNG in its original signed
+inclusive range.
+
+`0x12F20` is now bounded as visibility gate -> shadow request -> main request. `0x12FA0`
+submits the ordinary base only when `stateDoColorise_BOOL` is clear, then independent tint
+and collision-glow requests. `stateDrawToTerrain_BOOL` bypasses ordinary main-layer
+selection. Re-reading the PPC layer literals corrected earlier working notes: the FourCCs
+are `plwe` and `play`, mapping to main layers 9 and 10. Zero/`none` is normalized to
+`defa`. Shadow builder `0x13460` uses a separate domain: default/grou ground layer 2,
+`grhi` layer 4, and default air/recognized air-player-HUD layer 6.
+
+The clean `render_runtime` emits ordered headless requests rather than fabricating the
+legacy QuickDraw backend. Canonical `Game.pak` validates all newly compiled fields and
+reports 17 scale-tolerance units, 62 colorise states, 2 terrain-draw states, 111 nonzero
+tint states, 584 non-100 visibility states, and 506 non-100 scale states. The suite is
+27/27 PASS and the established constructor/first-tick RNG oracle remains unchanged.

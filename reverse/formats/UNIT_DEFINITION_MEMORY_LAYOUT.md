@@ -64,6 +64,41 @@ Canonical 1.0.6 uses the three flags mutually exclusively: 156 Lock states,
 10 Link states, and 8 Orbit states. See `ENTITY_WORLD_RUNTIME.md`.
 
 
+
+## Visual/render anchors
+
+Renderer wrapper `0x12F20`, state entry `0x146F0`, and the Unit/state loaders establish:
+
+| Serialized Unit Definition key | Compiled offset | Runtime use |
+| --- | ---: | --- |
+| `#castsShadows_BOOL` | `+0x11E` | shadow eligibility |
+| `#adjustShadowLocForScaling_BOOL` | `+0x12C` | shadow transform option |
+| `#initialScalePercent_INT` | `+0x1AC` | initial scale percentage |
+| `#initialScalePercentTolerance_INT` | `+0x1B0` | signed inclusive initial-scale RNG tolerance |
+| `#initialVisibilityPercent_INT` | `+0x1B4` | initial live visibility |
+| `#drawLayer_ID` | `+0x2E0` | main/shadow layer FourCC |
+
+State base remains `UnitDef +0x4E0 + stateIndex*0x5E0`:
+
+| Serialized state key | Compiled state offset |
+| --- | ---: |
+| `#stateSpriteFace_ID` | `+0x304` |
+| `#stateSpriteFrameMin_INT` | `+0x30C` |
+| `#stateSpriteFrameMax_INT` | `+0x310` |
+| `#stateUseParentDirection_BOOL` | `+0x324` |
+| `#stateTintColor_COLOR` | `+0x332` |
+| `#stateDoColorise_BOOL` | `+0x34D` |
+| `#stateDrawToTerrain_BOOL` | `+0x353` |
+| `#stateRequiredScalePercent_INT` | `+0x3BC` |
+| `#stateScaleDeltaPercent_INT` | `+0x3C0` |
+| `#stateRequiredVisibilityPercent_INT` | `+0x3C4` |
+| `#stateVisibilityDeltaPercent_INT` | `+0x3C8` |
+| `#stateTintPercent_INT` | `+0x3CC` |
+| `#stateTintDeltaPercent_INT` | `+0x3D0` |
+
+See `RENDER_VISUAL_RUNTIME.md` for the shared live sprite base, exact scalar ramps,
+layer mapping, and render-request order.
+
 ## Collision/damage anchors
 
 Collision scan `0x36CF0`, damage routine `0x14F10`, and the Unit Definition

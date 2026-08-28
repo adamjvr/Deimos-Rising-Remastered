@@ -1,0 +1,228 @@
+#include "deimos/render_runtime.hpp"
+
+#include <algorithm>
+#include <stdexcept>
+
+namespace deimos {
+namespace {
+constexpr FourCC fourcc(char a, char b, char c, char d) {
+    return FourCC{{a, b, c, d}};
+}
+
+bool absent_face(FourCC id) {
+    // Entity world draw loops explicitly reject only the 'none' sentinel. A
+    // zero/other face is not silently normalized by that outer PPC check.
+    return id == fourcc('n', 'o', 'n', 'e');
+}
+
+float move_percent_toward(float current, float target, float delta, bool clamp_zero) {
+    if (current > target) {
+        current -= delta;
+        if (clamp_zero && current < 0.0f) current = 0.0f;
+        if (current < target) current = target;
+    } else if (current < target) {
+        current += delta;
+        if (current > target) current = target;
+    }
+    return current;
+}
+
+LegacyRenderIntent base_intent(
+    const LegacySpriteVisualRuntime& runtime,
+    LegacyRenderPassKind kind) {
+    LegacyRenderIntent intent;
+    intent.kind = kind;
+    intent.sprite_face = runtime.sprite_face;
+    intent.sprite_frame = runtime.sprite_frame;
+    intent.numeric_layer = kind == LegacyRenderPassKind::shadow
+        ? legacy_shadow_layer_code(runtime.draw_layer, runtime.air_domain)
+        : legacy_draw_layer_code(runtime.draw_layer, runtime.air_domain);
+    if (runtime.draw_to_terrain) intent.numeric_layer = 0;
+    intent.scale = runtime.scale;
+    intent.visibility_percent = runtime.visibility_percent;
+    intent.draw_to_terrain = runtime.draw_to_terrain;
+    intent.world_space = runtime.world_space;
+    return intent;
+}
+} // namespace
+
+float legacy_percent_to_scale(int percent) {
+    return static_cast<float>(percent) / 100.0f;
+}
+
+LegacySpriteVisualRuntime initialise_legacy_sprite_visual(
+    const CompiledUnitBehavior& behavior,
+    std::size_t state_index,
+    LegacyRandom& random,
+    int selected_frame) {
+    if (state_index >= behavior.states.size()) {
+        throw std::out_of_range("visual state index outside compiled behavior");
+    }
+
+    const auto& state = behavior.states[state_index];
+    LegacySpriteVisualRuntime out;
+    out.sprite_face = state.sprite_face;
+    out.sprite_frame = selected_frame;
+    out.draw_layer = behavior.draw_layer;
+    out.air_domain = behavior.collision_domain == fourcc('a', 'i', 'r', ' ');
+    out.world_space = behavior.draw_layer != fourcc('h', 'u', 'd', ' ');
+    out.casts_shadows = behavior.casts_shadows;
+    out.adjust_shadow_location_for_scaling = behavior.adjust_shadow_location_for_scaling;
+    out.draw_to_terrain = state.draw_to_terrain;
+    out.do_colorise = state.do_colorise;
+
+    out.visibility_percent = static_cast<float>(behavior.initial_visibility_percent);
+    out.required_visibility_percent = static_cast<float>(state.required_visibility_percent);
+    out.visibility_delta_percent = static_cast<float>(state.visibility_delta_percent);
+
+    // The initial state-entry path seeds current tint from the state's tint,
+    // rather than from a separate Unit Definition default.
+    out.tint_percent = static_cast<float>(state.tint_percent);
+    out.required_tint_percent = static_cast<float>(state.tint_percent);
+    out.tint_delta_percent = static_cast<float>(state.tint_delta_percent);
+    out.tint_color = state.tint_color;
+
+    int initial_scale = behavior.initial_scale_percent;
+    if (behavior.initial_scale_tolerance_percent != 0) {
+        // PPC signed division by two truncates toward zero.
+        const int half = behavior.initial_scale_tolerance_percent / 2;
+        initial_scale += choose_inclusive_integer(-half, half, random);
+        if (initial_scale < 0) initial_scale = 0;
+    }
+    out.scale = legacy_percent_to_scale(initial_scale);
+    out.required_scale = legacy_percent_to_scale(state.required_scale_percent);
+    out.scale_delta = legacy_percent_to_scale(state.scale_delta_percent);
+    out.bounds_dirty = true;
+    return out;
+}
+
+void apply_legacy_state_visual_targets(
+    LegacySpriteVisualRuntime& runtime,
+    const CompiledUnitStateBehavior& state,
+    int selected_frame) {
+    const bool geometry_source_changed =
+        runtime.sprite_face != state.sprite_face || runtime.sprite_frame != selected_frame;
+    runtime.sprite_face = state.sprite_face;
+    runtime.sprite_frame = selected_frame;
+    runtime.draw_to_terrain = state.draw_to_terrain;
+    runtime.do_colorise = state.do_colorise;
+    runtime.required_visibility_percent = static_cast<float>(state.required_visibility_percent);
+    runtime.visibility_delta_percent = static_cast<float>(state.visibility_delta_percent);
+    runtime.required_tint_percent = static_cast<float>(state.tint_percent);
+    runtime.tint_delta_percent = static_cast<float>(state.tint_delta_percent);
+    runtime.tint_color = state.tint_color;
+    runtime.required_scale = legacy_percent_to_scale(state.required_scale_percent);
+    runtime.scale_delta = legacy_percent_to_scale(state.scale_delta_percent);
+    if (geometry_source_changed) runtime.bounds_dirty = true;
+}
+
+LegacyVisualTickResult tick_legacy_visual_scalars(LegacySpriteVisualRuntime& runtime) {
+    LegacyVisualTickResult result;
+
+    const float old_visibility = runtime.visibility_percent;
+    runtime.visibility_percent = move_percent_toward(
+        runtime.visibility_percent,
+        runtime.required_visibility_percent,
+        runtime.visibility_delta_percent,
+        true);
+    result.visibility_changed = runtime.visibility_percent != old_visibility;
+
+    const float old_tint = runtime.tint_percent;
+    runtime.tint_percent = move_percent_toward(
+        runtime.tint_percent,
+        runtime.required_tint_percent,
+        runtime.tint_delta_percent,
+        true);
+    result.tint_changed = runtime.tint_percent != old_tint;
+
+    const float old_scale = runtime.scale;
+    runtime.scale = move_percent_toward(
+        runtime.scale,
+        runtime.required_scale,
+        runtime.scale_delta,
+        false);
+    result.scale_changed = runtime.scale != old_scale;
+    if (result.scale_changed) runtime.bounds_dirty = true;
+
+    return result;
+}
+
+int legacy_draw_layer_code(FourCC draw_layer, bool air_domain) {
+    // 0x130C4..0x130E4 mutates zero/none to 'defa' before the switch.
+    if (draw_layer == FourCC{} || draw_layer == fourcc('n', 'o', 'n', 'e')) {
+        draw_layer = fourcc('d', 'e', 'f', 'a');
+    }
+    if (draw_layer == fourcc('d', 'e', 'f', 'a')) return air_domain ? 7 : 3;
+    if (draw_layer == fourcc('g', 'r', 'o', 'u')) return 3;
+    if (draw_layer == fourcc('g', 'r', 'h', 'i')) return 5;
+    if (draw_layer == fourcc('a', 'i', 'l', 'o')) return 7;
+    if (draw_layer == fourcc('a', 'i', 'h', 'i')) return 8;
+    if (draw_layer == fourcc('p', 'l', 'w', 'e')) return 9;
+    if (draw_layer == fourcc('p', 'l', 'a', 'y')) return 10;
+    if (draw_layer == fourcc('p', 'l', 's', 'h')) return 11;
+    if (draw_layer == fourcc('p', 'l', 'e', 'f')) return 12;
+    if (draw_layer == fourcc('p', 'l', 'u', 'i')) return 13;
+    if (draw_layer == fourcc('a', 't', 'm', 'o')) return 14;
+    if (draw_layer == fourcc('h', 'u', 'd', ' ')) return 15;
+    return 0;
+}
+
+int legacy_shadow_layer_code(FourCC draw_layer, bool air_domain) {
+    // 0x135B0..0x13D7C uses the companion shadow layer domain: default
+    // ground/air are 2/6, explicit ground-high is 4, and the remaining
+    // recognized non-ground layers use the air-shadow layer 6.
+    if (draw_layer == FourCC{} || draw_layer == fourcc('n', 'o', 'n', 'e')) {
+        draw_layer = fourcc('d', 'e', 'f', 'a');
+    }
+    if (draw_layer == fourcc('d', 'e', 'f', 'a')) return air_domain ? 6 : 2;
+    if (draw_layer == fourcc('g', 'r', 'o', 'u')) return 2;
+    if (draw_layer == fourcc('g', 'r', 'h', 'i')) return 4;
+    if (draw_layer == fourcc('a', 'i', 'l', 'o') ||
+        draw_layer == fourcc('a', 'i', 'h', 'i') ||
+        draw_layer == fourcc('p', 'l', 'w', 'e') ||
+        draw_layer == fourcc('p', 'l', 'a', 'y') ||
+        draw_layer == fourcc('p', 'l', 's', 'h') ||
+        draw_layer == fourcc('p', 'l', 'e', 'f') ||
+        draw_layer == fourcc('p', 'l', 'u', 'i') ||
+        draw_layer == fourcc('a', 't', 'm', 'o') ||
+        draw_layer == fourcc('h', 'u', 'd', ' ')) return 6;
+    return 0;
+}
+
+std::vector<LegacyRenderIntent> build_legacy_render_intents(
+    const LegacySpriteVisualRuntime& runtime,
+    LegacyRenderPassSelection selection) {
+    std::vector<LegacyRenderIntent> out;
+    if (runtime.visibility_percent <= 0.0f || absent_face(runtime.sprite_face)) return out;
+
+    // The world orchestration only selects the shadow pass for shadow-casting
+    // entities; 0x12F20 then applies the user/global shadow gate before calling
+    // 0x13460. Preserve that two-level eligibility without modeling pixels.
+    if (selection.shadow && selection.global_shadows_enabled && runtime.casts_shadows) {
+        auto intent = base_intent(runtime, LegacyRenderPassKind::shadow);
+        out.push_back(intent);
+    }
+
+    if (!selection.main) return out;
+
+    // 0x12FA0 suppresses the ordinary base submission when stateDoColorise is
+    // set, then independently emits tint and collision-glow effect passes.
+    if (!runtime.do_colorise) {
+        out.push_back(base_intent(runtime, LegacyRenderPassKind::base_sprite));
+    }
+    if (runtime.tint_percent > 0.0f) {
+        auto intent = base_intent(runtime, LegacyRenderPassKind::tint);
+        intent.effect_amount = runtime.tint_percent;
+        intent.effect_color = runtime.tint_color;
+        out.push_back(intent);
+    }
+    if (runtime.collision_glow_active) {
+        auto intent = base_intent(runtime, LegacyRenderPassKind::collision_glow);
+        intent.effect_amount = runtime.collision_glow_amount;
+        intent.effect_color = runtime.collision_glow_color;
+        out.push_back(intent);
+    }
+    return out;
+}
+
+} // namespace deimos
