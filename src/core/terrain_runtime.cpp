@@ -61,6 +61,10 @@ RectI legacy_entity_world_rect(const EntityRuntime& entity) {
 bool legacy_collides_with_ground_obstacle(
     const EntityRuntime& entity,
     const LegacyGroundObstacleRects& obstacles) {
+    // Main tick 0x344F8 first tests live +0x19. Constructor 0x35F88..0x35FA0
+    // derives that byte as (UnitDef +0x08 == 'air '), so only ground-domain
+    // members proceed to collidesWithGroundObstacles_BOOL at UnitDef +0x128.
+    if (!is_ground(entity)) return false;
     if (!entity.behavior.collides_with_ground_obstacles) return false;
     return obstacles.overlaps(legacy_entity_world_rect(entity));
 }

@@ -362,11 +362,32 @@ CollisionDamageResult apply_collision_damage(
 
     if (target.shields <= 0.0f) {
         result.score_award = target.behavior.score;
-        // PPC 0x1504C..0x15078 awards score, then enters ordinary 0x16300
-        // immediately unless the special +0xCD path is active. The clean
-        // runtime has not named/reconstructed +0xCD yet; for the ordinary path
-        // preserve immediate effect/RNG ordering whenever a removal context is
-        // supplied, with a lifecycle-only fallback for bounded callers.
+
+        // PPC 0x15060 tests live +0xCD after awarding score. The member
+        // constructor 0x35DAC..0x35DF0 derives that byte by scanning every
+        // state at compiled state +0x356, which the loader maps directly to
+        // stateUseThisStateOnShieldDepletion_BOOL. When set, 0x17E70 enters
+        // the first marked state in file order and skips ordinary 0x16300
+        // destruction entirely.
+        if (target.behavior.has_shield_depletion_state) {
+            for (std::size_t i = 0; i < target.behavior.states.size(); ++i) {
+                if (!target.behavior.states[i].use_on_shield_depletion) continue;
+                enter_entity_state(target, target_definition, i, current_tick, random);
+                result.shield_depletion_state_entered = true;
+                result.shield_depletion_state_index = i;
+                result.shields_after = target.shields;
+                return result;
+            }
+            // A behavior compiled through compile_unit_behavior cannot reach
+            // this inconsistency; preserve 0x17E70's no-op-on-no-match shape
+            // rather than silently converting it into destruction.
+            result.shields_after = target.shields;
+            return result;
+        }
+
+        // Ordinary shield depletion enters 0x16300 immediately. Preserve
+        // effect/RNG ordering whenever the removal context is available, with
+        // a lifecycle-only fallback for bounded callers.
         if (removal_context && removal_trace) {
             (void)apply_legacy_destruction_effects(
                 target, source_owner_index, *removal_context, random, *removal_trace);

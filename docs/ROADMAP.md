@@ -51,12 +51,14 @@ Completed/confirmed:
 - ground-sensitive removal helper `0x16880` recovered exactly, including Media Mask value-31 water routing, `mediaImpactSize_ID` replacement selection, and shared-RNG ordering;
 - persistent ground-obstacle Rect store `0x2A6D0/0x2A770/0x2A830/0x2A950` implemented with inclusive overlap and vertical-scroll semantics;
 - ground-obstacle hit consequence proven as zeroing live velocity `+0x10/+0x14` and setting stationary `+0x13C` (not position rollback), with clean stop/latch helper coverage;
+- live `+0x19` proven as constructor-cached `air ` collision-domain bit, closing the obstacle-query gate;
+- state `+0x356` / live `+0xCD` proven as `stateUseThisStateOnShieldDepletion_BOOL` cache; zero shields route to first marked state through `0x17E70` instead of ordinary destruction;
 - concrete player pickup dispatcher/stat mutations, `0x27100` shield/damage, immediate `0x27E50` death entry, lifecycle switch `0x2A150`, and respawn initializer `0x29CC0` implemented, including strict timers, gameplay-start-gated life consumption, solo/multi entry coordinates, entry invulnerability, and game-over disable;
 
 Remaining Phase 1 exit criteria:
 
 - recover the rare special single-member parent-container path and remaining original intrusive-list/pool semantics around `0x33220`;
-- integrate the recovered player lifecycle spawn/audio/UI side effects into full world orchestration, resolve the still-bounded live `+0x19` ground-obstacle tick gate plus renderer/terrain mutation beyond the recovered Rect store, and recover the special `0x17E70` destruction path;
+- integrate the recovered player lifecycle spawn/audio/UI side effects into full world orchestration and recover renderer/terrain mutation beyond the persistent Rect store; the former live `+0x19` and `+0xCD -> 0x17E70` edges are now resolved;
 - finish remaining Flee trigger/lifecycle edges and bind them to decoded fields;
 - expand Windows installer and establish Mac↔Windows code/data correspondences;
 - finish replay action-bit mapping including second-player semantics;
@@ -86,7 +88,7 @@ Already implemented from binary-confirmed behavior:
 
 Exit criteria:
 
-- bind recovered player lifecycle spawn/audio/UI facts into full world orchestration, integrate the ground-obstacle stop around its remaining live `+0x19` gate plus renderer/terrain mutation beyond the recovered Rect store, the special `0x17E70` destruction branch, and remaining destruction entry-site orchestration;
+- bind recovered player lifecycle spawn/audio/UI facts into full world orchestration, recover renderer/terrain mutation beyond the persistent Rect store, and finish remaining destruction entry-site orchestration;
 - integrate world/entity construction, then reconstruct movement, weapons, projectiles, collision, damage, scoring, power-ups, camera/scrolling, two-player behavior, menus/preferences, timing, and audio triggers;
 - feed v10005 recordings into the clean simulation as deterministic regression oracles;
 - retain original assets as the canonical content tier.

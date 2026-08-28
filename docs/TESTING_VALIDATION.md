@@ -69,7 +69,8 @@ The binary-confirmed collision layer has a dedicated synthetic regression execut
 - scan early exit after self becomes inactive;
 - level-scaled shield base/increment/max behavior, including the no-max-clamp branch when increment is non-positive.
 
-The repository suite is currently **25/25 PASS**. The optional canonical `Game.pak` probe additionally validates all compiled collision/destruction/terrain-media/player-runtime fields and reports 436 collision-enabled states, 135 air / 251 ground Unit Definitions, 8 pickup Unit Definitions (4 coin / 1 mult / 1 exli / 2 shie), 2 Player Definitions, player globals 100/10/1, death-money IDs `calg/cals/casg/cass`, 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units, and fixed water IDs `spti/spsm/spme/spla`, plus the other corpus counts recorded in `STATUS.md`. It also verifies that the existing shared constructor and first player-aware tick remain deterministic at RNG seeds `2249411936` and `2633739833` respectively.
+The repository suite is currently **26/26 PASS**. The optional canonical `Game.pak` probe additionally validates all compiled collision/destruction/terrain-media/player-runtime fields and reports 436 collision-enabled states, 135 air / 251 ground Unit Definitions, 8 pickup Unit Definitions (4 coin / 1 mult / 1 exli / 2 shie), 2 Player Definitions, player globals 100/10/1, death-money IDs `calg/cals/casg/cass`, 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units, and fixed water IDs `spti/spsm/spme/spla`, **0** stock
+`stateUseThisStateOnShieldDepletion_BOOL` states / affected units, plus the other corpus counts recorded in `STATUS.md`. It also verifies that the existing shared constructor and first player-aware tick remain deterministic at RNG seeds `2249411936` and `2633739833` respectively.
 
 ### Player-runtime regression rules
 
@@ -87,6 +88,8 @@ The binary-confirmed player runtime has a dedicated synthetic regression executa
 - hit-spawn and low-shield warning gates/latches;
 - immediate death status/invulnerability/money decomposition without an incorrect life decrement;
 - ground-obstacle stop preserving position while zeroing velocity and latching stationary;
+- live `+0x19` air-domain exclusion before ground-obstacle collision;
+- live `+0xCD` shield-depletion-state routing through first marked state `0x17E70`, with ordinary destruction suppressed;
 - PlayerDef lifecycle offset compilation for game-over/dying/final-dying/entry timing and solo/multi entry coordinates;
 - strict status-2 entry-delay equality boundary and respawn entry spawn;
 - respawn velocity from the executable's relocated `{0,0}` literal;

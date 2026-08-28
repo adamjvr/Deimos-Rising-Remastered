@@ -148,6 +148,10 @@ CompiledUnitBehavior compile_unit_behavior(const UnitDefinition& unit) {
             state, "stateInvulnerable_ShieldsDoNotDepleteOnCollision_BOOL");
         compiled.collides_with_players = field_bool(state, "stateCollidesWithPlayers_BOOL");
         compiled.do_not_glow_on_collision = field_bool(state, "stateDoNotGlowOnCollision_BOOL");
+        compiled.use_on_shield_depletion = field_bool(
+            state, "stateUseThisStateOnShieldDepletion_BOOL");
+        out.has_shield_depletion_state =
+            out.has_shield_depletion_state || compiled.use_on_shield_depletion;
         compiled.collision_spawn = field_id(state, "collision_Spawn_ID");
         compiled.collision_repeat_spawns = field_bool(state, "collision_RepeatSpawns_BOOL");
         compiled.collision_spawn_delay = field_int(state, "collision_SpawnDelay_INT");

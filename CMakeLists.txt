@@ -63,6 +63,7 @@ if(BUILD_TESTING)
         entity_runtime_test
         entity_world_test
         collision_runtime_test
+        core_edge_runtime_test
         destruction_runtime_test
         terrain_runtime_test
         player_motion_test

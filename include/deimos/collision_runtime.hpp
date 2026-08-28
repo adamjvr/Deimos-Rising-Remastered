@@ -70,6 +70,8 @@ struct CollisionDamageResult {
     bool invulnerability_restored_shields = false;
     bool on_hit_action_due = false;
     bool entity_destroyed = false;
+    bool shield_depletion_state_entered = false;
+    std::optional<std::size_t> shield_depletion_state_index;
     bool collision_glow_due = false;
     bool hit_particles_due = false;
     int score_award = 0;

@@ -215,7 +215,7 @@ Still separate:
 
 - original intrusive-list node layout and allocator pools;
 - player subsystem internals behind `0x6090`;
-- downstream player life decrement/respawn/game-over state after the now-concrete pickup/shield/death-entry layer;
-- integrate the proven zero-velocity/stationary ground-obstacle stop around its still-bounded live `+0x19` gate, renderer effects beyond the recovered `0x16880` media route/Rect store, plus special destruction branch `0x17E70`;
+- world orchestration of the now-recovered player lifecycle spawn/audio/UI consequences;
+- recover renderer effects beyond the recovered `0x16880` media route/Rect store; live `+0x19` is now proven as cached air-domain and `0x17E70` as a shield-depletion state transition;
 - target-selection/hunting world queries;
 - ground/terrain collision and remaining scoring/game-state integration.

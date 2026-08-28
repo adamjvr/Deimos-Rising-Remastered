@@ -104,11 +104,20 @@ anchors are:
 | `#stateIsTargetable_BOOL` | `+0x34E` |
 | `#stateCollidesWithPlayers_BOOL` | `+0x34F` |
 | `#stateDoNotGlowOnCollision_BOOL` | `+0x354` |
-| `#stateUseThisStateOnShieldDepletion_BOOL` | `+0x356` |
+| `#stateUseThisStateOnShieldDepletion_BOOL` | `+0x356` | constructor caches existence in live `+0xCD`; `0x17E70` enters first marked state |
 | `#stateOnHitChangeStateDelay_INT` | `+0x3B8` |
 | `#stateOnHitChangeTo_STR` | `+0x59C` |
 
 See `COLLISION_DAMAGE_RUNTIME.md` for scan/damage behavior and `TERRAIN_MEDIA_RUNTIME.md` for the recovered media/ground-obstacle paths.
+
+### Derived live-member caches
+
+Two previously unnamed live bytes are now source-to-runtime proven:
+
+- live `+0x19` = `(UnitDef+0x08 == 'air ')`, written at `0x35F88..0x35FA0`;
+- live `+0xCD` = whether any compiled state `+0x356` is nonzero, written by the constructor scan `0x35DAC..0x35DF0`.
+
+See `ENTITY_CORE_EDGE_RUNTIME.md` for the consumers and branch behavior.
 
 
 ## Destruction/removal anchors

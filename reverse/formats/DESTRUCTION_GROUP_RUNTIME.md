@@ -12,7 +12,7 @@ behind explicit boundaries rather than inventing modern semantics. Ground-sensit
 spawn routing `0x16880`, the persistent obstacle Rect store, the ground-obstacle
 zero-velocity/stationary consequence, and concrete player pickup/shield/death-entry
 mutation are now recovered. Remaining boundaries include renderer/terrain pixel
-mutation, the special live-member `+0xCD` destruction path, and the downstream player
+mutation, the downstream player
 life/respawn/game-over state machine.
 
 ## Binary anchors
@@ -96,7 +96,10 @@ resource ID.
 
 ### Immediate collision/pickup ordering
 
-Ordinary shield depletion in `0x14F10` calls `0x16300` at `0x15078` before
+Ordinary shield depletion in `0x14F10` calls `0x16300` at `0x15078` only
+when live `+0xCD` is clear. `+0xCD` is now proven as the constructor cache for
+`stateUseThisStateOnShieldDepletion_BOOL`; when set, `0x17E70` enters the first
+marked state instead of destroying the entity. The ordinary path calls `0x16300` before
 returning. Successful pickup collision calls `0x16300` at `0x34214`, then sets
 live `+0xCA` at `0x3421C..0x34220`.
 
@@ -280,11 +283,9 @@ Implemented and regression-covered:
 
 Still separate or unresolved:
 
-- integrate the proven zero-velocity/stationary ground-obstacle consequence into the member tick around the still-bounded live `+0x19` gate;
 - renderer/terrain bitmap mutation beyond the recovered persistent Rect store and obstacle trace;
-- special live `+0xCD` destruction path through `0x17E70`;
 - a few early/late `0x16300` bookkeeping calls whose global semantics are not
   yet named;
-- downstream player life decrement/respawn/game-over logic and full orchestration of the now-concrete pickup/shield/death-entry routines;
+- full world orchestration of the recovered player lifecycle spawn/audio/UI consequences;
 - integration of every non-collision destruction entry site into one full game
   tick orchestration.

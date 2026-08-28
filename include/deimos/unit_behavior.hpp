@@ -78,6 +78,7 @@ struct CompiledUnitStateBehavior {
     bool invulnerable_on_collision = false;          // state +0x348
     bool collides_with_players = false;              // state +0x34F
     bool do_not_glow_on_collision = false;           // state +0x354
+    bool use_on_shield_depletion = false;              // state +0x356
     FourCC collision_spawn{};                        // state +0x2E0
     bool collision_repeat_spawns = false;            // state +0x2E4
     int collision_spawn_delay = 0;                   // state +0x2E8
@@ -137,6 +138,11 @@ struct CompiledUnitBehavior {
     CompiledDestructionSoundBehavior destruction_sound; // UnitDef +0x4BC..+0x4D0
     FourCC pickup_type{};                            // UnitDef +0x4D4
     int pickup_value = 0;                            // UnitDef +0x4DC
+
+    // PPC member constructor 0x35DAC..0x35DF0 scans state +0x356 and caches
+    // whether any state carries stateUseThisStateOnShieldDepletion_BOOL in
+    // live +0xCD. Keep the same derived fact with the compiled behavior.
+    bool has_shield_depletion_state = false;
 
     std::vector<CompiledUnitStateBehavior> states;
     std::size_t unresolved_active_actions = 0;

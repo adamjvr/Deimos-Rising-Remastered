@@ -133,6 +133,15 @@ Synthetic repository tests pass **25/25**. Original assets/binaries are used onl
 - The Mine constructor now uses the recovered two-slot player query instead of a synthetic fixed target.
 - Shared-RNG first player-aware tick regression: 546 ticked -> 544 active; exactly two zero-delay timer removals (`grob` Destroy, `tptf` Delete); no removal from player/motion, rules, or range.
 
+### Core-edge live flags now binary-confirmed
+
+- Member constructor `0x35F88..0x35FA0` sets live `+0x19 = (UnitDef+0x08 == 'air ')`; the ground-obstacle path therefore excludes air-domain members before testing `collidesWithGroundObstacles_BOOL`.
+- State parser `0x41698..0x416A8` maps `stateUseThisStateOnShieldDepletion_BOOL` to compiled state `+0x356`.
+- Member constructor `0x35DAC..0x35DF0` caches the existence of any such state in live `+0xCD`.
+- On zero shields, `0x14F10` awards score and either calls ordinary destruction (`+0xCD == 0`) or `0x17E70`, which enters the first marked state (`+0xCD != 0`).
+- Stock canonical `Game.pak` has 0 marked shield-depletion states; the executable path is retained through synthetic compatibility regression.
+- Full suite: 26/26 PASS; canonical constructor/first-tick seeds remain unchanged.
+
 ### Collision/damage findings now binary-confirmed
 
 - Entity scan: `0x36CF0`; integer AABB helper: `0x12AD0`; shield/damage routine: `0x14F10`.
@@ -190,8 +199,8 @@ Synthetic repository tests pass **25/25**. Original assets/binaries are used onl
 
 ### Active reverse-engineering fronts
 
-1. Integrate the proven ground-obstacle stop into the complete member tick with its still-bounded live `+0x19` gate, then recover renderer/bitmap effects behind `0x12F20` and any terrain-image mutation beyond the persistent Rect store.
+1. Recover renderer/bitmap effects behind `0x12F20` and any terrain-image mutation beyond the persistent Rect store; live `+0x19` is now closed as the constructor-cached air-domain flag.
 2. Bind the recovered player life/respawn/game-over lifecycle spawn/audio/UI facts into full world orchestration and continue into the remaining active-player movement/weapon boundaries.
-3. Recover the special live `+0xCD` destruction path through `0x17E70`, and wire every non-collision destruction entry site through the same clean teardown orchestration.
+3. Wire every remaining non-collision destruction entry site through the same clean teardown orchestration; live `+0xCD -> 0x17E70` is now closed as a shield-depletion state transition, not destruction.
 4. Recover the rare special single-member parent-container / intrusive-list semantics around `0x33220` and bind an actual decoded Media Mask provider to the terrain/media runtime.
 5. Expand Windows evidence and replay/action mapping after the remaining Mac gameplay-core boundaries are stable.

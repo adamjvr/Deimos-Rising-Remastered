@@ -54,6 +54,20 @@ available. This preserves destruction-spawn/random-bonus ordering and RNG
 consumption. Later `0x36120` group teardown is idempotent with respect to those
 already-processed effects.
 
+### Shield-depletion state override (`+0xCD -> 0x17E70`)
+
+The former "special destruction" branch is now fully identified. State parser
+`0x41698..0x416A8` maps `stateUseThisStateOnShieldDepletion_BOOL` directly to
+compiled state `+0x356`. Member constructor `0x35DAC..0x35DF0` caches whether
+any state carries that marker in live `+0xCD`.
+
+After score award, zero shields take one of two routes: `+0xCD == 0` performs
+ordinary `0x16300` destruction; `+0xCD != 0` calls `0x17E70`, which scans
+states in file order and enters the first marked state through `0x146F0`. The
+state-transition branch skips ordinary destruction. Canonical stock `Game.pak`
+contains zero marked states, so synthetic regression coverage preserves this
+executable-supported compatibility path.
+
 ## Shield initialization
 
 Constructor code `0x35E50..0x35EB0` implements:
@@ -134,7 +148,7 @@ returned life-spawn/feedback facts are handled by the world/UI/audio layer.
 
 ## Current validation
 
-The repository test suite is **25/25 PASS**. Canonical Game.pak validation still
+The repository test suite is **26/26 PASS**. Canonical Game.pak validation still
 produces:
 
 - 386 groups / 546 live members after construction;
@@ -151,11 +165,9 @@ produces:
 The ordinary destruction/group consequence graph has moved to
 `DESTRUCTION_GROUP_RUNTIME.md`. Remaining collision-adjacent boundaries are:
 
-- integration of the proven zero-velocity/stationary ground-obstacle consequence around the still-bounded live `+0x19` gate, plus renderer/terrain mutation beyond the recovered `0x16880` media route and persistent Rect store;
-- actual ground/terrain collision, obstacle insertion, and terrain mutation;
-- later player life decrement/respawn/entry-invulnerability/game-over state after immediate `0x27E50` death entry;
+- renderer/terrain mutation beyond the recovered `0x16880` media route and persistent Rect store; the former live `+0x19` gate is now proven as the cached air-domain bit;
+- renderer/terrain-image mutation beyond the recovered persistent ground-obstacle Rect store;
 - world/audio/UI orchestration of the now-concrete player pickup/damage result facts;
-- special live `+0xCD` destruction path through `0x17E70`;
 - orchestration of the remaining non-collision destruction entry sites.
 
 UnitDef `+0x4B2/+0x4B3/+0x4B4` are no longer opaque: they are proven as

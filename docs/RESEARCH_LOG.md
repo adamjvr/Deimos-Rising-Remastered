@@ -457,3 +457,11 @@ A dedicated lifecycle regression raises the repository suite to 25/25 PASS and
 covers strict equality boundaries, solo/multi entry selection, zero-velocity
 respawn, ordinary/final-life timings, gameplay-start-gated life consumption,
 game-over disable, and both invulnerability blockers.
+
+## 2026-08-28 — Entity core-edge flags: air-domain obstacle gate and shield-depletion state
+
+Direct constructor disassembly closes live `+0x19`: `0x35F88..0x35FA0` compares the derived UnitDef collision-domain FourCC at `+0x08` against `air ` and stores the Boolean result. Main tick `0x344F8` checks that cached byte before `collidesWithGroundObstacles_BOOL`, proving air-domain members never enter the persistent ground-obstacle Rect query. The clean terrain query now enforces the same domain gate.
+
+State parser `0x41698..0x416A8` writes the Boolean key `stateUseThisStateOnShieldDepletion_BOOL` to compiled state `+0x356`. Constructor `0x35DAC..0x35DF0` scans those state bytes and caches whether any is set in live `+0xCD`. Damage routine `0x14F10` awards score after shields reach zero, then ordinary `+0xCD == 0` members enter `0x16300`; `+0xCD != 0` calls `0x17E70`, which scans states in file order and enters the first marked state through `0x146F0`, skipping ordinary destruction.
+
+Canonical stock `Game.pak` contains 0 marked states among 1,167 states, so this executable-supported path requires synthetic compatibility coverage. The new `core_edge_runtime_test` raises the suite to 26/26 PASS. Canonical construction/first-tick outputs remain 386 groups / 546 members -> 544 active, with RNG seeds `2249411936` and `2633739833`.

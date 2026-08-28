@@ -149,16 +149,14 @@ as a subsystem orchestration boundary.
 
 ## Validation and remaining boundary
 
-Synthetic repository tests are **25/25 PASS**. Canonical Game.pak remains
+Synthetic repository tests are **26/26 PASS**. Canonical Game.pak remains
 stable at 386 groups / 546 constructed members, construction RNG seed
 `2249411936`, 544 active members after the first player-aware tick, and motion
 RNG seed `2633739833`.
 
 Remaining collision-adjacent work is deliberately bounded to:
 
-- downstream life decrement/respawn/game-over logic after immediate player death entry;
 - world/audio/UI orchestration of the concrete player pickup/damage result facts;
 - ground/terrain collision and actual obstacle/terrain mutation;
-- proven zero-velocity/stationary ground-obstacle integration around the still-bounded live `+0x19` gate and renderer/terrain mutation beyond the now-recovered `0x16880` media route;
-- special live `+0xCD` destruction branch through `0x17E70`;
+- renderer/terrain mutation beyond the recovered `0x16880` media route; the former live `+0x19` gate is now proven as the cached air-domain bit;
 - full orchestration of remaining non-collision destruction entry sites.

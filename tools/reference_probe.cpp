@@ -49,6 +49,7 @@ int main(int argc, char** argv) {
     std::size_t state_collides = 0, state_pass_hits_owner = 0;
     std::size_t state_collision_invulnerable = 0, state_collides_players = 0;
     std::size_t state_no_collision_glow = 0, state_collision_spawns = 0;
+    std::size_t state_shield_depletion = 0, unit_shield_depletion_state = 0;
     std::size_t unit_ground_collision_domain = 0, unit_air_collision_domain = 0;
     std::size_t unit_harmless = 0, unit_player_projectile = 0, unit_player_projectile_hittable = 0;
     std::size_t unit_nonzero_collision_damage = 0, unit_nonzero_shields = 0;
@@ -186,6 +187,7 @@ int main(int argc, char** argv) {
             unresolved_active_actions += behavior.unresolved_active_actions;
             unresolved_inert_actions += behavior.unresolved_inert_actions;
             bool unit_has_lock_owner = false;
+            bool unit_has_shield_depletion = false;
             bool unit_has_link_owner = false;
             bool unit_has_orbit_owner = false;
             for (std::size_t state_index = 0; state_index < unit->states.size(); ++state_index) {
@@ -198,6 +200,8 @@ int main(int argc, char** argv) {
                 const bool expected_players = state.fields.bool_value("stateCollidesWithPlayers_BOOL").value_or(false);
                 const bool expected_no_glow = state.fields.bool_value("stateDoNotGlowOnCollision_BOOL").value_or(false);
                 const auto expected_spawn = state.fields.id_value("collision_Spawn_ID").value_or(deimos::FourCC{});
+                const bool expected_shield_depletion = state.fields.bool_value(
+                    "stateUseThisStateOnShieldDepletion_BOOL").value_or(false);
                 const bool expected_destroy_with_owner = state.fields.bool_value(
                     "canBeDestroyedOnOwnerDestruction_BOOL").value_or(false);
                 const bool expected_delete_with_owner = state.fields.bool_value(
@@ -209,6 +213,7 @@ int main(int argc, char** argv) {
                     compiled_state.invulnerable_on_collision != expected_invulnerable ||
                     compiled_state.collides_with_players != expected_players ||
                     compiled_state.do_not_glow_on_collision != expected_no_glow ||
+                    compiled_state.use_on_shield_depletion != expected_shield_depletion ||
                     !(compiled_state.collision_spawn == expected_spawn) ||
                     compiled_state.can_be_destroyed_on_owner_destruction != expected_destroy_with_owner ||
                     compiled_state.can_be_deleted_on_owner_deletion != expected_delete_with_owner ||
@@ -222,6 +227,8 @@ int main(int argc, char** argv) {
                 state_collides_players += expected_players;
                 state_no_collision_glow += expected_no_glow;
                 state_collision_spawns += expected_spawn.str() != "none" && !(expected_spawn == deimos::FourCC{});
+                state_shield_depletion += expected_shield_depletion;
+                unit_has_shield_depletion = unit_has_shield_depletion || expected_shield_depletion;
                 state_destroy_with_owner += expected_destroy_with_owner;
                 state_delete_with_owner += expected_delete_with_owner;
                 state_destroy_owner += expected_destroy_owner;
@@ -258,6 +265,12 @@ int main(int argc, char** argv) {
                     }
                 }
             }
+            if (behavior.has_shield_depletion_state != unit_has_shield_depletion) {
+                std::cerr << entry.path
+                          << ": compiled live +0xCD shield-depletion cache disagrees with parsed states\n";
+                return 28;
+            }
+            unit_shield_depletion_state += unit_has_shield_depletion;
             units_with_lock_owner += unit_has_lock_owner;
             units_with_link_owner += unit_has_link_owner;
             units_with_orbit_owner += unit_has_orbit_owner;
@@ -577,6 +590,8 @@ int main(int argc, char** argv) {
               << "    Player-collision states: " << state_collides_players << '\n'
               << "    No-glow-on-collision states: " << state_no_collision_glow << '\n'
               << "    Collision-spawn states: " << state_collision_spawns << '\n'
+              << "    Shield-depletion states: " << state_shield_depletion << '\n'
+              << "    Units with shield-depletion state: " << unit_shield_depletion_state << '\n'
               << "  collision domains: air=" << unit_air_collision_domain
               << " ground=" << unit_ground_collision_domain << '\n'
               << "    harmless units: " << unit_harmless << '\n'

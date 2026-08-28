@@ -34,8 +34,9 @@ private:
 // values by semantic name.
 [[nodiscard]] RectI legacy_entity_world_rect(const EntityRuntime& entity);
 
-// UnitDef collidesWithGroundObstacles_BOOL (+0x128) gates the persistent
-// rectangle-list query in the main member update around PPC 0x34504.
+// Main-tick live +0x19 is a constructor-cached air-domain flag derived from
+// UnitDef +0x08 ('air ' vs 'grnd'). Only ground-domain members then test
+// collidesWithGroundObstacles_BOOL (+0x128) and query the persistent Rect list.
 [[nodiscard]] bool legacy_collides_with_ground_obstacle(
     const EntityRuntime& entity,
     const LegacyGroundObstacleRects& obstacles);
