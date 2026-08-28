@@ -109,6 +109,10 @@ struct CompiledUnitBehavior {
     bool player_projectile = false;                  // UnitDef +0x11B
     bool can_be_hit_by_player_projectile = false;    // UnitDef +0x11C
     bool hittable_when_invisible = false;            // UnitDef +0x121
+    bool casts_shadows = false;                       // UnitDef +0x11E
+    bool collides_with_ground_obstacles = false;      // UnitDef +0x128
+    bool death_spawn_on_any_media = false;            // UnitDef +0x12B
+    FourCC media_impact_size{};                       // UnitDef +0x2E4
     float collision_damage = 0.0f;                   // UnitDef +0x274
     float shields_base = 0.0f;                       // UnitDef +0x43C
     float shields_level_increment = 0.0f;            // UnitDef +0x440

@@ -1,6 +1,6 @@
 # Status
 
-## 2026-08-28 — destruction/group-runtime milestone
+## 2026-08-28 — terrain/media-runtime milestone
 
 ### Evidence corpus
 
@@ -76,7 +76,7 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **22/22**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **23/23**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Spawn runtime findings now binary-confirmed
 
@@ -164,10 +164,20 @@ Synthetic repository tests pass **22/22**. Original assets/binaries are used onl
 - Canonical destruction corpus: 99 destruction-spawn units, 99 particle units, 77 destruction sounds, 28 ordinary coin-reward units, 15 group-kill reward units, 54 destroy-children units, 58 delete-children units, 13 obstacle creators, 32 terrain-draw units, and 7 random-bonus units.
 - Empty clean-core `FourCC{}` and the serialized sentinels `none`/`NULL` are all treated as absent resource IDs, preventing synthetic fixtures from emitting phantom destruction resources.
 
+### Terrain/media findings now binary-confirmed
+
+- Ground-sensitive destruction/deletion helper `0x16880` is fully recovered as a media-routing function, not a generic predicate. Non-ground units and `doDeathSpawnOnAnyMedia_BOOL` bypass the media lookup; water suppresses the caller's original spawn and can emit a replacement water impact.
+- UnitDef `+0x11E/+0x125/+0x128/+0x12B/+0x2E4` map to `castsShadows_BOOL`, `isGroundBased_BOOL`, `collidesWithGroundObstacles_BOOL`, `doDeathSpawnOnAnyMedia_BOOL`, and `mediaImpactSize_ID`.
+- `0xFEE0` samples the 16-bit Media Mask and recognizes value `31` on the water-impact path. Sample coordinates are `trunc(x)+32`, `trunc(y)+worldYOrigin`.
+- `Objects[gaob]` 6..9 are label-verified water-impact IDs `spti/spsm/spme/spla`; `tiny/smal/med /larg/smra/mera/lara` routing and RNG order are reproduced exactly.
+- Ground-obstacle store `0x2A6D0/0x2A770/0x2A830/0x2A950` is reconstructed as an append-only persistent Rect list with vertical scroll shifting, inclusive edge overlap, and reset. `destructDrawToTerrain_BOOL` appends to this same store.
+- `destructCreateObstacle_BOOL` is distinct: outer cleanup copies `castsShadows_BOOL` into live render state and calls `0x12F20`; the clean trace retains the obstacle rect/shadow fact while exact renderer/pixel mutation remains bounded.
+- Canonical terrain/media corpus: 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units; fixed water IDs are `spti/spsm/spme/spla`.
+
 ### Active reverse-engineering fronts
 
-1. Recover ground-sensitive helper `0x16880`, then replace the bounded spawn/terrain callbacks with exact terrain-sensitive destruction/deletion-spawn eligibility and actual obstacle/terrain mutation.
+1. Integrate the proven ground-obstacle overlap into the complete member tick, including the original position rollback/latch, then recover renderer/bitmap effects behind `0x12F20` and any terrain-image mutation beyond the persistent Rect store.
 2. Reconstruct concrete player-side pickup/inventory semantics in `0x37580` and player shield/life damage in `0x27100`, then bind those mutations behind the already-recovered player-impact scanner.
 3. Recover the special live `+0xCD` destruction path through `0x17E70`, and wire every non-collision destruction entry site through the same clean teardown orchestration.
-4. Recover ground/terrain collision and the rare special single-member parent-container / intrusive-list semantics around `0x33220`.
+4. Recover the rare special single-member parent-container / intrusive-list semantics around `0x33220` and bind an actual decoded Media Mask provider to the terrain/media runtime.
 5. Expand Windows evidence and replay/action mapping after the remaining Mac gameplay-core boundaries are stable.

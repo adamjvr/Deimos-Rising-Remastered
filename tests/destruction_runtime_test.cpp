@@ -336,5 +336,52 @@ int main() {
         assert(obstacle);
     }
 
+    // 0x16880 integration: water suppresses the requested destruction spawn
+    // and emits the size-selected water impact instead. destructDrawToTerrain
+    // simultaneously appends the exact fctiwz entity rectangle to 0x2A6D0's
+    // persistent ground-obstacle list before the spawn decision.
+    {
+        auto e = entity(80, 880, 8080, id("wet1"));
+        e.x = 10.75f;
+        e.y = -4.75f;
+        e.collision_half_width = 3;
+        e.collision_half_height = 5;
+        e.behavior.destruction_spawn = id("boom");
+        e.behavior.destruction_draw_to_terrain = true;
+        e.behavior.media_impact_size = id("smal");
+
+        deimos::LegacyGroundObstacleRects obstacles;
+        deimos::LegacyRemovalContext context;
+        context.random_bonus_config = config;
+        context.world_y_origin = 500;
+        context.water_impact_config = {id("spti"), id("spsm"), id("spme"), id("spla")};
+        context.water_probe = [](int x, int y) { return x == 42 && y == 496; };
+        context.ground_obstacles = &obstacles;
+
+        deimos::LegacyRandom random(1);
+        deimos::LegacyRemovalTrace trace;
+        assert(deimos::apply_legacy_destruction_effects(e, 0, context, random, trace));
+        assert(obstacles.size() == 1);
+        assert((obstacles.rects()[0] == deimos::RectI{7, -9, 13, 0}));
+
+        bool terrain = false;
+        bool water_spawn = false;
+        bool original_spawn = false;
+        for (const auto& event : trace.consequences) {
+            if (event.kind == deimos::LegacyRemovalConsequenceKind::terrain_draw) {
+                terrain = true;
+                assert((event.rectangle == deimos::RectI{7, -9, 13, 0}));
+            }
+            if (event.kind == deimos::LegacyRemovalConsequenceKind::water_impact_spawn &&
+                event.resource_id == id("spsm")) water_spawn = true;
+            if (event.kind == deimos::LegacyRemovalConsequenceKind::destruction_spawn) {
+                original_spawn = true;
+            }
+        }
+        assert(terrain);
+        assert(water_spawn);
+        assert(!original_spawn);
+    }
+
     return 0;
 }

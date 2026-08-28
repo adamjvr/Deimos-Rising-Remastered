@@ -131,7 +131,7 @@ Concrete inventory/weapon/stat changes remain behind a callback until
 
 ## Current validation
 
-The repository test suite is **22/22 PASS**. Canonical Game.pak validation still
+The repository test suite is **23/23 PASS**. Canonical Game.pak validation still
 produces:
 
 - 386 groups / 546 live members after construction;
@@ -148,7 +148,7 @@ produces:
 The ordinary destruction/group consequence graph has moved to
 `DESTRUCTION_GROUP_RUNTIME.md`. Remaining collision-adjacent boundaries are:
 
-- ground-sensitive helper `0x16880`, including exact terrain-dependent spawn eligibility;
+- ground-obstacle rollback/latch integration and renderer/terrain mutation beyond the recovered `0x16880` media route and persistent Rect store;
 - actual ground/terrain collision, obstacle insertion, and terrain mutation;
 - concrete `0x37580` player pickup/inventory mutation;
 - concrete `0x27100` player shield/life damage semantics;

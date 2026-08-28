@@ -216,6 +216,6 @@ Still separate:
 - original intrusive-list node layout and allocator pools;
 - player subsystem internals behind `0x6090`;
 - concrete player inventory/life mutation behind the already-recovered collision/interaction layer;
-- ground-sensitive spawn gate `0x16880`, actual terrain/obstacle mutation, and special destruction branch `0x17E70`;
+- ground-obstacle rollback/render integration beyond the recovered `0x16880` media route and Rect store, plus special destruction branch `0x17E70`;
 - target-selection/hunting world queries;
 - ground/terrain collision and remaining scoring/game-state integration.

@@ -77,11 +77,14 @@ otherwise. It is therefore a collision domain, not the draw-layer ID at
 | `#harmlessToPlayers_BOOL` | `+0x11A` | candidate classes must be opposite |
 | `#playerProjectile_BOOL` | `+0x11B` | projectile candidate/offscreen policy |
 | `#canBeHitByPlayerProjectile_BOOL` | `+0x11C` | projectile compatibility |
+| `#castsShadows_BOOL` | `+0x11E` | copied into live render state during obstacle conversion |
 | `#hittableWhenInvisible_BOOL` | `+0x121` | live collision-participation/visibility byte |
 | `#isGroundBased_BOOL` | `+0x125` | derives `UnitDef+0x08` = `grnd` / `air ` |
-| `#collidesWithGroundObstacles_BOOL` | `+0x128` | separate ground-obstacle path |
+| `#collidesWithGroundObstacles_BOOL` | `+0x128` | persistent ground-obstacle Rect query |
+| `#doDeathSpawnOnAnyMedia_BOOL` | `+0x12B` | bypasses `0x16880` Media Mask routing |
 | `#damage_FLOAT` | `+0x274` | damage dealt in entity collision |
 | `#hitParticles_ID` | `+0x2D8` | hit particle effect |
+| `#mediaImpactSize_ID` | `+0x2E4` | `0x16880` water-impact replacement selector |
 | `#shields_BaseAmount_FLOAT` | `+0x43C` | base shields |
 | `#shields_LevelIncrement_FLOAT` | `+0x440` | level-dependent shield constructor term |
 | `#shields_MaxAmount_FLOAT` | `+0x444` | shield constructor clamp |
@@ -105,8 +108,7 @@ anchors are:
 | `#stateOnHitChangeStateDelay_INT` | `+0x3B8` |
 | `#stateOnHitChangeTo_STR` | `+0x59C` |
 
-See `COLLISION_DAMAGE_RUNTIME.md` for scan ordering, damage timing, and explicit
-unreconstructed boundaries.
+See `COLLISION_DAMAGE_RUNTIME.md` for scan/damage behavior and `TERRAIN_MEDIA_RUNTIME.md` for the recovered media/ground-obstacle paths.
 
 
 ## Destruction/removal anchors

@@ -21,6 +21,7 @@ add_library(deimos_core STATIC
     src/core/entity_world.cpp
     src/core/collision_runtime.cpp
     src/core/destruction_runtime.cpp
+    src/core/terrain_runtime.cpp
     src/core/game_definitions.cpp
 )
 target_include_directories(deimos_core PUBLIC include)
@@ -60,6 +61,7 @@ if(BUILD_TESTING)
         entity_world_test
         collision_runtime_test
         destruction_runtime_test
+        terrain_runtime_test
         player_motion_test
         game_definitions_test)
         add_executable(${test_name} tests/${test_name}.cpp)

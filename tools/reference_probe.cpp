@@ -9,6 +9,7 @@
 #include "deimos/level.hpp"
 #include "deimos/pak_archive.hpp"
 #include "deimos/player_definition.hpp"
+#include "deimos/terrain_runtime.hpp"
 #include "deimos/unit_definition.hpp"
 #include "deimos/unit_behavior.hpp"
 #include "deimos/weapon_definition.hpp"
@@ -50,6 +51,8 @@ int main(int argc, char** argv) {
     std::size_t unit_harmless = 0, unit_player_projectile = 0, unit_player_projectile_hittable = 0;
     std::size_t unit_nonzero_collision_damage = 0, unit_nonzero_shields = 0;
     std::size_t unit_pickups = 0;
+    std::size_t unit_casts_shadows = 0, unit_ground_obstacle_collision = 0;
+    std::size_t unit_death_spawn_any_media = 0, unit_media_impact_size = 0;
     std::size_t unit_destruction_spawns = 0, unit_deletion_spawns = 0;
     std::size_t unit_destruction_particles = 0, unit_destruction_notices = 0;
     std::size_t unit_destruction_sounds = 0, unit_destruction_coin_rewards = 0;
@@ -107,6 +110,10 @@ int main(int argc, char** argv) {
                 behavior.can_be_hit_by_player_projectile != unit->core_fields.bool_value("canBeHitByPlayerProjectile_BOOL").value_or(false) ||
                 behavior.collision_damage != unit->core_fields.float_value("damage_FLOAT").value_or(0.0f) ||
                 behavior.shields_base != unit->core_fields.float_value("shields_BaseAmount_FLOAT").value_or(0.0f) ||
+                behavior.casts_shadows != unit->core_fields.bool_value("castsShadows_BOOL").value_or(false) ||
+                behavior.collides_with_ground_obstacles != unit->core_fields.bool_value("collidesWithGroundObstacles_BOOL").value_or(false) ||
+                behavior.death_spawn_on_any_media != unit->core_fields.bool_value("doDeathSpawnOnAnyMedia_BOOL").value_or(false) ||
+                !(behavior.media_impact_size == unit->core_fields.id_value("mediaImpactSize_ID").value_or(deimos::FourCC{})) ||
                 behavior.score != unit->core_fields.int_value("score_INT").value_or(0) ||
                 !(behavior.deletion_spawn == unit->core_fields.id_value("deletionSpawn_ID").value_or(deimos::FourCC{})) ||
                 !(behavior.destruction_spawn == unit->core_fields.id_value("destructSpawn_ID").value_or(deimos::FourCC{})) ||
@@ -143,6 +150,10 @@ int main(int argc, char** argv) {
             const auto present = [](deimos::FourCC value) {
                 return !(value == deimos::FourCC{}) && value.str() != "none" && value.str() != "NULL";
             };
+            unit_casts_shadows += behavior.casts_shadows;
+            unit_ground_obstacle_collision += behavior.collides_with_ground_obstacles;
+            unit_death_spawn_any_media += behavior.death_spawn_on_any_media;
+            unit_media_impact_size += present(behavior.media_impact_size);
             unit_destruction_spawns += present(behavior.destruction_spawn);
             unit_deletion_spawns += present(behavior.deletion_spawn);
             unit_destruction_particles += present(behavior.destruction_particles);
@@ -283,6 +294,12 @@ int main(int argc, char** argv) {
     if (!random_bonus_config) {
         std::cerr << "canonical random-bonus config: " << error << '\n';
         return 23;
+    }
+    const auto water_impact_config = deimos::compile_legacy_water_impact_config(
+        *canonical_game_objects, &error);
+    if (!water_impact_config) {
+        std::cerr << "canonical water-impact config: " << error << '\n';
+        return 24;
     }
 
     auto definitions = deimos::GameDefinitions::load_from_game_pak(*pak, &error);
@@ -512,6 +529,16 @@ int main(int argc, char** argv) {
               << "    nonzero collision damage: " << unit_nonzero_collision_damage << '\n'
               << "    nonzero base shields: " << unit_nonzero_shields << '\n'
               << "    pickup units: " << unit_pickups << '\n'
+              << "  terrain/media fields:\n"
+              << "    casts-shadows units: " << unit_casts_shadows << '\n'
+              << "    ground-obstacle-collision units: " << unit_ground_obstacle_collision << '\n'
+              << "    death-spawn-any-media units: " << unit_death_spawn_any_media << '\n'
+              << "    non-none media-impact-size units: " << unit_media_impact_size << '\n'
+              << "    water impact IDs: "
+              << water_impact_config->tiny.str() << ','
+              << water_impact_config->small.str() << ','
+              << water_impact_config->medium.str() << ','
+              << water_impact_config->large.str() << '\n'
               << "  destruction/removal fields:\n"
               << "    destruction spawns: " << unit_destruction_spawns << '\n'
               << "    deletion spawns: " << unit_deletion_spawns << '\n'

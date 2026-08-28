@@ -56,8 +56,33 @@ void add_spawn(
     trace.consequences.push_back(std::move(event));
 }
 
-bool spawn_gate_allows(const EntityRuntime& source, const LegacyRemovalContext& context) {
-    return !context.spawn_gate || context.spawn_gate(source);
+bool emit_legacy_removal_spawn(
+    LegacyRemovalTrace& trace,
+    LegacyRemovalConsequenceKind requested_kind,
+    const EntityRuntime& source,
+    FourCC requested_id,
+    LegacyRemovalContext& context,
+    LegacyRandom& random) {
+    if (empty_or_none(requested_id)) return false;
+
+    const auto media = resolve_legacy_removal_media(
+        source,
+        context.world_y_origin,
+        context.water_impact_config,
+        context.water_probe,
+        random);
+
+    if (media.replacement_spawn) {
+        add_spawn(
+            trace,
+            LegacyRemovalConsequenceKind::water_impact_spawn,
+            source,
+            *media.replacement_spawn);
+    }
+    if (!media.allow_requested_spawn) return false;
+
+    add_spawn(trace, requested_kind, source, requested_id);
+    return true;
 }
 
 
@@ -199,10 +224,14 @@ bool apply_legacy_destruction_effects(
     // 0x16338..0x16368: only non-air entities draw their destruction into the
     // terrain, and only when UnitDef +0x4B3 is enabled.
     if (is_ground(entity) && entity.behavior.destruction_draw_to_terrain) {
+        const auto rect = legacy_entity_world_rect(entity);
+        if (context.ground_obstacles) context.ground_obstacles->add(rect);
+
         LegacyRemovalConsequence event;
         event.kind = LegacyRemovalConsequenceKind::terrain_draw;
         event.source = entity.handle;
         event.ground_based = true;
+        event.rectangle = rect;
         trace.consequences.push_back(std::move(event));
     }
 
@@ -216,11 +245,14 @@ bool apply_legacy_destruction_effects(
         trace.consequences.push_back(std::move(event));
     }
 
-    if (!empty_or_none(entity.behavior.destruction_spawn) &&
-        spawn_gate_allows(entity, context)) {
-        add_spawn(
-            trace, LegacyRemovalConsequenceKind::destruction_spawn,
-            entity, entity.behavior.destruction_spawn);
+    if (!empty_or_none(entity.behavior.destruction_spawn)) {
+        (void)emit_legacy_removal_spawn(
+            trace,
+            LegacyRemovalConsequenceKind::destruction_spawn,
+            entity,
+            entity.behavior.destruction_spawn,
+            context,
+            random);
     }
 
     if (!entity.behavior.destruction_notice.empty()) {
@@ -384,6 +416,8 @@ LegacyRemovalTrace finalize_legacy_pending_removals(
             LegacyRemovalConsequence event;
             event.kind = LegacyRemovalConsequenceKind::obstacle_create;
             event.source = member.handle;
+            event.rectangle = legacy_entity_world_rect(member);
+            event.casts_shadows = member.behavior.casts_shadows;
             trace.consequences.push_back(std::move(event));
         }
 
@@ -404,11 +438,14 @@ LegacyRemovalTrace finalize_legacy_pending_removals(
                         context, random, trace);
                 }
             }
-        } else if (!empty_or_none(member.behavior.deletion_spawn) &&
-                   spawn_gate_allows(member, context)) {
-            add_spawn(
-                trace, LegacyRemovalConsequenceKind::deletion_spawn,
-                member, member.behavior.deletion_spawn);
+        } else if (!empty_or_none(member.behavior.deletion_spawn)) {
+            (void)emit_legacy_removal_spawn(
+                trace,
+                LegacyRemovalConsequenceKind::deletion_spawn,
+                member,
+                member.behavior.deletion_spawn,
+                context,
+                random);
         }
 
         auto& group = require_group(world, member);

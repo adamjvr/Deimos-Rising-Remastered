@@ -19,7 +19,7 @@ player inventory/life code are still separate boundaries.
 | --- | --- |
 | `0x14F10` | collision shield/damage path; ordinary lethal damage calls `0x16300` immediately |
 | `0x16300` | ordinary destruction effects and random-bonus selection |
-| `0x16880` | terrain-sensitive destruction/deletion-spawn gate; internals bounded |
+| `0x16880` | terrain-sensitive destruction/deletion-spawn routing; water replacement semantics recovered |
 | `0x36120` | child cascade, group kill accounting, reward coins, destruction/removal |
 | `0x363C0` | destroy children willing to die with owner |
 | `0x364F0` | delete children willing to disappear with owner |
@@ -79,8 +79,7 @@ side-effects execute only once. For the regular path, recovered ordering is:
    integer rect and request destruction draw-to-terrain;
 3. if `destructParticle_ID != none`, emit destruction particles at the live
    x/y with `destructParticleColor_COLOR` and the ground/air fact;
-4. if `destructSpawn_ID != none` and `0x16880` permits it, construct the
-   destruction spawn with the source entity's x/y, player owner, and self
+4. if `destructSpawn_ID != none`, run recovered `0x16880` media routing; construct the requested spawn when allowed, otherwise optionally emit its water-impact replacement with the source entity's x/y, player owner, and self
    pointer+serial as parent;
 5. if `destructNotice_STR` is non-empty, post the notice at the current tick;
 6. if `destructSound_ID != none`, pass the complete sound descriptor to the
@@ -210,7 +209,7 @@ The outer pass supplies consequences that are not inside `0x36120` itself:
    `destroyOwnerOnDestruction_BOOL`, validate its parent safe reference and run
    ordinary destruction on that owner using the child's destruction source;
 3. for a deleted (not destroyed) member with `deletionSpawn_ID != none`, apply
-   gate `0x16880` and construct the deletion spawn;
+   recovered `0x16880` media routing and construct either the allowed deletion spawn or its water-impact replacement;
 4. enter `0x36120` with destruction/player-attribution flags derived from the
    live member.
 
@@ -220,19 +219,20 @@ parent is finalized later in the same pass. If the parent lies earlier, it is
 picked up on a subsequent cleanup pass. This preserves the original list-order
 property instead of recursively modernizing it.
 
-## `0x16880` bounded boundary
+## `0x16880` recovered media-routing boundary
 
-The destruction/deletion spawn gate is not guessed. Current disassembly proves:
+The destruction/deletion helper is now reconstructed directly from the Mac 1.0.6 PPC path:
 
-- non-ground units return allowed;
-- one Unit Definition byte at `+0x12B` also forces the ordinary allowed path;
-- otherwise the helper enters terrain/geometry-sensitive logic involving a
-  still-unmapped Unit Definition field at `+0x2E4` and can affect the spawned
-  ID itself.
+- non-ground units return allowed without a media lookup;
+- `doDeathSpawnOnAnyMedia_BOOL` at UnitDef `+0x12B` also returns allowed;
+- other ground units sample `(trunc(x)+32, trunc(y)+worldYOrigin)` through `0xFEE0`;
+- `0xFEE0` returns true only for Media Mask cell value `31`, identified by the surrounding fixed Water-impact resource contract;
+- non-water returns allowed;
+- water suppresses the caller's requested destruction/deletion spawn and may emit a replacement chosen by `mediaImpactSize_ID` at UnitDef `+0x2E4`.
 
-The clean runtime therefore exposes `LegacyRemovalSpawnGate`. Absence of a
-callback follows the ordinary allowed path; exact ground-sensitive behavior is
-reserved for the terrain reconstruction.
+Fixed `Objects[gaob]` slots 6..9 are label-verified `spti/spsm/spme/spla` Water Tiny/Small/Medium/Large resources. The `tiny`, `smal`, `med `, `larg`, `smra`, `mera`, and `lara` selectors, including the original random branch order and RNG consumption, are implemented and regression-covered. See `TERRAIN_MEDIA_RUNTIME.md`.
+
+The old generic `LegacyRemovalSpawnGate` placeholder has been removed; destruction and deletion spawns now pass through the concrete media decision core.
 
 ## Canonical corpus coverage
 
@@ -272,12 +272,14 @@ Implemented and regression-covered:
 - pickup reward suppression;
 - `SERM` behavior;
 - obstacle/deletion-spawn/owner-destruction outer cleanup facts;
+- exact `0x16880` water-media routing and replacement-spawn behavior;
+- persistent ground-obstacle Rect append/shift/inclusive-overlap/reset semantics;
 - single-pass list-order cleanup semantics.
 
 Still separate or unresolved:
 
-- exact terrain-sensitive `0x16880` internals;
-- actual terrain bitmap mutation / obstacle object materialization;
+- complete ground-obstacle hit rollback/latch integration into the member tick;
+- renderer/terrain bitmap mutation beyond the recovered persistent Rect store and obstacle trace;
 - special live `+0xCD` destruction path through `0x17E70`;
 - a few early/late `0x16300` bookkeeping calls whose global semantics are not
   yet named;

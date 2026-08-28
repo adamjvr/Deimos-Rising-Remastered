@@ -97,6 +97,10 @@ CompiledUnitBehavior compile_unit_behavior(const UnitDefinition& unit) {
     out.player_projectile = core_bool(unit, "playerProjectile_BOOL");
     out.can_be_hit_by_player_projectile = core_bool(unit, "canBeHitByPlayerProjectile_BOOL");
     out.hittable_when_invisible = core_bool(unit, "hittableWhenInvisible_BOOL");
+    out.casts_shadows = core_bool(unit, "castsShadows_BOOL");
+    out.collides_with_ground_obstacles = core_bool(unit, "collidesWithGroundObstacles_BOOL");
+    out.death_spawn_on_any_media = core_bool(unit, "doDeathSpawnOnAnyMedia_BOOL");
+    out.media_impact_size = core_id(unit, "mediaImpactSize_ID");
     out.collision_damage = core_float(unit, "damage_FLOAT");
     out.shields_base = core_float(unit, "shields_BaseAmount_FLOAT");
     out.shields_level_increment = core_float(unit, "shields_LevelIncrement_FLOAT");

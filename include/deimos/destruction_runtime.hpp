@@ -2,6 +2,7 @@
 
 #include "deimos/data_tables.hpp"
 #include "deimos/entity_world.hpp"
+#include "deimos/terrain_runtime.hpp"
 
 #include <array>
 #include <cstdint>
@@ -61,6 +62,7 @@ enum class LegacyRemovalConsequenceKind {
     terrain_draw,
     destruction_particles,
     destruction_spawn,
+    water_impact_spawn,
     destruction_notice,
     destruction_sound,
     ordinary_coin_spawn,
@@ -83,6 +85,8 @@ struct LegacyRemovalConsequence {
     std::uint32_t tick = 0;
     CompiledDestructionSoundBehavior sound{};
     std::optional<SpawnRequestSeed> spawn_request;
+    std::optional<RectI> rectangle;
+    bool casts_shadows = false;
 };
 
 struct LegacyMemberRemovalRecord {
@@ -99,17 +103,22 @@ struct LegacyRemovalTrace {
     std::vector<LegacyMemberRemovalRecord> removals;
 };
 
-// PPC 0x16880 is a ground/terrain-sensitive gate used before destruction and
-// deletion spawn construction. The material-dependent internals are kept as an
-// explicit boundary in this pass; air units and callers that do not install a
-// callback take the ordinary allowed path.
-using LegacyRemovalSpawnGate = std::function<bool(const EntityRuntime&)>;
-
 struct LegacyRemovalContext {
     std::uint32_t current_tick = 0;
     LegacyRandomBonusContext random_bonus{};
     LegacyRandomBonusConfig random_bonus_config{};
-    LegacyRemovalSpawnGate spawn_gate;
+
+    // PPC 0x16880 terrain/media path. The canonical Objects[gaob] binding is
+    // fixed at slots 6..9; a loaded level supplies the Media Mask probe and the
+    // current vertical background origin returned by 0xFEC0.
+    int world_y_origin = 0;
+    LegacyWaterImpactConfig water_impact_config{};
+    LegacyWaterMaskProbe water_probe;
+
+    // PPC 0x2A6D0 persistent rectangle list used by destructDrawToTerrain and
+    // queried by collidesWithGroundObstacles. Null keeps isolated tests/headless
+    // callers from manufacturing terrain state they do not own.
+    LegacyGroundObstacleRects* ground_obstacles = nullptr;
 };
 
 // PPC 0x16300. Emits deterministic headless consequence facts in original

@@ -362,11 +362,17 @@ Canonical Game.pak cross-checks currently report 99 destruction-spawn units,
 99 destruction-particle units, 77 destruction sounds, 28 ordinary coin-reward
 units, 15 group-kill reward units, 54 destroy-children units, 58 delete-children
 units, 13 obstacle creators, 32 terrain-draw units, and 7 random-bonus units.
-The repository suite is 22/22 PASS. Shared construction remains 386 groups / 546
-members with RNG seed 2249411936, and the first player-aware tick remains 544
-active with motion seed 2633739833.
+At that destruction/group checkpoint the repository suite was 22/22 PASS. Shared construction remained 386 groups / 546 members with RNG seed 2249411936, and the first player-aware tick remained 544 active with motion seed 2633739833. The next edge at that point was `0x16880`; it is resolved by the subsequent terrain/media entry below.
 
-The deliberately bounded next edge is helper `0x16880` (ground-sensitive spawn
-eligibility), actual terrain/obstacle mutation, special live `+0xCD` destruction
-through `0x17E70`, concrete player pickup/damage mutation, and orchestration of
-remaining non-collision destruction entry sites.
+
+## 2026-08-28 — Terrain/media removal routing and ground-obstacle store
+
+Re-entered PPC `0x16880`, `0xFEE0`, `0x2A6D0`, `0x2A770`, `0x2A830`, `0x2A950`, and the destruction outer-cleanup obstacle path. Parser correlation proved UnitDef `+0x11E/+0x125/+0x128/+0x12B/+0x2E4` as `castsShadows_BOOL`, `isGroundBased_BOOL`, `collidesWithGroundObstacles_BOOL`, `doDeathSpawnOnAnyMedia_BOOL`, and `mediaImpactSize_ID`.
+
+`0x16880` is not a passive gate. For ordinary ground entities it samples the Media Mask at `(trunc(x)+32, trunc(y)+worldYOrigin)`. `0xFEE0` recognizes mask value 31; on that water path the caller's requested destruction/deletion spawn is suppressed, and `mediaImpactSize_ID` may cause `0x16880` to emit a water-impact replacement. `Objects[gaob]` slots 6..9 are label-verified Water Tiny/Small/Medium/Large resources (`spti/spsm/spme/spla`). Random `smra/mera/lara` selectors preserve their exact original branch ordering and shared RNG draw.
+
+The background module's 16-byte Rect list is now reconstructed as a persistent ground-obstacle store: append without merge (`0x2A6D0`), vertical top/bottom shift (`0x2A770`), inclusive edge overlap (`0x2A830`), and reset (`0x2A950`). `destructDrawToTerrain_BOOL` appends destroyed ground-unit rectangles to this same store, while the main member tick queries it only for `collidesWithGroundObstacles_BOOL` units. This corrects the earlier loose "invalidation" wording; the list demonstrably affects later collision.
+
+`destructCreateObstacle_BOOL` remains a separate conversion. Outer cleanup sets live render/obstacle bytes, copies `castsShadows_BOOL`, and calls `0x12F20`. The clean trace now preserves the rect and shadow flag, but exact renderer-record/pixel mutation remains deliberately outside the claimed subset.
+
+The clean suite increased to 23/23 PASS. Canonical `Game.pak` reports 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death-spawn units, and 3 non-`none` media-impact units; construction and first-tick deterministic seeds remain `2249411936` and `2633739833`.
