@@ -1,6 +1,7 @@
 #include "deimos/state_runtime.hpp"
 
 #include <stdexcept>
+#include <cstdint>
 
 namespace deimos {
 
@@ -11,11 +12,21 @@ std::uint32_t LegacyRandom::next15() {
 
 int choose_inclusive_integer(int minimum, int maximum, std::uint32_t random_value) {
     if (minimum == maximum) return minimum;
-    if (maximum < minimum) {
-        throw std::invalid_argument("inclusive random range has maximum < minimum");
+
+    // PPC 0x46580 does not normalize or validate endpoints.  It computes a
+    // signed divisor (maximum - minimum + 1), performs divw, reconstructs the
+    // signed remainder, then adds minimum.  Canonical 1.0.6 data contains one
+    // reversed spawn-rate range (110..20), so preserving this behavior is
+    // required for fidelity.
+    const auto width = static_cast<std::int32_t>(
+        static_cast<std::uint32_t>(maximum) - static_cast<std::uint32_t>(minimum) + 1u);
+    if (width == 0) {
+        throw std::invalid_argument("inclusive random range produces zero PPC divisor");
     }
-    const auto width = static_cast<std::uint32_t>(maximum - minimum) + 1u;
-    return minimum + static_cast<int>(random_value % width);
+    const auto value = static_cast<std::int32_t>(random_value);
+    const auto quotient = value / width; // C++ truncates toward zero like PPC divw.
+    const auto remainder = value - quotient * width;
+    return minimum + remainder;
 }
 
 int choose_inclusive_integer(int minimum, int maximum, LegacyRandom& random) {

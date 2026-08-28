@@ -1,0 +1,61 @@
+{
+  "evidence": "DR-EVID-002",
+  "build": "1.0.6",
+  "spawn_sets": 532,
+  "flags": {
+    "adjust_offset_for_unit_rotation": 73,
+    "absolute_coordinates": 144,
+    "repeat_spawns": 218,
+    "dont_spawn_offscreen": 52,
+    "pause_rotation_while_spawning": 0,
+    "spawn_if_fleeing": 2,
+    "stationary_option": 0,
+    "terrain_effects_option": 16,
+    "set_heading": 78
+  },
+  "nonzero_pause_rotation_durations": 0,
+  "reversed_numeric_ranges": [
+    {
+      "source": "Level 8 - Mid 2[08m2].unde",
+      "spawn_set": "Screws Mk 2 - Top",
+      "field": "rate",
+      "minimum": 110,
+      "maximum": 20,
+      "ppc_signed_width": -89
+    }
+  ],
+  "notes": [
+    "Counts are from all 532 parsed spawn sets in the canonical 1.0.6 Game.pak.",
+    "A reversed rate is preserved because PPC 0x46580 does not normalize endpoints.",
+    "UnitDef +0x132 is binary-confirmed terrainEffect_BOOL; +0x12E is adjustInitialLocForOwnerScale_BOOL; +0x12A is canBeSpawnedOnlyWhenPlayersActive_BOOL.",
+    "The clean core now implements scheduling, target terrain-effect eligibility, geometry, and the proven portable subset of the 44-byte spawn request."
+  ],
+  "unit_definition_spawn_flags": {
+    "terrainEffect_BOOL_true_units": 1,
+    "adjustInitialLocForOwnerScale_BOOL_true_units": 0,
+    "canBeSpawnedOnlyWhenPlayersActive_BOOL_true_units": 46,
+    "compiled_offsets": {
+      "canBeSpawnedOnlyWhenPlayersActive_BOOL": "0x12A",
+      "adjustInitialLocForOwnerScale_BOOL": "0x12E",
+      "terrainEffect_BOOL": "0x132"
+    }
+  },
+  "ppc": {
+    "scheduler": "0x15B40",
+    "state_entry_initializer": "0x17CB0",
+    "target_terrain_gate": "0x15D8C..0x15DAC",
+    "spawn_request_geometry": "0x15E18..0x16188",
+    "entity_spawn_entry": "0x33220",
+    "trig_initializer": "0x42920",
+    "cos_lookup": "0x42EE0",
+    "sin_lookup": "0x42F00",
+    "inclusive_rng": "0x46580",
+    "lcg_rng": "0x553E0"
+  },
+  "trig": {
+    "entries": 360,
+    "radians_per_degree_bits": "0x3C8EFA35",
+    "radians_per_degree_float": 0.01745329238474369,
+    "clean_math_note": "host sin/cos currently used after preserving original input constant and float rounding boundaries; final ULP parity with classic Mac MathLib remains to be measured"
+  }
+}

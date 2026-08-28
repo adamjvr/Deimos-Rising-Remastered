@@ -26,13 +26,11 @@ int main() {
     assert(deimos::choose_inclusive_integer(10, 12, 1) == 11);
     assert(deimos::choose_inclusive_integer(10, 12, 2) == 12);
     assert(deimos::choose_inclusive_integer(10, 12, 3) == 10);
-    bool reversed_threw = false;
-    try {
-        (void)deimos::choose_inclusive_integer(5, 4, 0);
-    } catch (const std::invalid_argument&) {
-        reversed_threw = true;
-    }
-    assert(reversed_threw);
+    // Canonical content contains a reversed 110..20 range. PPC divw uses
+    // a signed width of -89, leaving a non-negative remainder for RNG15.
+    assert(deimos::choose_inclusive_integer(110, 20, 0) == 110);
+    assert(deimos::choose_inclusive_integer(110, 20, 88) == 198);
+    assert(deimos::choose_inclusive_integer(110, 20, 89) == 110);
 
     deimos::CompiledUnitBehavior behavior;
     behavior.states.resize(2);

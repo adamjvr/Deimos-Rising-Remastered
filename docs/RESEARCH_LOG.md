@@ -127,3 +127,30 @@ results exit the normal update path at each stage.
 
 A dependency-free clean `state_runtime` kernel and complete 17-condition rule
 predicate layer now encode these confirmed semantics.
+
+
+## 2026-08-28 — spawn scheduler, geometry, and target gate recovered
+
+### Scheduler and RNG ordering
+
+PPC `0x15B40` is the live per-entity spawn-set scheduler and `0x17CB0` initializes spawn runtime on state entry. Each spawn set owns a 24-byte runtime record containing selected rate, anchor tick, remaining/initial volley counts, per-entity delay, and an active byte. State entry consumes RNG in rate -> volley -> delay order, while repeat re-arm consumes delay -> volley -> rate. The differing call order is preserved because it changes the global RNG stream and therefore replay behavior.
+
+The original inclusive mapper at `0x46580` uses signed PPC remainder without normalizing reversed endpoints. Canonical unit `Level 8 - Mid 2[08m2]` contains the malformed range 110..20; the executable consequently produces 110..198. The clean runtime was corrected to preserve this behavior.
+
+### Direct Unit Definition memory mapping
+
+The Unit Definition parser at `0x3FDA0` exposes literal key strings and destination addresses. Three spawn-relevant booleans are now directly proven:
+
+- compiled `+0x12A` <- `#canBeSpawnedOnlyWhenPlayersActive_BOOL`;
+- compiled `+0x12E` <- `#adjustInitialLocForOwnerScale_BOOL`;
+- compiled `+0x132` <- `#terrainEffect_BOOL`.
+
+This corrected an earlier tentative interpretation of `+0x132`. The spawn gate at `0x15D8C` reads `+0x132`, so it is definitively terrain-effect eligibility: terrain-effect targets are rejected when the parent is stationary or when the parent entity's inherited terrain-effects option is disabled.
+
+### Geometry and original trigonometric tables
+
+The geometry tail at `0x15E18..0x16158` reconstructs relative/absolute coordinate behavior, optional owner scaling, heading adjustment, rotation, and PPC `fctiwz` truncation. Startup routine `0x42920` builds 360-entry single-precision sine/cosine tables from embedded float bits `0x3C8EFA35`; lookup helpers are `0x42EE0`/`0x42F00`. The clean core preserves the exact input constant, float rounding boundaries, fused operation ordering, and heading-360 lookup behavior. Host `sin/cos` is currently used for final table generation pending measurement against classic Mac MathLib.
+
+### Clean request boundary
+
+A scheduler `spawn_due` event can now be converted into a portable spawn request seed after resolving the target Unit Definition. The seed contains target FourCC, position, optional heading, and inherited child stationary/terrain flags. Parent pointers/owner IDs and remaining `0x33220` entity-construction behavior are deliberately deferred rather than guessed.

@@ -30,6 +30,10 @@ int main(int argc, char** argv) {
     std::size_t id_lists = 0, float_lists = 0, color_lists = 0;
     std::size_t text_formats = 0, string_lists = 0, rect_lists = 0;
     std::size_t units = 0, unit_states = 0, unit_spawn_sets = 0, unit_rules = 0;
+    std::size_t spawn_repeat = 0, spawn_absolute = 0, spawn_rotated_offset = 0;
+    std::size_t spawn_offscreen_guard = 0, spawn_while_fleeing = 0, spawn_set_heading = 0;
+    std::size_t spawn_pause_rotation = 0, spawn_terrain_effects = 0, spawn_reversed_ranges = 0;
+    std::size_t unit_terrain_effects = 0, unit_adjust_owner_scale = 0, unit_player_active_only = 0;
     std::size_t weapons = 0, weapon_spawns = 0, players = 0;
     std::size_t unresolved_active_actions = 0, unresolved_inert_actions = 0, unknown_rule_conditions = 0;
 
@@ -60,6 +64,9 @@ int main(int argc, char** argv) {
             auto unit = deimos::decode_and_parse_unit_definition(*bytes, &error);
             if (!unit) { std::cerr << entry.path << ": " << error << '\n'; return 9; }
             ++units;
+            unit_terrain_effects += unit->core_fields.bool_value("terrainEffect_BOOL").value_or(false);
+            unit_adjust_owner_scale += unit->core_fields.bool_value("adjustInitialLocForOwnerScale_BOOL").value_or(false);
+            unit_player_active_only += unit->core_fields.bool_value("canBeSpawnedOnlyWhenPlayersActive_BOOL").value_or(false);
             unit_states += unit->states.size();
             const auto behavior = deimos::compile_unit_behavior(*unit);
             unresolved_active_actions += behavior.unresolved_active_actions;
@@ -67,6 +74,21 @@ int main(int argc, char** argv) {
             for (const auto& state : unit->states) {
                 unit_spawn_sets += state.spawn_sets.size();
                 unit_rules += state.rules.size();
+                for (const auto& spawn : state.spawn_sets) {
+                    spawn_repeat += spawn.repeat_spawns;
+                    spawn_absolute += spawn.absolute_coordinates;
+                    spawn_rotated_offset += spawn.adjust_offset_for_unit_rotation;
+                    spawn_offscreen_guard += spawn.dont_spawn_offscreen;
+                    spawn_while_fleeing += spawn.spawn_if_fleeing;
+                    spawn_set_heading += spawn.set_heading;
+                    spawn_pause_rotation += spawn.pause_rotation_while_spawning;
+                    spawn_terrain_effects += spawn.terrain_effects_option;
+                    if (spawn.rate_max < spawn.rate_min ||
+                        spawn.num_in_volley_max < spawn.num_in_volley_min ||
+                        spawn.delay_between_entities_max < spawn.delay_between_entities_min) {
+                        ++spawn_reversed_ranges;
+                    }
+                }
             }
             for (const auto& state : behavior.states) {
                 for (const auto& rule : state.rules) {
@@ -126,7 +148,19 @@ int main(int argc, char** argv) {
               << "  rect lists: " << rect_lists << '\n'
               << "  units: " << units << '\n'
               << "  unit states: " << unit_states << '\n'
+              << "  unit terrain effects: " << unit_terrain_effects << '\n'
+              << "  unit owner-scale spawn-offset flag: " << unit_adjust_owner_scale << '\n'
+              << "  unit player-active-only spawn flag: " << unit_player_active_only << '\n'
               << "  unit spawn sets: " << unit_spawn_sets << '\n'
+              << "    repeating: " << spawn_repeat << '\n'
+              << "    absolute coordinates: " << spawn_absolute << '\n'
+              << "    rotation-adjusted offsets: " << spawn_rotated_offset << '\n'
+              << "    offscreen guard: " << spawn_offscreen_guard << '\n'
+              << "    spawn while fleeing: " << spawn_while_fleeing << '\n'
+              << "    set heading: " << spawn_set_heading << '\n'
+              << "    pause rotation while spawning: " << spawn_pause_rotation << '\n'
+              << "    terrain-effects option: " << spawn_terrain_effects << '\n'
+              << "    reversed numeric ranges: " << spawn_reversed_ranges << '\n'
               << "  unit rules: " << unit_rules << '\n'
               << "  weapons: " << weapons << '\n'
               << "  weapon spawns: " << weapon_spawns << '\n'

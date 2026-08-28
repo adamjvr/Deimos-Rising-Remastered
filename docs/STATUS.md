@@ -1,6 +1,6 @@
 # Status
 
-## 2026-08-28 — Phase 1 state-runtime semantics milestone
+## 2026-08-28 — Phase 1 spawn-runtime/geometry milestone
 
 ### Evidence corpus
 
@@ -76,11 +76,25 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **15/15**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **17/17**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+
+### Spawn runtime findings now binary-confirmed
+
+- Scheduler: `0x15B40`; state-entry initializer: `0x17CB0`.
+- State-entry RNG order is rate -> volley -> inter-entity delay.
+- Repeat re-arm RNG order is inter-entity delay -> volley -> next rate.
+- The single canonical reversed rate `110..20` is preserved under PPC signed-remainder behavior.
+- UnitDef `+0x12A` = `canBeSpawnedOnlyWhenPlayersActive_BOOL`.
+- UnitDef `+0x12E` = `adjustInitialLocForOwnerScale_BOOL`.
+- UnitDef `+0x132` = `terrainEffect_BOOL`.
+- Terrain-effect targets require a non-stationary parent with terrain effects enabled.
+- Spawn geometry reproduces absolute/relative offsets, owner scaling, heading adjustment, rotation, fused multiply-add/subtract ordering, and truncation toward zero.
+- Startup builds 360-entry sin/cos float tables from exact constant `0x3C8EFA35`.
+- The clean core now emits a portable proven subset of the original 44-byte spawn request.
 
 ### Active reverse-engineering fronts
 
-1. Recover spawn-set scheduling, volleys, delays, repeat behavior, and exact RNG-consumption order.
+1. Recover `0x33220` entity construction, ownership, and player-activity spawn restrictions.
 2. Bind movement/tracking/rotation fields to entity runtime functions.
 3. Recover hit/damage/destruction and collision/terrain behavior.
 4. Finish v10005 replay bit assignment/two-player semantics and turn films into deterministic simulation oracles.

@@ -43,8 +43,8 @@ struct StateEntryResult {
 
 // Original RNG helper 0x553e0 returns a 15-bit value; helper 0x46580 maps it
 // to min + random % (max-min+1), with equal bounds returning the bound.
-// Invalid reversed bounds are rejected by the clean core rather than relying
-// on the original signed division failure/undefined content contract.
+// Reversed endpoints are intentionally preserved: PPC 0x46580 performs signed
+// division without normalization, and canonical content contains one such range.
 [[nodiscard]] int choose_inclusive_integer(
     int minimum,
     int maximum,
