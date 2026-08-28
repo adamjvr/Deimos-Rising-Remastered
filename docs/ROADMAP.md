@@ -8,7 +8,7 @@ Maintain hashes, forks, provenance, build relationships, and separation of offic
 
 ## Phase 1 — Binary, resource, serialization, and behavior-contract reconstruction
 
-**Current active phase; transition kernel, spawn path, and normal entity-construction path are now substantially recovered.**
+**Current active phase; transition kernel, spawn path, normal entity construction, and the first world/owner-location layer are now substantially recovered.**
 
 Completed/confirmed:
 
@@ -30,12 +30,15 @@ Completed/confirmed:
 - relative/absolute/rotated spawn geometry and legacy trig-table contract reconstructed;
 - portable proven spawn-request seed implemented;
 - normal `0x33220 -> 0x35BF0 -> 0x35CD0` group/member constructor path implemented headlessly;
-- group/appearance RNG, constructor gates, serial identities, parent safe references, float RNG, initial position/speed/heading, state-zero entry, and cumulative group delay recovered.
+- group/appearance RNG, constructor gates, serial identities, parent safe references, float RNG, initial position/speed/heading, state-zero entry, and cumulative group delay recovered;
+- clean world registry implements active-member identity, safe handle+serial validation, duplicate/owned-type queries, and parent-first/player-fallback owner resolution;
+- Lock/Link/Orbit owner-location state initialization and per-tick behavior recovered and placed in the original post-range/pre-spawn update slot;
+- 1,024-entry atan-table generation and integer heading helper reconstructed.
 
 Remaining Phase 1 exit criteria:
 
-- recover the rare special single-member parent-container path and remaining world/list-registration semantics around `0x33220`;
-- bind major movement/tracking/rotation/hit/damage/collision routines to decoded fields;
+- recover the rare special single-member parent-container path and remaining original intrusive-list/pool semantics around `0x33220`;
+- recover target-selection/tracking/hunting and bind the remaining movement/rotation/hit/damage/collision routines to decoded fields;
 - expand Windows installer and establish Mac↔Windows code/data correspondences;
 - finish replay action-bit mapping including second-player semantics;
 - document remaining behavioral defaults/bounds with confidence labels.
@@ -58,7 +61,7 @@ Already implemented from binary-confirmed behavior:
 
 Exit criteria:
 
-- extend the now-live headless normal constructor into world registration and the full per-member update interpreter;
+- extend the now-registered headless world and owner-location interpreter through target selection, movement, collision, damage, and removal;
 - integrate world/entity construction, then reconstruct movement, weapons, projectiles, collision, damage, scoring, power-ups, camera/scrolling, two-player behavior, menus/preferences, timing, and audio triggers;
 - feed v10005 recordings into the clean simulation as deterministic regression oracles;
 - retain original assets as the canonical content tier.

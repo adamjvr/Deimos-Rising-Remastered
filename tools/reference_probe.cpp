@@ -1,5 +1,6 @@
 #include "deimos/data_tables.hpp"
 #include "deimos/entity_runtime.hpp"
+#include "deimos/entity_world.hpp"
 #include "deimos/film.hpp"
 #include "deimos/game_definitions.hpp"
 #include "deimos/legacy_text.hpp"
@@ -13,6 +14,7 @@
 #include <filesystem>
 #include <iostream>
 #include <string>
+#include <utility>
 
 int main(int argc, char** argv) {
     if (argc != 2) {
@@ -35,6 +37,8 @@ int main(int argc, char** argv) {
     std::size_t spawn_offscreen_guard = 0, spawn_while_fleeing = 0, spawn_set_heading = 0;
     std::size_t spawn_pause_rotation = 0, spawn_terrain_effects = 0, spawn_reversed_ranges = 0;
     std::size_t unit_terrain_effects = 0, unit_adjust_owner_scale = 0, unit_player_active_only = 0;
+    std::size_t state_lock_owner = 0, state_link_owner = 0, state_orbit_owner = 0;
+    std::size_t units_with_lock_owner = 0, units_with_link_owner = 0, units_with_orbit_owner = 0;
     std::size_t weapons = 0, weapon_spawns = 0, players = 0;
     std::size_t unresolved_active_actions = 0, unresolved_inert_actions = 0, unknown_rule_conditions = 0;
 
@@ -72,7 +76,19 @@ int main(int argc, char** argv) {
             const auto behavior = deimos::compile_unit_behavior(*unit);
             unresolved_active_actions += behavior.unresolved_active_actions;
             unresolved_inert_actions += behavior.unresolved_inert_actions;
+            bool unit_has_lock_owner = false;
+            bool unit_has_link_owner = false;
+            bool unit_has_orbit_owner = false;
             for (const auto& state : unit->states) {
+                const bool lock_owner = state.fields.bool_value("stateLockToOwnerLoc_BOOL").value_or(false);
+                const bool link_owner = state.fields.bool_value("stateLinkToOwnerLoc_BOOL").value_or(false);
+                const bool orbit_owner = state.fields.bool_value("stateOrbitOwner_BOOL").value_or(false);
+                state_lock_owner += lock_owner;
+                state_link_owner += link_owner;
+                state_orbit_owner += orbit_owner;
+                unit_has_lock_owner = unit_has_lock_owner || lock_owner;
+                unit_has_link_owner = unit_has_link_owner || link_owner;
+                unit_has_orbit_owner = unit_has_orbit_owner || orbit_owner;
                 unit_spawn_sets += state.spawn_sets.size();
                 unit_rules += state.rules.size();
                 for (const auto& spawn : state.spawn_sets) {
@@ -91,6 +107,9 @@ int main(int argc, char** argv) {
                     }
                 }
             }
+            units_with_lock_owner += unit_has_lock_owner;
+            units_with_link_owner += unit_has_link_owner;
+            units_with_orbit_owner += unit_has_orbit_owner;
             for (const auto& state : behavior.states) {
                 for (const auto& rule : state.rules) {
                     if (rule.condition == deimos::UnitRuleConditionKind::unknown) ++unknown_rule_conditions;
@@ -198,6 +217,7 @@ int main(int argc, char** argv) {
     deimos::LegacyRandom construction_rng(1);
     deimos::EntityIdentityCounters identities;
     identities.next_member_handle = 1;
+    deimos::EntityWorld constructed_world;
 
     for (const auto& tagged : definitions->units()) {
         ++group_requests;
@@ -216,7 +236,7 @@ int main(int argc, char** argv) {
         context.motion_facts.hunt_target_position = deimos::EntityPoint{300.0f, 250.0f};
         context.motion_facts.parent_heading_degrees = 180;
 
-        const auto built = deimos::construct_entity_group_headless(
+        auto built = deimos::construct_entity_group_headless(
             tagged.definition, request, context, identities,
             construction_rng, constructor_trig);
         if (built.status == deimos::EntityGroupBuildStatus::rejected) {
@@ -240,6 +260,13 @@ int main(int argc, char** argv) {
                     member.state.current_state].spawn_sets.size();
             }
         }
+        constructed_world.register_group(std::move(built));
+    }
+
+    if (constructed_world.active_member_count() != live_members_constructed ||
+        constructed_world.groups().size() != group_constructed) {
+        std::cerr << "clean world registry count does not match constructed corpus\n";
+        return 17;
     }
 
     if (!reference_issues.empty()) {
@@ -263,6 +290,12 @@ int main(int argc, char** argv) {
               << "  rect lists: " << rect_lists << '\n'
               << "  units: " << units << '\n'
               << "  unit states: " << unit_states << '\n'
+              << "    Lock-to-owner states: " << state_lock_owner
+              << " across " << units_with_lock_owner << " units\n"
+              << "    Link-to-owner states: " << state_link_owner
+              << " across " << units_with_link_owner << " units\n"
+              << "    Orbit-owner states: " << state_orbit_owner
+              << " across " << units_with_orbit_owner << " units\n"
               << "  unit terrain effects: " << unit_terrain_effects << '\n'
               << "  unit owner-scale spawn-offset flag: " << unit_adjust_owner_scale << '\n'
               << "  unit player-active-only spawn flag: " << unit_player_active_only << '\n'
@@ -293,6 +326,7 @@ int main(int argc, char** argv) {
               << "    groups constructed: " << group_constructed << '\n'
               << "    groups eliminated by appearance rolls: " << group_rejected_by_appearance << '\n'
               << "    live members constructed: " << live_members_constructed << '\n'
+              << "    world-registered active members: " << constructed_world.active_member_count() << '\n'
               << "    spawn records in resulting current states: " << member_spawn_runtime_records << '\n'
               << "    delete-existing-owner intents: " << delete_existing_owner_intents << '\n'
               << "    next group serial: " << identities.next_group_serial << '\n'

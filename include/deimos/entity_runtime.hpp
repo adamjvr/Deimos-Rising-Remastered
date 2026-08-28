@@ -200,6 +200,18 @@ struct EntityRuntime {
     bool stationary = false;
     bool terrain_effects_enabled = false;
 
+    // PPC 0x33600 / 0x37130 / 0x37230 / 0x37350 owner-location
+    // bookkeeping. These mirror live-member +0x124..+0x130 and the Orbit
+    // radius/angle at +0xDC/+0xE0.  The state marker is clean-only and lets
+    // the world layer re-run 0x33600 semantics after every state change.
+    float owner_offset_x = 0.0f;
+    float owner_offset_y = 0.0f;
+    float previous_owner_x = 0.0f;
+    float previous_owner_y = 0.0f;
+    float orbit_radius = 0.0f;
+    int orbit_angle_degrees = 0;
+    std::optional<std::size_t> owner_location_initialized_state;
+
     EntityLifecycle lifecycle = EntityLifecycle::active;
     CompiledUnitBehavior behavior;
     UnitStateRuntime state;
@@ -306,6 +318,12 @@ struct EntityTickContext {
     // Range transition is evaluated later than rules. A missing measurement
     // means the world layer has not supplied a player-distance result yet.
     std::optional<float> measured_player_range;
+
+    // Main member update 0x3401C..0x34054 executes Lock/Link/Orbit owner
+    // location behavior after range handling and before spawn scheduling. The
+    // portable world layer installs this phase without coupling the core state
+    // interpreter to a particular world/container implementation.
+    std::function<void(EntityRuntime&)> owner_location_phase;
 
     SpawnScheduleContext spawn_schedule;
 };

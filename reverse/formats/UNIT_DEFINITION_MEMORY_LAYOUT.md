@@ -48,3 +48,17 @@ The same parser/disassembly correlation now establishes the fields used by the n
 
 See `ENTITY_CONSTRUCTION.md` for the execution and RNG-order consequences.
 
+
+## State owner-location anchors
+
+The state parser around `0x40920` independently exposes the destination bytes
+used by the post-construction owner-location routines:
+
+| Serialized state key | Compiled state offset | Runtime consumer |
+| --- | ---: | --- |
+| `#stateLockToOwnerLoc_BOOL` | `+0x32E` | initializer `0x33600`, tick `0x37130` |
+| `#stateLinkToOwnerLoc_BOOL` | `+0x32F` | initializer `0x33600`, tick `0x37230` |
+| `#stateOrbitOwner_BOOL` | `+0x330` | initializer `0x33600`, tick `0x37350` |
+
+Canonical 1.0.6 uses the three flags mutually exclusively: 156 Lock states,
+10 Link states, and 8 Orbit states. See `ENTITY_WORLD_RUNTIME.md`.

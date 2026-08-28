@@ -165,3 +165,27 @@ A scheduler `spawn_due` event can now be converted into a portable spawn request
 - Real `Game.pak` validation: all 386 Unit Definitions pass initial-member math; normal shared-RNG probe constructed 386 groups / 546 live members.
 - Canonical `Mine[mine]` is the only initial-hunt definition; `Screw Mk 2[sc02]` contains the only reversed X/Y offset range (`100..0`).
 
+
+## 2026-08-28 — World registry and owner-location runtime
+
+Direct PPC disassembly mapped the first post-construction world layer. Safe
+entity reference validator `0x36AB0` requires pointer/handle, matching live
+serial `+0x9C`, and active byte `+0xCB`. Duplicate scan `0x36AF0` searches active
+members by Unit FourCC; owned-type scan `0x36BE0` additionally matches signed
+player owner `+0xD8` before entering the member-removal path.
+
+State parser/runtime correlation proved `stateLockToOwnerLoc`,
+`stateLinkToOwnerLoc`, and `stateOrbitOwner` at compiled-state `+0x32E/+0x32F/+0x330`.
+Initializer `0x33600` is called from both construction (`0x35FB4`) and normal
+state changes (`0x14D74`). Tick routines are `0x37130` Lock, `0x37230` Link,
+and `0x37350` Orbit, called in that order immediately before spawn scheduling.
+
+Canonical corpus counts are 156 Lock states across 71 units, 10 Link states
+across 5 units, and 8 Orbit states across 4 units. The clean world registry
+validated all 546 live members produced by the existing shared-RNG constructor
+probe.
+
+Orbit exposed another reusable legacy-math contract: startup generates a
+1,024-entry integer atan table from exact doubles 0.01 and 57.2957795;
+`0x43090` performs the table/quadrant conversion. Clean code now implements
+that contract rather than a generic host atan2 call.

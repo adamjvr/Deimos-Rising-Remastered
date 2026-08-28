@@ -33,4 +33,12 @@ private:
 // PPC executable at 0x100D7318.
 [[nodiscard]] float legacy_radians_per_degree();
 
+// PPC 0x42AD0 -> 0x43090 integer-point angle helper. Startup 0x42920
+// generates a 1024-entry atan table from atan(i * 0.01) * 57.2957795 and
+// stores truncated integral degrees. This helper reproduces the table lookup
+// and original quadrant transform; it is intentionally named neutrally because
+// the legacy coordinate/heading convention is not a standard atan2 contract.
+[[nodiscard]] int legacy_angle_between_integer_points(
+    int x1, int y1, int x2, int y2);
+
 } // namespace deimos

@@ -1,6 +1,6 @@
 # Status
 
-## 2026-08-28 — Phase 1 entity-construction milestone
+## 2026-08-28 — Phase 1 world/owner-runtime milestone
 
 ### Evidence corpus
 
@@ -76,7 +76,7 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **18/18**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **19/19**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Spawn runtime findings now binary-confirmed
 
@@ -106,10 +106,23 @@ Synthetic repository tests pass **18/18**. Original assets/binaries are used onl
 - A shared-RNG real-corpus probe produced 386 normal groups / 546 live members; 5 requests carried delete-existing-owned-type intent.
 - Canonical initial-motion coverage: 36 variable-speed units, 9 randomized-location units, one initial hunter (`Mine[mine]`), zero Burst/Implode units, one reversed X/Y offset range (`Screw Mk 2[sc02]`).
 
+### World/owner-location findings now binary-confirmed
+
+- Safe reference validator `0x36AB0` = pointer/handle + live serial `+0x9C` + active lifecycle.
+- Duplicate Unit-ID scan `0x36AF0` and owned Unit-ID/player scan `0x36BE0` are implemented as clean world queries.
+- State `+0x32E/+0x32F/+0x330` map exactly to Lock/Link/Orbit owner-location flags.
+- Owner initializer `0x33600` runs after construction and ordinary state changes.
+- Owner resolution prefers a valid parent safe reference, then falls back to signed player owner `+0xD8`.
+- Lock `0x37130`, Link `0x37230`, and Orbit `0x37350` are implemented in their original post-range/pre-spawn tick slot.
+- Orbit angular step is `int(trunc(live velocity X))`; this odd field reuse is independently supported by initial-motion stores at `+0x10/+0x14`.
+- Startup atan-table generation and `0x43090` quadrant conversion are reconstructed.
+- Canonical data uses 156 Lock states / 10 Link states / 8 Orbit states across 71 / 5 / 4 Unit Definitions.
+- All 546 members from the shared-RNG corpus constructor register as active clean-world members.
+
 ### Active reverse-engineering fronts
 
-1. Recover the world/list registration and rare special single-member parent-container path around `0x33220`.
-2. Bind movement/tracking/rotation fields and the post-construction `0x33600` path to live entity updates.
-3. Recover hit/damage/destruction and collision/terrain behavior.
+1. Recover the rare special single-member parent-container path and remaining original intrusive-list/pool details around `0x33220`.
+2. Recover target selection/tracking/hunting and bind the rest of movement/rotation fields.
+3. Recover hit/damage/destruction and collision/terrain behavior, beginning with collision scan `0x36CF0`.
 4. Finish v10005 replay bit assignment/two-player semantics and turn films into deterministic simulation oracles.
 5. Expand/correlate the Windows executable payload.

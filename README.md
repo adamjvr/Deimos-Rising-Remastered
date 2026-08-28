@@ -50,3 +50,11 @@ ctest --test-dir build --output-on-failure
 Committed tests use synthetic fixtures only; the current suite passes 18/18. Original assets remain in the ignored local reference workspace.
 
 See `docs/STATUS.md`, `docs/ROADMAP.md`, and `reverse/formats/` for current reconstruction details.
+
+## Current clean-world runtime milestone
+
+The portable core now includes a handle+serial `EntityWorld` registry and the
+binary-confirmed owner-location state layer. Canonical 1.0.6 contains 156
+Lock-to-owner states, 10 Link-to-owner states, and 8 Orbit-owner states. The
+world-aware entity tick executes those modes in the recovered post-range,
+pre-spawn-scheduler slot. See `reverse/formats/ENTITY_WORLD_RUNTIME.md`.

@@ -103,6 +103,11 @@ void enter_entity_state_impl(
     }
 
     const auto& compiled = entity.behavior.states[state_index];
+    // Original state changes call PPC 0x33600 after the new state becomes
+    // current. The world layer owns owner/parent resolution, so invalidate
+    // its clean initialization marker here and reinitialize at the recovered
+    // owner-location phase later in the same tick.
+    entity.owner_location_initialized_state.reset();
     const std::uint32_t timer_random =
         compiled.timer_min == compiled.timer_max ? 0u : random.next15();
     const auto entry = enter_unit_state(
@@ -586,6 +591,15 @@ EntityTickResult advance_entity_runtime(
             apply_entity_state_action(entity, unit, state.on_range, context.current_tick, random);
             if (entity.lifecycle != EntityLifecycle::active) return result;
         }
+    }
+
+    // PPC 0x3401C..0x34054: owner-location Lock/Link/Orbit is evaluated
+    // after range handling and before the spawn scheduler at 0x15B40. State
+    // changes above have invalidated the owner-location state marker, allowing
+    // the world phase to run the 0x33600 initializer for the newly current state.
+    if (context.owner_location_phase) {
+        context.owner_location_phase(entity);
+        if (entity.lifecycle != EntityLifecycle::active) return result;
     }
 
     // Spawn scheduling is later in the recovered entity path.  Any state
