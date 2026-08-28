@@ -174,6 +174,21 @@ int main() {
     assert(near(moving_motion.velocity_y, trig.cosine(187) * 2.0f));
     assert(moving_rng.seed() == 1103527590u);
 
+    // PPC 0x35E50..0x35EB0 level-scaled shields. Positive increments use
+    // base + increment*(contextValue-1) and clamp to max; non-positive
+    // increments bypass the max clamp entirely.
+    deimos::CompiledUnitBehavior shield_behavior;
+    shield_behavior.shields_base = 10.0f;
+    shield_behavior.shields_level_increment = 2.0f;
+    shield_behavior.shields_max = 13.0f;
+    assert(near(deimos::legacy_initial_entity_shields(shield_behavior, 1), 10.0f));
+    assert(near(deimos::legacy_initial_entity_shields(shield_behavior, 2), 12.0f));
+    assert(near(deimos::legacy_initial_entity_shields(shield_behavior, 3), 13.0f));
+    shield_behavior.shields_base = 20.0f;
+    shield_behavior.shields_level_increment = 0.0f;
+    shield_behavior.shields_max = 5.0f;
+    assert(near(deimos::legacy_initial_entity_shields(shield_behavior, 99), 20.0f));
+
     // End-to-end normal group path: two live members share a group serial,
     // receive independent member serials/handles, inherit owner/parent data,
     // enter state zero, then receive cumulative group delays 3 and 6.
@@ -186,6 +201,9 @@ int main() {
     unit.core_fields.add(field_bool("initialHeadingSetInEditor_BOOL", true));
     unit.core_fields.add(field_float("initialSpeedMin_FLOAT", 2.0f));
     unit.core_fields.add(field_float("initialSpeedMax_FLOAT", 2.0f));
+    unit.core_fields.add(field_float("shields_BaseAmount_FLOAT", 10.0f));
+    unit.core_fields.add(field_float("shields_LevelIncrement_FLOAT", 2.0f));
+    unit.core_fields.add(field_float("shields_MaxAmount_FLOAT", 13.0f));
     add_constructor_defaults(unit);
     unit.states.push_back(basic_state("Initial", 5, 5));
 
@@ -199,6 +217,7 @@ int main() {
 
     deimos::EntityHeadlessConstructionContext context;
     context.preflight.current_tick = 100;
+    context.shield_progression_value = 3;
     deimos::EntityIdentityCounters identities;
     identities.next_group_serial = 10;
     identities.next_member_serial = 20;
@@ -217,6 +236,8 @@ int main() {
     assert(built.members[0].player_owner_index == 2);
     assert(built.members[0].state.current_state == 0 && built.members[1].state.current_state == 0);
     assert(built.members[0].state.state_entry_tick == 100u);
+    assert(near(built.members[0].shields, 13.0f));
+    assert(near(built.members[1].shields, 13.0f));
     assert(built.members[0].group_delay_ticks == 3);
     assert(built.members[1].group_delay_ticks == 6);
     assert(near(built.members[0].velocity_x, 2.0f));

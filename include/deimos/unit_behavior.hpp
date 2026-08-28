@@ -67,6 +67,18 @@ struct CompiledStateRule {
 struct CompiledUnitStateBehavior {
     float range = 0.0f;
     ResolvedStateAction on_range;
+
+    // Collision/damage fields mapped directly from the 1.0.6 compiled-state
+    // parser and runtime consumers at PPC 0x36CF0 / 0x14F10.
+    bool pass_hits_to_owner = false;                 // state +0x32B
+    bool collides = false;                           // state +0x347
+    bool invulnerable_on_collision = false;          // state +0x348
+    bool collides_with_players = false;              // state +0x34F
+    bool do_not_glow_on_collision = false;           // state +0x354
+    FourCC collision_spawn{};                        // state +0x2E0
+    bool collision_repeat_spawns = false;            // state +0x2E4
+    int collision_spawn_delay = 0;                   // state +0x2E8
+
     ResolvedStateAction on_hit;
     int hit_state_delay = 0;
     int timer_min = 0;
@@ -78,6 +90,22 @@ struct CompiledUnitStateBehavior {
 };
 
 struct CompiledUnitBehavior {
+    // Unit-level collision contract. The original loader derives collision
+    // domain +0x08 from isGroundBased_BOOL: FourCC 'grnd' or 'air '.
+    FourCC collision_domain{};
+    bool harmless_to_players = false;                // UnitDef +0x11A
+    bool player_projectile = false;                  // UnitDef +0x11B
+    bool can_be_hit_by_player_projectile = false;    // UnitDef +0x11C
+    bool hittable_when_invisible = false;            // UnitDef +0x121
+    float collision_damage = 0.0f;                   // UnitDef +0x274
+    float shields_base = 0.0f;                       // UnitDef +0x43C
+    float shields_level_increment = 0.0f;            // UnitDef +0x440
+    float shields_max = 0.0f;                        // UnitDef +0x444
+    FourCC hit_particles{};                          // UnitDef +0x2D8
+    int score = 0;                                   // UnitDef +0x4B8
+    FourCC pickup_type{};                            // UnitDef +0x4D4
+    int pickup_value = 0;                            // UnitDef +0x4DC
+
     std::vector<CompiledUnitStateBehavior> states;
     std::size_t unresolved_active_actions = 0;
     std::size_t unresolved_inert_actions = 0;

@@ -21,6 +21,12 @@ struct PlayerRuntimeSlot {
     float x = 0.0f;
     float y = 0.0f;
     std::int8_t player_index = -1;
+
+    // Player +0x2C/+0x30 feed PPC 0x12A00, the player Rect helper used by
+    // entity-vs-player collision in the main entity tick. They are populated
+    // by the player's appearance/geometry path in the original.
+    int collision_half_width = 0;
+    int collision_half_height = 0;
 };
 
 struct ClosestPlayerResult {

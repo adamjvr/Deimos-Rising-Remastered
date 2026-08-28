@@ -14,6 +14,33 @@ float field_float(const UnitStateDefinition& state, std::string_view key) {
     if (auto value = state.fields.float_value(key)) return *value;
     return 0.0f;
 }
+bool field_bool(const UnitStateDefinition& state, std::string_view key) {
+    if (auto value = state.fields.bool_value(key)) return *value;
+    return false;
+}
+FourCC field_id(const UnitStateDefinition& state, std::string_view key) {
+    if (auto value = state.fields.id_value(key)) return *value;
+    return {};
+}
+bool core_bool(const UnitDefinition& unit, std::string_view key) {
+    if (auto value = unit.core_fields.bool_value(key)) return *value;
+    return false;
+}
+float core_float(const UnitDefinition& unit, std::string_view key) {
+    if (auto value = unit.core_fields.float_value(key)) return *value;
+    return 0.0f;
+}
+int core_int(const UnitDefinition& unit, std::string_view key) {
+    if (auto value = unit.core_fields.int_value(key)) return *value;
+    return 0;
+}
+FourCC core_id(const UnitDefinition& unit, std::string_view key) {
+    if (auto value = unit.core_fields.id_value(key)) return *value;
+    return {};
+}
+constexpr FourCC fourcc(char a, char b, char c, char d) {
+    return FourCC{{a, b, c, d}};
+}
 }
 
 UnitRuleConditionKind classify_unit_rule_condition(std::string_view condition) {
@@ -55,11 +82,38 @@ ResolvedStateAction resolve_state_action(const UnitDefinition& unit, std::string
 
 CompiledUnitBehavior compile_unit_behavior(const UnitDefinition& unit) {
     CompiledUnitBehavior out;
+    out.collision_domain = core_bool(unit, "isGroundBased_BOOL")
+        ? fourcc('g', 'r', 'n', 'd')
+        : fourcc('a', 'i', 'r', ' ');
+    out.harmless_to_players = core_bool(unit, "harmlessToPlayers_BOOL");
+    out.player_projectile = core_bool(unit, "playerProjectile_BOOL");
+    out.can_be_hit_by_player_projectile = core_bool(unit, "canBeHitByPlayerProjectile_BOOL");
+    out.hittable_when_invisible = core_bool(unit, "hittableWhenInvisible_BOOL");
+    out.collision_damage = core_float(unit, "damage_FLOAT");
+    out.shields_base = core_float(unit, "shields_BaseAmount_FLOAT");
+    out.shields_level_increment = core_float(unit, "shields_LevelIncrement_FLOAT");
+    out.shields_max = core_float(unit, "shields_MaxAmount_FLOAT");
+    out.hit_particles = core_id(unit, "hitParticles_ID");
+    out.score = core_int(unit, "score_INT");
+    // PPC player-impact helper 0x37580 dispatches UnitDef +0x4D4 as a
+    // pickup category and reads +0x4DC as its value. Loader/source correlation
+    // binds those fields to pickup_Type_ID / pickup_Value_INT.
+    out.pickup_type = core_id(unit, "pickup_Type_ID");
+    out.pickup_value = core_int(unit, "pickup_Value_INT");
     out.states.reserve(unit.states.size());
     for (const auto& state : unit.states) {
         CompiledUnitStateBehavior compiled;
         compiled.range = field_float(state, "stateOnRange_FLOAT");
         compiled.on_range = resolve_state_action(unit, field_string(state, "stateOnRangeChangeTo_STR"));
+        compiled.pass_hits_to_owner = field_bool(state, "passHitsToOwner_BOOL");
+        compiled.collides = field_bool(state, "stateCollides_BOOL");
+        compiled.invulnerable_on_collision = field_bool(
+            state, "stateInvulnerable_ShieldsDoNotDepleteOnCollision_BOOL");
+        compiled.collides_with_players = field_bool(state, "stateCollidesWithPlayers_BOOL");
+        compiled.do_not_glow_on_collision = field_bool(state, "stateDoNotGlowOnCollision_BOOL");
+        compiled.collision_spawn = field_id(state, "collision_Spawn_ID");
+        compiled.collision_repeat_spawns = field_bool(state, "collision_RepeatSpawns_BOOL");
+        compiled.collision_spawn_delay = field_int(state, "collision_SpawnDelay_INT");
         compiled.on_hit = resolve_state_action(unit, field_string(state, "stateOnHitChangeTo_STR"));
         compiled.hit_state_delay = field_int(state, "stateOnHitChangeStateDelay_INT");
         compiled.timer_min = field_int(state, "stateOnTimerMin_INT");

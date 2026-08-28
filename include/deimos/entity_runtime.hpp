@@ -160,6 +160,13 @@ struct EntityInitialMotionResult {
 struct EntityHeadlessConstructionContext {
     EntityConstructionContext preflight{};
     int world_y_origin = 0; // result of PPC 0xFEC0 for request +0x0C
+
+    // PPC 0x5CD0 returns game-context +0x14. Its exact higher-level name is
+    // still intentionally unresolved, but 0x35E64 uses (value - 1) as the
+    // multiplier for shields_LevelIncrement_FLOAT. Default 1 preserves base
+    // shields when constructing isolated/headless worlds.
+    int shield_progression_value = 1;
+
     EntityInitialMotionFacts motion_facts{};
 
     // PPC's initially-hunting constructor query is position-dependent.  The
@@ -244,6 +251,20 @@ struct EntityRuntime {
     bool stationary = false;
     bool terrain_effects_enabled = false;
 
+    // Collision/damage live-member fields mapped from PPC 0x12AD0,
+    // 0x14F10 and the member constructor. The half extents (+0x2C/+0x30)
+    // are populated by the sprite/appearance subsystem in the original; the
+    // headless core leaves them at zero until geometry is supplied.
+    int collision_half_width = 0;
+    int collision_half_height = 0;
+    bool collision_participating = true; // original live member +0xAC
+    float shields = 0.0f;                // original +0x134
+    std::int32_t last_collision_hit_tick = 0;       // original +0xB4
+    std::int32_t last_on_hit_transition_tick = 0;   // original +0xFC
+    std::int32_t last_collision_spawn_tick = 0;     // original +0xD0
+    int collision_spawn_count = 0;                  // original +0xD4
+    std::int8_t destroyed_by_owner_index = -1;      // original +0xD9
+
     // PPC 0x33600 / 0x37130 / 0x37230 / 0x37350 owner-location
     // bookkeeping. These mirror live-member +0x124..+0x130 and the Orbit
     // radius/angle at +0xDC/+0xE0.  The state marker is clean-only and lets
@@ -296,6 +317,13 @@ struct EntityRuntime {
 
 [[nodiscard]] bool unit_requires_active_players(const UnitDefinition& unit);
 
+// Exact shield initializer from PPC 0x35E50..0x35EB0. Scaling and max-clamp
+// occur only when shields_LevelIncrement_FLOAT > 0.0; an increment <= 0 copies
+// shields_BaseAmount_FLOAT verbatim and does not apply shields_MaxAmount_FLOAT.
+[[nodiscard]] float legacy_initial_entity_shields(
+    const CompiledUnitBehavior& behavior,
+    int shield_progression_value);
+
 // Enter a live entity state using the original state-entry transition and
 // spawn-set initialization paths. This owns RNG consumption; callers must not
 // pre-draw a value. Counter-triggered state changes are followed immediately.
@@ -339,9 +367,9 @@ struct EntityGroupBuildResult {
 
 // Faithful headless normal-path bridge from PPC 0x33220 -> 0x35BF0 -> 0x35CD0.
 // It models group selection/gates, normal 188-byte group identity, initial
-// heading/position/motion, state-entry/spawn-runtime initialization and
-// cumulative group delay in original RNG order.  Intrusive world-list
-// insertion, shields/render state and the rare special single-member parent
+// heading/position/motion, level-scaled shields, state-entry/spawn-runtime
+// initialization and cumulative group delay in original RNG order. Intrusive
+// world-list insertion, render state and the rare special single-member parent
 // container path remain separate reconstruction work.
 [[nodiscard]] EntityGroupBuildResult construct_entity_group_headless(
     const UnitDefinition& unit,

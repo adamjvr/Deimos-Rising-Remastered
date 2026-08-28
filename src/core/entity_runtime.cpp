@@ -208,6 +208,25 @@ bool unit_requires_active_players(const UnitDefinition& unit) {
     return unit_bool(unit, "canBeSpawnedOnlyWhenPlayersActive_BOOL");
 }
 
+float legacy_initial_entity_shields(
+    const CompiledUnitBehavior& behavior,
+    int shield_progression_value) {
+    float shields = behavior.shields_base;
+    if (behavior.shields_level_increment <= 0.0f) return shields;
+
+    // 0x35E6C subtracts one in integer space; 0x35E90 converts to single,
+    // then fmuls/fadds with the increment/base.
+    const int zero_based_progression = shield_progression_value - 1;
+    const float scaled = f32_mul(
+        behavior.shields_level_increment,
+        static_cast<float>(zero_based_progression));
+    shields = f32_add(shields, scaled);
+
+    // The max check is reached only from the positive-increment branch.
+    if (shields > behavior.shields_max) shields = behavior.shields_max;
+    return shields;
+}
+
 EntityGroupConstructionPlan prepare_entity_group_construction(
     const UnitDefinition& unit,
     const SpawnRequestSeed& request,
@@ -718,9 +737,22 @@ EntityGroupBuildResult construct_entity_group_headless(
         member.velocity_x = motion.velocity_x;
         member.velocity_y = motion.velocity_y;
 
-        // PPC 0x35F58 enters the first state and initializes state spawn
-        // records before groupDelay RNG at 0x35FC8.
+        // PPC 0x35E3C initializes collision participation from current
+        // visibility/hittableWhenInvisible. Normal canonical initial
+        // visibility values are non-negative, so the headless constructor is
+        // collision-participating unless a later appearance phase says
+        // otherwise.
+        member.collision_participating = true;
+
+        // PPC 0x35E50..0x35EB0 initializes level-scaled shields before
+        // 0x35F58 enters the first state. The clean state-machine helper owns
+        // behavior compilation, so perform the pure shield calculation
+        // immediately afterward; it consumes no RNG and no state-entry path
+        // mutates shields. State spawn records still initialize before
+        // groupDelay RNG at 0x35FC8.
         initialize_entity_state_machine(member, unit, context.preflight.current_tick, random);
+        member.shields = legacy_initial_entity_shields(
+            member.behavior, context.shield_progression_value);
         accumulated_group_delay = append_group_member_delay(unit, accumulated_group_delay, random);
         member.group_delay_ticks = accumulated_group_delay;
 

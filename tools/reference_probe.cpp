@@ -1,3 +1,4 @@
+#include "deimos/collision_runtime.hpp"
 #include "deimos/data_tables.hpp"
 #include "deimos/entity_runtime.hpp"
 #include "deimos/entity_world.hpp"
@@ -40,6 +41,13 @@ int main(int argc, char** argv) {
     std::size_t state_lock_owner = 0, state_link_owner = 0, state_orbit_owner = 0;
     std::size_t state_hunt = 0, state_hold = 0, state_cyclic = 0;
     std::size_t state_delete_no_player = 0, state_destruct_no_player = 0;
+    std::size_t state_collides = 0, state_pass_hits_owner = 0;
+    std::size_t state_collision_invulnerable = 0, state_collides_players = 0;
+    std::size_t state_no_collision_glow = 0, state_collision_spawns = 0;
+    std::size_t unit_ground_collision_domain = 0, unit_air_collision_domain = 0;
+    std::size_t unit_harmless = 0, unit_player_projectile = 0, unit_player_projectile_hittable = 0;
+    std::size_t unit_nonzero_collision_damage = 0, unit_nonzero_shields = 0;
+    std::size_t unit_pickups = 0;
     std::size_t units_with_lock_owner = 0, units_with_link_owner = 0, units_with_orbit_owner = 0;
     std::size_t weapons = 0, weapon_spawns = 0, players = 0;
     std::size_t unresolved_active_actions = 0, unresolved_inert_actions = 0, unknown_rule_conditions = 0;
@@ -76,12 +84,61 @@ int main(int argc, char** argv) {
             unit_player_active_only += unit->core_fields.bool_value("canBeSpawnedOnlyWhenPlayersActive_BOOL").value_or(false);
             unit_states += unit->states.size();
             const auto behavior = deimos::compile_unit_behavior(*unit);
+            const bool ground = unit->core_fields.bool_value("isGroundBased_BOOL").value_or(false);
+            const deimos::FourCC expected_domain = ground
+                ? deimos::FourCC{{'g','r','n','d'}}
+                : deimos::FourCC{{'a','i','r',' '}};
+            if (!(behavior.collision_domain == expected_domain) ||
+                behavior.harmless_to_players != unit->core_fields.bool_value("harmlessToPlayers_BOOL").value_or(false) ||
+                behavior.player_projectile != unit->core_fields.bool_value("playerProjectile_BOOL").value_or(false) ||
+                behavior.can_be_hit_by_player_projectile != unit->core_fields.bool_value("canBeHitByPlayerProjectile_BOOL").value_or(false) ||
+                behavior.collision_damage != unit->core_fields.float_value("damage_FLOAT").value_or(0.0f) ||
+                behavior.shields_base != unit->core_fields.float_value("shields_BaseAmount_FLOAT").value_or(0.0f) ||
+                behavior.score != unit->core_fields.int_value("score_INT").value_or(0) ||
+                !(behavior.pickup_type == unit->core_fields.id_value("pickup_Type_ID").value_or(deimos::FourCC{})) ||
+                behavior.pickup_value != unit->core_fields.int_value("pickup_Value_INT").value_or(0)) {
+                std::cerr << entry.path << ": compiled collision UnitDef fields disagree with parsed source\n";
+                return 19;
+            }
+            unit_ground_collision_domain += ground;
+            unit_air_collision_domain += !ground;
+            unit_harmless += behavior.harmless_to_players;
+            unit_player_projectile += behavior.player_projectile;
+            unit_player_projectile_hittable += behavior.can_be_hit_by_player_projectile;
+            unit_nonzero_collision_damage += behavior.collision_damage != 0.0f;
+            unit_nonzero_shields += behavior.shields_base != 0.0f;
+            unit_pickups += behavior.pickup_type.str() != "none" && !(behavior.pickup_type == deimos::FourCC{});
             unresolved_active_actions += behavior.unresolved_active_actions;
             unresolved_inert_actions += behavior.unresolved_inert_actions;
             bool unit_has_lock_owner = false;
             bool unit_has_link_owner = false;
             bool unit_has_orbit_owner = false;
-            for (const auto& state : unit->states) {
+            for (std::size_t state_index = 0; state_index < unit->states.size(); ++state_index) {
+                const auto& state = unit->states[state_index];
+                const auto& compiled_state = behavior.states[state_index];
+                const bool expected_collides = state.fields.bool_value("stateCollides_BOOL").value_or(false);
+                const bool expected_pass = state.fields.bool_value("passHitsToOwner_BOOL").value_or(false);
+                const bool expected_invulnerable = state.fields.bool_value(
+                    "stateInvulnerable_ShieldsDoNotDepleteOnCollision_BOOL").value_or(false);
+                const bool expected_players = state.fields.bool_value("stateCollidesWithPlayers_BOOL").value_or(false);
+                const bool expected_no_glow = state.fields.bool_value("stateDoNotGlowOnCollision_BOOL").value_or(false);
+                const auto expected_spawn = state.fields.id_value("collision_Spawn_ID").value_or(deimos::FourCC{});
+                if (compiled_state.collides != expected_collides ||
+                    compiled_state.pass_hits_to_owner != expected_pass ||
+                    compiled_state.invulnerable_on_collision != expected_invulnerable ||
+                    compiled_state.collides_with_players != expected_players ||
+                    compiled_state.do_not_glow_on_collision != expected_no_glow ||
+                    !(compiled_state.collision_spawn == expected_spawn)) {
+                    std::cerr << entry.path << ": compiled collision state fields disagree with parsed source\n";
+                    return 20;
+                }
+                state_collides += expected_collides;
+                state_pass_hits_owner += expected_pass;
+                state_collision_invulnerable += expected_invulnerable;
+                state_collides_players += expected_players;
+                state_no_collision_glow += expected_no_glow;
+                state_collision_spawns += expected_spawn.str() != "none" && !(expected_spawn == deimos::FourCC{});
+
                 const bool lock_owner = state.fields.bool_value("stateLockToOwnerLoc_BOOL").value_or(false);
                 const bool link_owner = state.fields.bool_value("stateLinkToOwnerLoc_BOOL").value_or(false);
                 const bool orbit_owner = state.fields.bool_value("stateOrbitOwner_BOOL").value_or(false);
@@ -269,6 +326,10 @@ int main(int argc, char** argv) {
         delete_existing_owner_intents += built.plan.delete_existing_owned_type;
         live_members_constructed += built.members.size();
         for (const auto& member : built.members) {
+            if (member.shields != member.behavior.shields_base) {
+                std::cerr << tagged.path << ": headless constructor did not initialize base shields\n";
+                return 21;
+            }
             if (member.state.current_state < member.spawn_runtime_by_state.size()) {
                 member_spawn_runtime_records += member.spawn_runtime_by_state[
                     member.state.current_state].spawn_sets.size();
@@ -357,6 +418,20 @@ int main(int argc, char** argv) {
               << "    Cyclic-motion states: " << state_cyclic << '\n'
               << "    Delete-on-no-player states: " << state_delete_no_player << '\n'
               << "    Destruct-on-no-player states: " << state_destruct_no_player << '\n'
+              << "    Collision-enabled states: " << state_collides << '\n'
+              << "    Pass-hits-to-owner states: " << state_pass_hits_owner << '\n'
+              << "    Collision-invulnerable states: " << state_collision_invulnerable << '\n'
+              << "    Player-collision states: " << state_collides_players << '\n'
+              << "    No-glow-on-collision states: " << state_no_collision_glow << '\n'
+              << "    Collision-spawn states: " << state_collision_spawns << '\n'
+              << "  collision domains: air=" << unit_air_collision_domain
+              << " ground=" << unit_ground_collision_domain << '\n'
+              << "    harmless units: " << unit_harmless << '\n'
+              << "    player-projectile units: " << unit_player_projectile << '\n'
+              << "    projectile-hittable units: " << unit_player_projectile_hittable << '\n'
+              << "    nonzero collision damage: " << unit_nonzero_collision_damage << '\n'
+              << "    nonzero base shields: " << unit_nonzero_shields << '\n'
+              << "    pickup units: " << unit_pickups << '\n'
               << "  unit terrain effects: " << unit_terrain_effects << '\n'
               << "  unit owner-scale spawn-offset flag: " << unit_adjust_owner_scale << '\n'
               << "  unit player-active-only spawn flag: " << unit_player_active_only << '\n'

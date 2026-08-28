@@ -1,6 +1,6 @@
 # Status
 
-## 2026-08-28 — Phase 1 player-target/motion-runtime milestone
+## 2026-08-28 — collision/damage-runtime milestone
 
 ### Evidence corpus
 
@@ -76,7 +76,7 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **20/20**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **21/21**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Spawn runtime findings now binary-confirmed
 
@@ -133,10 +133,29 @@ Synthetic repository tests pass **20/20**. Original assets/binaries are used onl
 - The Mine constructor now uses the recovered two-slot player query instead of a synthetic fixed target.
 - Shared-RNG first player-aware tick regression: 546 ticked -> 544 active; exactly two zero-delay timer removals (`grob` Destroy, `tptf` Delete); no removal from player/motion, rules, or range.
 
+### Collision/damage findings now binary-confirmed
+
+- Entity scan: `0x36CF0`; integer AABB helper: `0x12AD0`; shield/damage routine: `0x14F10`.
+- Collision domain is derived from `isGroundBased_BOOL`: `grnd` for ground units and `air ` for all others.
+- Candidate filtering requires opposite `harmlessToPlayers` classes, matching collision domain, active/collision-participating state, non-positive group delay, and the executable's asymmetric projectile flags.
+- Integer bounds use independent PPC `fctiwz` conversion; touching AABB edges continue to radial test `0x42F80`.
+- `0x42F80` is now fully recovered: it compares `sqrt(trunc(dx^2+dy^2))` against the sum of vertical-span-derived radii with strict `<`. Startup `0x429C0..0x42A00` fills the small-distance table with `sqrt(i)` for `i=0..16383`; there is no sprite-mask stage here.
+- Pair damage is symmetric. `passHitsToOwner` redirects through a validated parent safe-reference; the second leg preserves the observed 1.0.6 quirk that tests candidate's flag but loads **self.parent**.
+- `Entity_HitDelay=1.0` is a strict `current > last+delay` gate. Shields clamp at zero; collision-invulnerable states restore the old shield value after absorbed damage is calculated.
+- On-hit state changes use a separate strict delay gate. The damage routine deliberately retains its pre-hit compiled-state pointer for same-call glow/collision-spawn fields after a state transition.
+- Collision-spawn timing is `current >= last+delay`; non-repeat collision spawns are tracked per entity.
+- Canonical collision corpus: 436 collision-enabled states, 55 pass-hits-to-owner states, 139 collision-invulnerable states, 151 player-collision states, 141 no-glow states, and 5 collision-spawn states.
+- Player collision geometry is recovered from `0x12A00` + `0x33968..0x341C8`: player radius is `0.5 * truncated Rect height`, while the entity radius remains integer span/2. The shared `0x42F80` quantization means a raw 6.5-distance equality can still hit because `6.5^2` truncates to 42 before sqrt.
+- Player-impact control flow `0x34090..0x34314` now has a bounded clean scanner: state/harmless/viewport gates, two pre-snapshotted active player slots, AABB + radial geometry, `passHitsToOwner`, canonical 100-point `Player_ImpactDamageToEntities`, reciprocal UnitDef `damage_FLOAT`, and player-status recheck are represented. Player inventory/stat mutation (`0x37580`) and full player damage/life semantics (`0x27100`) remain explicit callbacks.
+- `UnitDef +0x4D4/+0x4DC` are now bound to `pickup_Type_ID` / `pickup_Value_INT`. Non-`none` pickups use the exclusive pickup branch: a failed pickup does no damage; a successful pickup consumes/destroys the entity and skips reciprocal impact. Canonical corpus: 8 pickup units (4 `coin`, 2 `shie`, 1 `exli`, 1 `mult`).
+- Shield construction now follows `0x35E50..0x35EB0`: base + positive increment * (`gameContext+0x14 - 1`), clamped to max only on the positive-increment branch. The higher-level semantic name of game-context `+0x14` remains intentionally unresolved.
+- Canonical Unit Definitions: 135 air / 251 ground collision domains, 226 harmless units, 9 player projectiles, 110 player-projectile-hittable units, 120 nonzero collision-damage units, 131 nonzero base-shield units, and 8 pickup units.
+- Ordinary shield-depletion/pickup destruction is represented headlessly as lifecycle + source-owner/event facts. Full `0x16300` death effects, player inventory/life mutation, ground/terrain collision, and group/child/terrain consequences remain bounded research fronts.
+
 ### Active reverse-engineering fronts
 
-1. Recover the rare special single-member parent-container path and remaining original intrusive-list/pool details around `0x33220`.
-2. Recover collision candidate scanning, hit/damage/destruction, and the remaining Flee-trigger/lifecycle edges.
-3. Recover hit/damage/destruction and collision/terrain behavior, beginning with collision scan `0x36CF0`.
+1. Complete destruction/removal consequences around `0x16300` / `0x36120`: death spawn/particles/notice/sound, coins/group-kill reward, child handling, terrain/obstacle effects, and the remaining destruction flags.
+2. Reconstruct concrete player-side pickup/inventory semantics in `0x37580` and player shield/life damage in `0x27100`, then wire the recovered player-impact scanner into the full member tick with runtime viewport facts.
+3. Recover ground/terrain collision and the rare special single-member parent-container / intrusive-list semantics around `0x33220`.
 4. Finish v10005 replay bit assignment/two-player semantics and turn films into deterministic simulation oracles.
 5. Expand/correlate the Windows executable payload.

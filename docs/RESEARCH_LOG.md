@@ -189,3 +189,112 @@ Orbit exposed another reusable legacy-math contract: startup generates a
 1,024-entry integer atan table from exact doubles 0.01 and 57.2957795;
 `0x43090` performs the table/quadrant conversion. Clean code now implements
 that contract rather than a generic host atan2 call.
+
+
+## 2026-08-28 — Collision candidate scan and shield/damage runtime
+
+Re-entered the canonical Mac 1.0.6 PEF and disassembled collision scan
+`0x36CF0`, AABB helper `0x12AD0`, damage routine `0x14F10`, ordinary destruction
+`0x16300`, and their Unit/state parser consumers. This tied the source-format
+collision fields directly to compiled offsets and proved the loader-derived
+`grnd` / `air ` collision domain from `isGroundBased_BOOL`.
+
+The scan is not a generic all-vs-all AABB pass. It filters by active current
+collision state, collision-participation/visibility byte, serial, matching
+domain, **opposite** `harmlessToPlayers` class, group delay, and an asymmetric
+player-projectile policy before integer AABB and the then-unresolved routine
+`0x42F80`. Bounds are produced with per-edge `fctiwz`, and touching edges pass.
+Subsequent analysis (documented below) proved `0x42F80` is a quantized radial
+center-distance test, not sprite/mask geometry, and the temporary callback was
+removed.
+
+A radial hit performs two damage legs. Owner redirection uses validated safe
+parent references. The second leg contains an observable 1.0.6 oddity: when
+candidate `passHitsToOwner` is true, code at `0x37074` loads self's parent pair
+rather than candidate's. This is preserved as compatibility behavior.
+
+Damage `0x14F10` uses canonical `Entity_HitDelay=1.0` as a strict
+`currentTick > lastHit+delay` gate, clamps shields at zero, restores old shields
+for collision-invulnerable states, and uses a separately delayed on-hit state
+action. Review of register lifetime exposed another ordering detail: the
+compiled-state pointer is captured before the on-hit transition and retained,
+so same-call glow and collision-spawn fields come from the pre-hit state. A
+regression test now locks that behavior. Collision-spawn delay fires on equality
+(`>=`) and non-repeat spawns use per-member bookkeeping.
+
+The clean runtime records ordinary shield-depletion destruction, score/source
+owner, and deterministic side-effect facts without pretending the full `0x16300`
+consequence graph is complete. At this checkpoint the remaining fronts were
+level-scaled shield initialization, player/ground/terrain collision, special
+destruction, death effects, child/terrain and group-kill/removal consequences;
+the radial/player/shield portions were resolved in the subsequent pass below. Canonical
+`Game.pak` validation reports 436 collision-enabled states and 135 air / 251
+ground unit domains; the pre-existing constructor and first-tick RNG regressions
+remain unchanged.
+
+
+## 2026-08-28 — Radial collision, player impacts, pickups, and shield scaling
+
+Re-analysis of canonical Mac 1.0.6 routine `0x42F80` disproved the earlier
+sprite/mask hypothesis. The routine subtracts the two center positions in
+single precision, computes `dx*dx + dy*dy`, converts that squared distance with
+PPC `fctiwz`, then compares the resulting distance against the sum of two
+radii with strict `<`. Startup `0x429C0..0x42A00` constructs the fast table for
+inputs below 16384 by storing `frsp(sqrt(float(i)))`; larger inputs take the
+sqrt path directly. The clean compatibility expression is therefore:
+
+`float(sqrt(trunc(single(dx*dx + dy*dy)))) < radius1 + radius2`
+
+Entity/entity radii are integer `(maxY-minY)/2` from the already-truncated AABB.
+The player path uses the same helper but computes player radius as
+`0.5f * (Rect.bottom-Rect.top)`, so it can be a half-integer. This exposed a
+useful regression edge: raw center distance 6.5 with radius sum 6.5 still hits,
+because 42.25 is truncated to 42 and `sqrt(42) < 6.5`. At 6.56 the squared
+value truncates to 43 and the collision fails. The test suite locks both cases.
+
+The main member tick player-impact path `0x34090..0x34314` is now bounded in
+clean code. It requires an active current state with `stateCollides_BOOL`, a
+non-harmless Unit Definition, and `stateCollidesWithPlayers_BOOL`. Before the
+two-player loop it applies the original viewport guard: entity `maxX >= -32`,
+`minX <= r24`, `maxY >= 0`, and `minY <= r23`. Player active flags, Rects,
+centers, and radii are snapshotted before the loop. After AABB + radial overlap,
+ordinary entities take Game.gafl index 161 (`Player_ImpactDamageToEntities`,
+canonical value 100.0), optionally redirected through `passHitsToOwner`; the
+player then always receives the colliding entity's UnitDef `damage_FLOAT`, even
+when the first leg just destroyed the entity or its owner. Player status is
+re-read afterward, preserving the original status-4 active contract.
+
+The special branch at `0x341D0` is now identified as pickup handling. UnitDef
+`+0x4D4` is the pickup category corresponding to `pickup_Type_ID`, with
+`+0x4DC` supplying `pickup_Value_INT`. `0x37580` dispatches legacy pickup
+categories including the canonical `coin`, `mult`, `shie`, and `exli` types.
+A non-`none` pickup never falls through to ordinary impact: failed pickup does
+nothing further; successful pickup invokes destruction/consumption with the
+player's signed index/owner byte and skips reciprocal damage. Inventory/weapon
+mutation remains an explicit callback until the player subsystem is recovered.
+Canonical Game.pak contains 8 pickup Unit Definitions: 4 coin, 2 shield,
+1 extra-life, and 1 multiplier.
+
+Shield construction was recovered independently at `0x35E50..0x35EB0`.
+The constructor copies `shields_BaseAmount_FLOAT`; only when
+`shields_LevelIncrement_FLOAT > 0` does it add
+`increment * (gameContext+0x14 - 1)` and then clamp to
+`shields_MaxAmount_FLOAT`. A non-positive increment does not apply the max
+clamp. The semantic name of game-context `+0x14` is deliberately left
+unasserted, but the arithmetic and branch behavior are now exact.
+
+Canonical validation after these changes remains stable: 386 groups / 546
+members constructed with RNG seed 2249411936; the first player-aware tick leaves
+544 active members with motion RNG seed 2633739833. The repository suite remains
+21/21 PASS.
+
+Destruction follow-on reconnaissance also narrows the next boundary. Routine
+`0x16300` uses UnitDef `+0x478` as the destruction spawn ID, `+0x47C` as the
+destruction-particle ID, the packed field at `+0x480` as particle color,
+`+0x482` as destruction notice text, `+0x4A4/+0x4A8/+0x4AC` as destruction
+coin count / coin ID / group-kill coin ID, `+0x4B0/+0x4B1` for child-destruction
+handling, `+0x4B8` as score, and `+0x4BC` as the beginning of the destruction
+sound descriptor. The exact semantics/order of the remaining boolean cluster
+`+0x4B2..+0x4B4` are being held at bounded confidence until the terrain,
+obstacle, and random-bonus callees are all correlated; clean code should not
+name those fields prematurely.
