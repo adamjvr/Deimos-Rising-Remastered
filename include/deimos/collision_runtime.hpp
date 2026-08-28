@@ -89,12 +89,12 @@ struct LegacyPlayerCollisionViewport {
     const LegacyCollisionBounds& entity_bounds,
     const LegacyPlayerCollisionViewport& viewport);
 
-// 0x37580 is the player pickup dispatcher. Inventory/weapon/player-stat
-// mutation remains in the player subsystem, so the collision layer invokes an
-// explicit callback and preserves the original branch on its Boolean result.
-// 0x27100 similarly owns player shield/life semantics; the callback receives
-// the exact UnitDef damage amount and current tick, then the collision loop
-// re-reads player.status just like 0x26C50.
+// 0x37580 is the player pickup dispatcher and 0x27100 owns player shield/damage
+// semantics. Concrete clean mutations live in player_runtime.cpp; collision
+// keeps explicit callbacks so returned spawn/audio/UI consequences can be
+// orchestrated by the world layer without coupling them to geometry. The
+// collision loop preserves the dispatcher Boolean and re-reads player.status
+// after damage just like 0x26C50.
 using LegacyPlayerPickupHandler =
     std::function<bool(PlayerRuntimeSlot& player, const EntityRuntime& pickup_entity)>;
 using LegacyPlayerDamageHandler =

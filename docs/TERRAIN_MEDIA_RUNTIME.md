@@ -97,9 +97,7 @@ Rects:
 The main member update checks `collidesWithGroundObstacles_BOOL`, derives the
 entity rect through `0x12A00`, and queries `0x2A830`. The clean core currently
 implements the exact rect conversion, flag gate, list persistence, vertical
-shift, inclusive overlap, and clear semantics. The subsequent original
-position rollback/latch orchestration remains a separate tick-integration
-boundary.
+shift, inclusive overlap, and clear semantics. The subsequent consequence is now proven too: the PPC copies the engine's canonical `{0,0}` vector into live velocity `+0x10/+0x14` and sets live `+0x13C` stationary. It does **not** restore or roll back position. The clean helper reproduces this stop/latch and, for draw-to-terrain entities, appends the stopped Rect afterward. The surrounding live `+0x19 == 0` main-tick gate remains conservatively unnamed.
 
 `destructDrawToTerrain_BOOL` also appends the destroyed ground entity's rect to
 this same list. This proves the list participates in later ground-obstacle
@@ -121,7 +119,7 @@ not yet claimed as reconstructed.
 
 ## Validation
 
-The repository suite is **23/23 PASS**. The canonical `Game.pak` probe verifies
+The repository suite is **24/24 PASS**. The canonical `Game.pak` probe verifies
 all new compiled fields and the fixed water-impact labels/IDs while retaining
 the established deterministic baseline:
 
@@ -132,8 +130,7 @@ the established deterministic baseline:
 
 ## Remaining terrain-facing boundaries
 
-- integrate the original ground-obstacle hit rollback/latch into the complete
-  member tick;
+- integrate the proven zero-velocity/stationary obstacle consequence into the complete member tick around the still-bounded live `+0x19` gate;
 - reconstruct the renderer/bitmap consequences behind `0x12F20` and any actual
   terrain-image mutation beyond the proven rectangle store;
 - bind a decoded Media Mask resource/provider instead of the clean callback

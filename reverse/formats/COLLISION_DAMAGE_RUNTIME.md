@@ -15,12 +15,12 @@ consequences are documented separately in `DESTRUCTION_GROUP_RUNTIME.md`.
 | `0x12AD0` | build integer entity collision AABB |
 | `0x14F10` | shield/damage/hit-effects routine |
 | `0x16300` | ordinary destruction/effect path |
-| `0x27100` | player damage/life path; concrete mutation still bounded |
+| `0x27100` | player shield/damage path; concrete clean mutation implemented |
 | `0x34090..0x34314` | player-impact scan inside member update |
 | `0x36120` | group/member teardown and reward consequences |
 | `0x36AB0` | safe pointer/serial/active reference validation |
 | `0x36CF0` | entity collision candidate scan and symmetric damage tail |
-| `0x37580` | pickup dispatcher; concrete player inventory mutation still bounded |
+| `0x37580` | pickup dispatcher; concrete clean stat mutation implemented |
 | `0x42F80` | quantized radial overlap helper |
 
 ## Collision domains and compiled fields
@@ -143,21 +143,22 @@ the entity/owner. Player status is re-read afterward.
 `pickup_Type_ID != none` selects the exclusive pickup path through `0x37580`.
 A failed pickup performs no ordinary impact. A successful pickup invokes
 ordinary destruction/consumption with the player's signed owner index, then
-marks the pickup-consumed byte and skips reciprocal player damage. Concrete
-inventory/stat mutation remains an explicit callback.
+marks the pickup-consumed byte and skips reciprocal player damage. The clean
+pickup/stat implementation now lives in `player_runtime.cpp`; the callback remains only
+as a subsystem orchestration boundary.
 
 ## Validation and remaining boundary
 
-Synthetic repository tests are **23/23 PASS**. Canonical Game.pak remains
+Synthetic repository tests are **24/24 PASS**. Canonical Game.pak remains
 stable at 386 groups / 546 constructed members, construction RNG seed
 `2249411936`, 544 active members after the first player-aware tick, and motion
 RNG seed `2633739833`.
 
 Remaining collision-adjacent work is deliberately bounded to:
 
-- concrete `0x37580` player pickup/inventory mutation;
-- concrete `0x27100` player shield/life mutation;
+- downstream life decrement/respawn/game-over logic after immediate player death entry;
+- world/audio/UI orchestration of the concrete player pickup/damage result facts;
 - ground/terrain collision and actual obstacle/terrain mutation;
-- ground-obstacle rollback/latch integration and renderer/terrain mutation beyond the now-recovered `0x16880` media route;
+- proven zero-velocity/stationary ground-obstacle integration around the still-bounded live `+0x19` gate and renderer/terrain mutation beyond the now-recovered `0x16880` media route;
 - special live `+0xCD` destruction branch through `0x17E70`;
 - full orchestration of remaining non-collision destruction entry sites.

@@ -104,8 +104,10 @@ canonical 100.0). The player then receives the colliding entity's own UnitDef
 call still occurs if the preceding entity-side hit destroyed the target. The
 player's status byte is re-read afterward; status 4 remains the active value.
 
-The clean collision layer exposes player damage as a callback because the full
-player shield/life/state machine is a separate reconstruction boundary.
+The clean collision layer exposes player damage as a callback to keep collision geometry
+decoupled from player-world effects. The concrete `0x27100` shield/damage and immediate
+`0x27E50` death-entry mutations now live in `player_runtime.cpp`; only the later
+life-consumption/respawn/game-over state machine remains separate.
 
 ## Pickup branch
 
@@ -126,12 +128,13 @@ A pickup collision is exclusive:
    owner/index byte;
 4. do not damage the player.
 
-Concrete inventory/weapon/stat changes remain behind a callback until
-`0x37580`'s player-side callees are reconstructed.
+Concrete `0x37580` pickup/stat mutations are now reconstructed in
+`player_runtime.cpp`. The collision callback remains as an orchestration boundary so
+returned life-spawn/feedback facts are handled by the world/UI/audio layer.
 
 ## Current validation
 
-The repository test suite is **23/23 PASS**. Canonical Game.pak validation still
+The repository test suite is **24/24 PASS**. Canonical Game.pak validation still
 produces:
 
 - 386 groups / 546 live members after construction;
@@ -148,10 +151,10 @@ produces:
 The ordinary destruction/group consequence graph has moved to
 `DESTRUCTION_GROUP_RUNTIME.md`. Remaining collision-adjacent boundaries are:
 
-- ground-obstacle rollback/latch integration and renderer/terrain mutation beyond the recovered `0x16880` media route and persistent Rect store;
+- integration of the proven zero-velocity/stationary ground-obstacle consequence around the still-bounded live `+0x19` gate, plus renderer/terrain mutation beyond the recovered `0x16880` media route and persistent Rect store;
 - actual ground/terrain collision, obstacle insertion, and terrain mutation;
-- concrete `0x37580` player pickup/inventory mutation;
-- concrete `0x27100` player shield/life damage semantics;
+- later player life decrement/respawn/entry-invulnerability/game-over state after immediate `0x27E50` death entry;
+- world/audio/UI orchestration of the now-concrete player pickup/damage result facts;
 - special live `+0xCD` destruction path through `0x17E70`;
 - orchestration of the remaining non-collision destruction entry sites.
 

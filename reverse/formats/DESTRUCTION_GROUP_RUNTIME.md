@@ -7,11 +7,13 @@ the group/member consequence path at `0x36120`, and the outer inactive-member
 cleanup pass around `0x36610` in the canonical Mac 1.0.6 executable. The clean
 implementation is `src/core/destruction_runtime.cpp`.
 
-The implementation deliberately keeps unresolved material-sensitive behavior
-behind an explicit callback rather than inventing modern semantics. In
-particular, ground-sensitive spawn gate `0x16880`, the special live-member
-`+0xCD` destruction path, concrete obstacle/terrain mutation, and concrete
-player inventory/life code are still separate boundaries.
+The implementation deliberately keeps still-unresolved renderer/game-state behavior
+behind explicit boundaries rather than inventing modern semantics. Ground-sensitive
+spawn routing `0x16880`, the persistent obstacle Rect store, the ground-obstacle
+zero-velocity/stationary consequence, and concrete player pickup/shield/death-entry
+mutation are now recovered. Remaining boundaries include renderer/terrain pixel
+mutation, the special live-member `+0xCD` destruction path, and the downstream player
+life/respawn/game-over state machine.
 
 ## Binary anchors
 
@@ -278,11 +280,11 @@ Implemented and regression-covered:
 
 Still separate or unresolved:
 
-- complete ground-obstacle hit rollback/latch integration into the member tick;
+- integrate the proven zero-velocity/stationary ground-obstacle consequence into the member tick around the still-bounded live `+0x19` gate;
 - renderer/terrain bitmap mutation beyond the recovered persistent Rect store and obstacle trace;
 - special live `+0xCD` destruction path through `0x17E70`;
 - a few early/late `0x16300` bookkeeping calls whose global semantics are not
   yet named;
-- concrete player pickup/inventory and player shield/life routines;
+- downstream player life decrement/respawn/game-over logic and full orchestration of the now-concrete pickup/shield/death-entry routines;
 - integration of every non-collision destruction entry site into one full game
   tick orchestration.

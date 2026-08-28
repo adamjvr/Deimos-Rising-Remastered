@@ -40,6 +40,16 @@ private:
     const EntityRuntime& entity,
     const LegacyGroundObstacleRects& obstacles);
 
+// Consequence of a successful 0x2A830 query in the main member tick around
+// 0x34538. The shared two-float source copied by the PPC is the canonical
+// {0,0} vector, also used by constructor/motion code: the hit zeros velocity
+// and latches live +0x13C stationary. It does NOT restore/rollback position.
+// destructDrawToTerrain_BOOL additionally appends the current entity Rect to
+// the same persistent obstacle list. Returns false when no hit occurred.
+[[nodiscard]] bool apply_legacy_ground_obstacle_stop(
+    EntityRuntime& entity,
+    LegacyGroundObstacleRects& obstacles);
+
 // Fixed Objects[gaob] positional resource contract consumed by PPC 0x16880.
 // Slots 6..9 are label-verified water-impact effects.
 struct LegacyWaterImpactConfig {

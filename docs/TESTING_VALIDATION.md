@@ -69,7 +69,24 @@ The binary-confirmed collision layer has a dedicated synthetic regression execut
 - scan early exit after self becomes inactive;
 - level-scaled shield base/increment/max behavior, including the no-max-clamp branch when increment is non-positive.
 
-The repository suite is currently **23/23 PASS**. The optional canonical `Game.pak` probe additionally validates all compiled collision/destruction/terrain-media fields and reports 436 collision-enabled states, 135 air / 251 ground Unit Definitions, 8 pickup Unit Definitions, 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units, and fixed water IDs `spti/spsm/spme/spla`, plus the other corpus counts recorded in `STATUS.md`. It also verifies that the existing shared constructor and first player-aware tick remain deterministic at RNG seeds `2249411936` and `2633739833` respectively.
+The repository suite is currently **24/24 PASS**. The optional canonical `Game.pak` probe additionally validates all compiled collision/destruction/terrain-media/player-runtime fields and reports 436 collision-enabled states, 135 air / 251 ground Unit Definitions, 8 pickup Unit Definitions (4 coin / 1 mult / 1 exli / 2 shie), 2 Player Definitions, player globals 100/10/1, death-money IDs `calg/cals/casg/cass`, 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units, and fixed water IDs `spti/spsm/spme/spla`, plus the other corpus counts recorded in `STATUS.md`. It also verifies that the existing shared constructor and first player-aware tick remain deterministic at RNG seeds `2249411936` and `2633739833` respectively.
+
+### Player-runtime regression rules
+
+The binary-confirmed player runtime has a dedicated synthetic regression executable covering:
+
+- Player Definition source-to-compiled shield/life/resource fields;
+- label-verified `Game[gafl]` 161/162/167 positional globals and PPC integer truncation;
+- label-verified `Objects[gaob]` 2..5 death-money resources;
+- zero/nonzero coin behavior and semantic money mutation;
+- exact multiplier ladder;
+- extra-life cap/spawn and shield pickup clamp;
+- retained `air `/`grnd` invulnerability rejection;
+- player hit-delay write ordering relative to invulnerability;
+- direct shield-damage scaling, zero-shield survival and strict negative-shield death;
+- hit-spawn and low-shield warning gates/latches;
+- immediate death status/invulnerability/money decomposition without an incorrect life decrement;
+- ground-obstacle stop preserving position while zeroing velocity and latching stationary.
 
 ### Destruction/group-removal regression rules
 

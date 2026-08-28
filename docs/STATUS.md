@@ -76,7 +76,7 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **23/23**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **24/24**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Spawn runtime findings now binary-confirmed
 
@@ -146,11 +146,20 @@ Synthetic repository tests pass **23/23**. Original assets/binaries are used onl
 - Collision-spawn timing is `current >= last+delay`; non-repeat collision spawns are tracked per entity.
 - Canonical collision corpus: 436 collision-enabled states, 55 pass-hits-to-owner states, 139 collision-invulnerable states, 151 player-collision states, 141 no-glow states, and 5 collision-spawn states.
 - Player collision geometry is recovered from `0x12A00` + `0x33968..0x341C8`: player radius is `0.5 * truncated Rect height`, while the entity radius remains integer span/2. The shared `0x42F80` quantization means a raw 6.5-distance equality can still hit because `6.5^2` truncates to 42 before sqrt.
-- Player-impact control flow `0x34090..0x34314` now has a bounded clean scanner: state/harmless/viewport gates, two pre-snapshotted active player slots, AABB + radial geometry, `passHitsToOwner`, canonical 100-point `Player_ImpactDamageToEntities`, reciprocal UnitDef `damage_FLOAT`, and player-status recheck are represented. Player inventory/stat mutation (`0x37580`) and full player damage/life semantics (`0x27100`) remain explicit callbacks.
+- Player-impact control flow `0x34090..0x34314` now has a bounded clean scanner: state/harmless/viewport gates, two pre-snapshotted active player slots, AABB + radial geometry, `passHitsToOwner`, canonical 100-point `Player_ImpactDamageToEntities`, reciprocal UnitDef `damage_FLOAT`, and player-status recheck are represented. Concrete pickup/stat mutation (`0x37580`) and player shield/damage/death-entry semantics (`0x27100`/`0x27E50`) are now implemented in `player_runtime.cpp`; collision keeps narrow callbacks only as a subsystem-orchestration boundary.
 - `UnitDef +0x4D4/+0x4DC` are now bound to `pickup_Type_ID` / `pickup_Value_INT`. Non-`none` pickups use the exclusive pickup branch: a failed pickup does no damage; a successful pickup consumes/destroys the entity and skips reciprocal impact. Canonical corpus: 8 pickup units (4 `coin`, 2 `shie`, 1 `exli`, 1 `mult`).
 - Shield construction now follows `0x35E50..0x35EB0`: base + positive increment * (`gameContext+0x14 - 1`), clamped to max only on the positive-increment branch. The higher-level semantic name of game-context `+0x14` remains intentionally unresolved.
 - Canonical Unit Definitions: 135 air / 251 ground collision domains, 226 harmless units, 9 player projectiles, 110 player-projectile-hittable units, 120 nonzero collision-damage units, 131 nonzero base-shield units, and 8 pickup units.
 - Lethal ordinary collision and successful pickup can now execute the recovered `0x16300` destruction effects immediately when supplied a removal context, preserving same-call random-bonus RNG order. Later group cleanup is idempotent with respect to those already-processed effects.
+
+### Player pickup/shield/death-entry findings now binary-confirmed
+
+- Player Definition `+0x48/+0x4C/+0x50/+0x54` are default shield, warning threshold, base hit percentage, and shield hit delay; `+0x60/+0x64/+0x70` are max lives, initial lives, and life spawn; `+0xBC/+0xC8/+0xCC/+0xD0` are death spawn, active hit spawn, shield warning object, and defence-bonus object.
+- `0x37580` is now concrete: canonical pickups are 4 `coin`, 1 `mult`, 1 `exli`, 2 `shie`; executable-retained `air `/`grnd` branches reject while player invulnerability `+0xCE` is set.
+- Money pickup adds only nonzero values; multiplier follows `1->2->3->4->5->10`; extra life is capped but still consumes at max; shield pickup adds and clamps to `[0,100]`.
+- `0x27100` stores the player hit tick before invulnerability, scales incoming UnitDef damage directly by `shieldBaseHitPercentage`, does not clamp shield, and enters death only at shield `< 0`; zero shield survives. Hit glow still runs for an invulnerable accepted hit.
+- `0x27E50` immediate death entry emits `death_Spawn_ID`, clears hit bookkeeping, decomposes money in 50/10/5/1 units, sets status 3/current tick, and raises invulnerability. It does **not** decrement lives; that belongs to the later death/respawn state machine.
+- Fixed player contracts are now label-verified: `Game[gafl]` 161/162/167 = impact damage / hit-spawn delay / entity-hit delay and `Objects[gaob]` 2..5 = `calg/cals/casg/cass` money units. Canonical values are 100/10/1.
 
 ### Destruction/group findings now binary-confirmed
 
@@ -176,8 +185,8 @@ Synthetic repository tests pass **23/23**. Original assets/binaries are used onl
 
 ### Active reverse-engineering fronts
 
-1. Integrate the proven ground-obstacle overlap into the complete member tick, including the original position rollback/latch, then recover renderer/bitmap effects behind `0x12F20` and any terrain-image mutation beyond the persistent Rect store.
-2. Reconstruct concrete player-side pickup/inventory semantics in `0x37580` and player shield/life damage in `0x27100`, then bind those mutations behind the already-recovered player-impact scanner.
+1. Integrate the proven ground-obstacle stop into the complete member tick with its still-bounded live `+0x19` gate, then recover renderer/bitmap effects behind `0x12F20` and any terrain-image mutation beyond the persistent Rect store.
+2. Continue past immediate player death entry into the later life decrement / respawn / entry-invulnerability / game-over state machine; bind returned player spawn/audio/UI facts into full world orchestration.
 3. Recover the special live `+0xCD` destruction path through `0x17E70`, and wire every non-collision destruction entry site through the same clean teardown orchestration.
 4. Recover the rare special single-member parent-container / intrusive-list semantics around `0x33220` and bind an actual decoded Media Mask provider to the terrain/media runtime.
 5. Expand Windows evidence and replay/action mapping after the remaining Mac gameplay-core boundaries are stable.

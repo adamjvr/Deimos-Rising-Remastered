@@ -1,7 +1,8 @@
 # Mac 1.0.6 terrain/media runtime notes
 
-Status: **binary-confirmed** for the `0x16880` media decision core and
-`0x2A6D0/0x2A770/0x2A830/0x2A950` obstacle-rectangle list.
+Status: **binary-confirmed** for the `0x16880` media decision core,
+`0x2A6D0/0x2A770/0x2A830/0x2A950` obstacle-rectangle list, and the main-tick
+zero-velocity/stationary consequence of a ground-obstacle hit.
 
 ## Relevant entry points
 
@@ -80,10 +81,14 @@ Therefore edge contact counts as collision. `0x2A770` shifts only top/bottom;
 `0x2A950` clears the list.
 
 The main member update checks `UnitDef+0x128`, parser-mapped to
-`collidesWithGroundObstacles_BOOL`, before calling this overlap helper. A hit
-returns the member toward its pre-move position and sets a live latch byte; the
-clean core currently models the exact query but leaves that larger tick
-orchestration for the next boundary.
+`collidesWithGroundObstacles_BOOL`, before calling this overlap helper. The hit
+consequence around `0x34544..0x34558` copies a shared `{0,0}` vector into live
+`+0x10/+0x14` and sets live `+0x13C`. Cross-references prove that shared vector
+is the engine's canonical zero vector and that `+0x10/+0x14` are velocity, not
+position. The entity therefore remains at its current x/y, stops moving, and
+becomes stationary. If `destructDrawToTerrain_BOOL` is set, its current Rect is
+then appended to the same obstacle list. The preceding live `+0x19 == 0` gate
+remains conservatively unnamed in clean tick orchestration.
 
 `destructDrawToTerrain_BOOL` calls `0x2A6D0` with the entity Rect during
 `0x16300`, tying destruction terrain draw requests to the same later collision

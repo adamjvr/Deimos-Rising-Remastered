@@ -1,5 +1,6 @@
 #include "deimos/collision_runtime.hpp"
 #include "deimos/destruction_runtime.hpp"
+#include "deimos/player_runtime.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -314,10 +315,14 @@ int main() {
     deimos::PlayerWorld redirected_players;
     redirected_players.slots()[0] = {4, 100.0f, 100.0f, 1, 5, 4};
     float redirected_player_damage = 0.0f;
+    deimos::LegacyPlayerDamageResult redirected_player_result;
+    deimos::CompiledPlayerRuntimeDefinition redirected_player_def;
     deimos::LegacyPlayerCollisionCallbacks redirected_callbacks;
     redirected_callbacks.apply_player_damage = [&](
-        deimos::PlayerRuntimeSlot&, float damage, std::uint32_t) {
+        deimos::PlayerRuntimeSlot& player, float damage, std::uint32_t tick) {
         redirected_player_damage = damage;
+        redirected_player_result = deimos::apply_legacy_player_damage(
+            player, redirected_player_def, damage, tick);
     };
     const auto redirected_scan = deimos::scan_legacy_player_collisions(
         redirected_world, *impact_child, redirected_players, {320, 240}, 2,
@@ -327,6 +332,9 @@ int main() {
     assert(near(impact_parent->shields, 200.0f));
     assert(near(impact_child->shields, 10.0f));
     assert(near(redirected_player_damage, 9.0f));
+    assert(redirected_player_result.death_entered);
+    assert(redirected_players.slots()[0].status == 3);
+    assert(!redirected_scan.events[0].player_remained_active);
 
     // Non-'none' pickup types never fall through to reciprocal impact. A
     // failed 0x37580-equivalent callback leaves the entity alive; success
@@ -367,8 +375,10 @@ int main() {
     assert(pickup_entity->lifecycle == deimos::EntityLifecycle::active);
     assert(pickup_player_damage_calls == 0);
 
-    pickup_callbacks.try_pickup = [](deimos::PlayerRuntimeSlot&, const deimos::EntityRuntime&) {
-        return true;
+    deimos::CompiledPlayerRuntimeDefinition pickup_player_def;
+    pickup_callbacks.try_pickup = [&](
+        deimos::PlayerRuntimeSlot& player, const deimos::EntityRuntime& entity) {
+        return deimos::apply_legacy_player_pickup(player, entity, pickup_player_def).accepted;
     };
     pickup_entity->behavior.destruction_spawn = id("puff");
     deimos::LegacyRemovalContext pickup_removal_context;
@@ -383,6 +393,7 @@ int main() {
     assert(pickup_entity->destroyed_by_owner_index == 7);
     assert(pickup_entity->destruction_effects_processed);
     assert(pickup_entity->consumed_as_player_pickup);
+    assert(pickup_players.slots()[0].money == 50);
     assert(pickup_removal_trace.consequences.size() == 1);
     assert(pickup_removal_trace.consequences[0].kind ==
            deimos::LegacyRemovalConsequenceKind::destruction_spawn);

@@ -376,3 +376,40 @@ The background module's 16-byte Rect list is now reconstructed as a persistent g
 `destructCreateObstacle_BOOL` remains a separate conversion. Outer cleanup sets live render/obstacle bytes, copies `castsShadows_BOOL`, and calls `0x12F20`. The clean trace now preserves the rect and shadow flag, but exact renderer-record/pixel mutation remains deliberately outside the claimed subset.
 
 The clean suite increased to 23/23 PASS. Canonical `Game.pak` reports 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death-spawn units, and 3 non-`none` media-impact units; construction and first-tick deterministic seeds remain `2249411936` and `2633739833`.
+
+## 2026-08-28 — Ground-obstacle stop correction and concrete player runtime
+
+Re-entered the main entity tick around `0x34504..0x34578` and resolved the
+shared two-float source previously misidentified as a rollback snapshot. PEF
+relocation and cross-reference analysis prove it is the engine's canonical
+`{0.0,0.0}` vector, reused by constructor/motion code. A successful `0x2A830`
+ground-obstacle overlap therefore leaves x/y unchanged, copies zero into live
+velocity `+0x10/+0x14`, and sets live `+0x13C` stationary. If
+`destructDrawToTerrain_BOOL` is set, the current Rect is appended to the same
+persistent obstacle list afterward. The surrounding live `+0x19 == 0` gate is
+preserved as a bounded main-tick condition rather than assigned an unsupported
+semantic name.
+
+Mapped pickup dispatcher `0x37580` and its direct player callees. Canonical
+pickup types are exactly 4 `coin`, 1 `mult`, 1 `exli`, and 2 `shie`. `coin`
+adds nonzero `pickup_Value_INT`; `mult` follows `1->2->3->4->5->10`; `exli`
+increments below the PlayerDef max and emits `life_Spawn_ID`; `shie` adds and
+clamps semantic shield to `[0,100]`; executable-retained `air `/`grnd` branches
+reject while live player `+0xCE` invulnerability is set. `spec`/default are
+accepted no-ops.
+
+Mapped player damage `0x27100`: status 4 only, `current >= lastHit+delay`, hit
+tick written before invulnerability, incoming damage multiplied directly by
+PlayerDef `shieldBaseHitPercentage`, no shield clamp, strict negative-shield
+death, hit glow even on invulnerable accepted hits, rate-limited
+`active_SpawnOnHit_ID`, and one-shot low-shield warning latch. Immediate death
+helper `0x27E50` emits `death_Spawn_ID`, clears hit bookkeeping, decomposes held
+money 50/10/5/1 through fixed `Objects[gaob]` 2..5 (`calg/cals/casg/cass`),
+clears money, sets status 3/current tick, and raises invulnerability. It does
+**not** decrement lives; that remains in the downstream death/respawn state
+machine.
+
+Added label-verified player runtime contracts for `Game[gafl]` 161/162/167 and
+`Objects[gaob]` 2..5. The clean suite is now 24/24 PASS. Canonical `Game.pak`
+still produces 386 groups / 546 members, construction RNG seed `2249411936`,
+544 active after the first player-aware tick, and motion RNG seed `2633739833`.

@@ -27,6 +27,21 @@ struct PlayerRuntimeSlot {
     // by the player's appearance/geometry path in the original.
     int collision_half_width = 0;
     int collision_half_height = 0;
+
+    // Player gameplay fields recovered from PPC 0x26D50..0x27E50. The
+    // original obscures several numeric values in memory with fixed biases;
+    // clean code stores the semantic values directly.
+    float shield_percentage = 100.0f;
+    int lives = 3;
+    int money = 0;
+    int power_multiplier = 1;
+    bool invulnerable = false;              // original player +0xCE
+    bool invulnerability_latched = false;   // original +0xCF auxiliary latch
+    bool shield_hit_latched = false;        // original +0xD0
+    bool shield_warning_latched = false;    // original +0xD1
+    std::uint32_t last_shield_hit_tick = 0; // original +0x204
+    std::uint32_t last_spawn_on_hit_tick = 0; // original +0x208
+    std::uint32_t status_since_tick = 0;    // original +0xC8
 };
 
 struct ClosestPlayerResult {

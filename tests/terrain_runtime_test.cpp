@@ -46,6 +46,23 @@ int main() {
     e.behavior.collides_with_ground_obstacles = true;
     assert(deimos::legacy_collides_with_ground_obstacle(e, entity_obstacle));
 
+    // Main-tick consequence around 0x34538: obstacle contact does NOT restore
+    // position. It copies the shared canonical zero vector to velocity and
+    // latches stationary. draw-to-terrain appends the stopped Rect afterward.
+    e.velocity_x = 3.25f;
+    e.velocity_y = -1.5f;
+    e.stationary = false;
+    e.behavior.destruction_draw_to_terrain = true;
+    const float x_before_stop = e.x;
+    const float y_before_stop = e.y;
+    const auto obstacle_count_before_stop = entity_obstacle.size();
+    assert(deimos::apply_legacy_ground_obstacle_stop(e, entity_obstacle));
+    assert(e.x == x_before_stop && e.y == y_before_stop);
+    assert(e.velocity_x == 0.0f && e.velocity_y == 0.0f);
+    assert(e.stationary);
+    assert(entity_obstacle.size() == obstacle_count_before_stop + 1);
+    assert(!deimos::apply_legacy_ground_obstacle_stop(e, entity_obstacle));
+
     // Objects[gaob] slots 6..9 are a positional binary contract.
     deimos::NamedTable<deimos::FourCC> objects(10);
     for (std::size_t i = 0; i < objects.size(); ++i) objects[i] = {"unused", id("none")};

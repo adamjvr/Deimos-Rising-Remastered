@@ -9,6 +9,7 @@
 #include "deimos/level.hpp"
 #include "deimos/pak_archive.hpp"
 #include "deimos/player_definition.hpp"
+#include "deimos/player_runtime.hpp"
 #include "deimos/terrain_runtime.hpp"
 #include "deimos/unit_definition.hpp"
 #include "deimos/unit_behavior.hpp"
@@ -51,6 +52,8 @@ int main(int argc, char** argv) {
     std::size_t unit_harmless = 0, unit_player_projectile = 0, unit_player_projectile_hittable = 0;
     std::size_t unit_nonzero_collision_damage = 0, unit_nonzero_shields = 0;
     std::size_t unit_pickups = 0;
+    std::size_t pickup_coin = 0, pickup_multiplier = 0, pickup_extra_life = 0, pickup_shield = 0;
+    std::size_t pickup_air = 0, pickup_ground = 0, pickup_special = 0, pickup_other = 0;
     std::size_t unit_casts_shadows = 0, unit_ground_obstacle_collision = 0;
     std::size_t unit_death_spawn_any_media = 0, unit_media_impact_size = 0;
     std::size_t unit_destruction_spawns = 0, unit_deletion_spawns = 0;
@@ -146,7 +149,19 @@ int main(int argc, char** argv) {
             unit_player_projectile_hittable += behavior.can_be_hit_by_player_projectile;
             unit_nonzero_collision_damage += behavior.collision_damage != 0.0f;
             unit_nonzero_shields += behavior.shields_base != 0.0f;
-            unit_pickups += behavior.pickup_type.str() != "none" && !(behavior.pickup_type == deimos::FourCC{});
+            const bool is_pickup = behavior.pickup_type.str() != "none" && !(behavior.pickup_type == deimos::FourCC{});
+            unit_pickups += is_pickup;
+            if (is_pickup) {
+                const auto pickup_type = behavior.pickup_type.str();
+                if (pickup_type == "coin") ++pickup_coin;
+                else if (pickup_type == "mult") ++pickup_multiplier;
+                else if (pickup_type == "exli") ++pickup_extra_life;
+                else if (pickup_type == "shie") ++pickup_shield;
+                else if (pickup_type == "air ") ++pickup_air;
+                else if (pickup_type == "grnd") ++pickup_ground;
+                else if (pickup_type == "spec") ++pickup_special;
+                else ++pickup_other;
+            }
             const auto present = [](deimos::FourCC value) {
                 return !(value == deimos::FourCC{}) && value.str() != "none" && value.str() != "NULL";
             };
@@ -255,8 +270,24 @@ int main(int argc, char** argv) {
             ++weapons;
             weapon_spawns += weapon->spawns.size();
         } else if (ext == ".plde") {
-            if (!deimos::decode_and_parse_player_definition(*bytes, &error)) {
+            auto player = deimos::decode_and_parse_player_definition(*bytes, &error);
+            if (!player) {
                 std::cerr << entry.path << ": " << error << '\n'; return 11;
+            }
+            const auto runtime = deimos::compile_player_runtime_definition(*player);
+            if (runtime.default_shield_percentage != player->fields.float_value("defaultShieldPercentage_INT").value_or(100.0f) ||
+                runtime.shield_warning_percentage != player->fields.float_value("shieldWarningPercentage_INT").value_or(15.0f) ||
+                runtime.shield_base_hit_percentage != player->fields.float_value("shieldBaseHitPercentage_INT").value_or(15.0f) ||
+                runtime.shield_hit_delay_ticks != player->fields.int_value("shieldHitDelay_INT").value_or(1) ||
+                runtime.life_max != player->fields.int_value("life_MaxNum_INT").value_or(10) ||
+                runtime.life_initial != player->fields.int_value("life_NumInitial_INT").value_or(3) ||
+                !(runtime.life_spawn == player->fields.id_value("life_Spawn_ID").value_or(deimos::FourCC{})) ||
+                !(runtime.death_spawn == player->fields.id_value("death_Spawn_ID").value_or(deimos::FourCC{})) ||
+                !(runtime.active_spawn_on_hit == player->fields.id_value("active_SpawnOnHit_ID").value_or(deimos::FourCC{})) ||
+                !(runtime.active_shield_warning_object == player->fields.id_value("active_ShieldWarningObject_ID").value_or(deimos::FourCC{})) ||
+                !(runtime.active_defence_bonus_object == player->fields.id_value("active_DefenceBonusObject_ID").value_or(deimos::FourCC{}))) {
+                std::cerr << entry.path << ": compiled player-runtime fields disagree with parsed source\n";
+                return 25;
             }
             ++players;
         } else if (ext == ".idli" || ext == ".flli" || ext == ".coli" || ext == ".tefo" ||
@@ -300,6 +331,18 @@ int main(int argc, char** argv) {
     if (!water_impact_config) {
         std::cerr << "canonical water-impact config: " << error << '\n';
         return 24;
+    }
+    const auto player_runtime_globals = deimos::compile_legacy_player_runtime_globals(
+        *canonical_game_floats, &error);
+    if (!player_runtime_globals) {
+        std::cerr << "canonical player-runtime globals: " << error << '\n';
+        return 26;
+    }
+    const auto player_runtime_resources = deimos::compile_legacy_player_runtime_resources(
+        *canonical_game_objects, &error);
+    if (!player_runtime_resources) {
+        std::cerr << "canonical player-runtime resources: " << error << '\n';
+        return 27;
     }
 
     auto definitions = deimos::GameDefinitions::load_from_game_pak(*pak, &error);
@@ -529,6 +572,23 @@ int main(int argc, char** argv) {
               << "    nonzero collision damage: " << unit_nonzero_collision_damage << '\n'
               << "    nonzero base shields: " << unit_nonzero_shields << '\n'
               << "    pickup units: " << unit_pickups << '\n'
+              << "      coin=" << pickup_coin
+              << " mult=" << pickup_multiplier
+              << " exli=" << pickup_extra_life
+              << " shie=" << pickup_shield
+              << " air=" << pickup_air
+              << " grnd=" << pickup_ground
+              << " spec=" << pickup_special
+              << " other=" << pickup_other << '\n'
+              << "  player runtime globals:\n"
+              << "    Player_ImpactDamageToEntities: " << player_runtime_globals->impact_damage_to_entities << '\n'
+              << "    Player_DelayBetweenHitSpawns: " << player_runtime_globals->delay_between_hit_spawns << '\n'
+              << "    Entity_HitDelay: " << player_runtime_globals->entity_hit_delay_ticks << '\n'
+              << "    death-money IDs: "
+              << player_runtime_resources->money_50.str() << ','
+              << player_runtime_resources->money_10.str() << ','
+              << player_runtime_resources->money_5.str() << ','
+              << player_runtime_resources->money_1.str() << '\n'
               << "  terrain/media fields:\n"
               << "    casts-shadows units: " << unit_casts_shadows << '\n'
               << "    ground-obstacle-collision units: " << unit_ground_obstacle_collision << '\n'

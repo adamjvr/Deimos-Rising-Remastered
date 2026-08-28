@@ -26,4 +26,4 @@ particle units, 77 destruction sounds, 28 ordinary coin-reward units, 15
 group-kill reward units, 54 destroy-children units, 58 delete-children units,
 13 obstacle creators, 32 terrain-draw units, and 7 random-bonus units.
 
-Ground-sensitive helper `0x16880` and the persistent ground-obstacle Rect store are now reconstructed. Remaining boundaries are complete ground-obstacle rollback/render integration, renderer/terrain mutation beyond that Rect store, the special live `+0xCD` path, concrete player pickup/damage mutation, and full game-tick orchestration of every destruction entry site. See `TERRAIN_MEDIA_RUNTIME.md`.
+Ground-sensitive helper `0x16880` and the persistent ground-obstacle Rect store are now reconstructed. Remaining boundaries are integration of the proven zero-velocity/stationary ground-obstacle stop around its still-bounded live `+0x19` gate, renderer/terrain mutation beyond that Rect store, the special live `+0xCD` path, downstream player life/respawn state after the now-concrete pickup/damage/death-entry layer, and full game-tick orchestration of every destruction entry site. See `TERRAIN_MEDIA_RUNTIME.md` and `PLAYER_RUNTIME.md`.

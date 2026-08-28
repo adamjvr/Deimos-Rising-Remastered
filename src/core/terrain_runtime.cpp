@@ -65,6 +65,28 @@ bool legacy_collides_with_ground_obstacle(
     return obstacles.overlaps(legacy_entity_world_rect(entity));
 }
 
+bool apply_legacy_ground_obstacle_stop(
+    EntityRuntime& entity,
+    LegacyGroundObstacleRects& obstacles) {
+    // 0x34504 first rejects members already carrying the stationary latch.
+    if (entity.stationary) return false;
+    if (!legacy_collides_with_ground_obstacle(entity, obstacles)) return false;
+
+    // 0x34544..0x34558 copies the engine's canonical zero vector to live
+    // +0x10/+0x14, then sets +0x13C. Earlier notes incorrectly described
+    // these writes as a position rollback; +0x10/+0x14 are velocity.
+    entity.velocity_x = 0.0f;
+    entity.velocity_y = 0.0f;
+    entity.stationary = true;
+
+    // 0x34560..0x34578: draw-to-terrain entities feed their current Rect back
+    // into the persistent ground-obstacle list after being stopped.
+    if (entity.behavior.destruction_draw_to_terrain) {
+        obstacles.add(legacy_entity_world_rect(entity));
+    }
+    return true;
+}
+
 std::optional<LegacyWaterImpactConfig> compile_legacy_water_impact_config(
     const NamedTable<FourCC>& game_objects,
     std::string* error) {
