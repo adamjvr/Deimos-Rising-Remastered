@@ -1,0 +1,116 @@
+{
+  "schema": "deimos-rising-evidence-manifest-v1",
+  "evidence_id": "DR-EVID-001",
+  "source_label": "user-supplied deimos-rising-install.sit",
+  "original_filename": "deimos-rising-install.sit",
+  "size_bytes": 40140466,
+  "hashes": {
+    "md5": "c3b36b3ef326486176e6d5d90af91032",
+    "sha1": "71919aa86a83334e25f060c5ae86bcbb7a3b0e3f",
+    "sha256": "3ed7a640aded708fa3720c18d11d1a3f6ff23348888a07043401832046563100"
+  },
+  "container": {
+    "format": "StuffIt 5",
+    "archive_version": 5,
+    "archive_flags_hex": "0x10",
+    "declared_total_size": 40140466,
+    "root_entry_count": 1,
+    "first_entry_offset": 114
+  },
+  "catalog": [
+    {
+      "path": "Deimos Rising Install/",
+      "kind": "directory",
+      "archive_offset": 114,
+      "top_level_children_declared": 4,
+      "creation_time_utc": "2019-12-16T09:49:43+00:00",
+      "modification_time_utc": "2019-12-16T11:38:04+00:00"
+    },
+    {
+      "path": "Deimos Rising Install/AboutThis.txt",
+      "kind": "file",
+      "archive_offset": 267,
+      "data_fork": {
+        "uncompressed_size": 1072,
+        "compressed_size": 603,
+        "compression_method": 13,
+        "crc16": 13323,
+        "data_offset": 613
+      },
+      "resource_fork": {
+        "uncompressed_size": 1454,
+        "compressed_size": 235,
+        "compression_method": 13,
+        "crc16": 39351,
+        "data_offset": 378
+      },
+      "finder_type": "TEXT",
+      "finder_creator": "R*ch",
+      "creation_time_utc": "2019-12-16T10:21:43+00:00",
+      "modification_time_utc": "2019-12-16T10:38:20+00:00"
+    },
+    {
+      "path": "Deimos Rising Install/deimos_rising.iso",
+      "kind": "file",
+      "archive_offset": 1216,
+      "data_fork": {
+        "uncompressed_size": 104851456,
+        "compressed_size": 40138502,
+        "compression_method": 13,
+        "crc16": 55197,
+        "data_offset": 1317
+      },
+      "resource_fork": null,
+      "finder_type": "GImg",
+      "finder_creator": "VCDM",
+      "creation_time_utc": "2019-12-16T11:15:56+00:00",
+      "modification_time_utc": "2019-12-16T11:15:58+00:00"
+    },
+    {
+      "path": "Deimos Rising Install/Macintosh-Garden.txt",
+      "kind": "file",
+      "archive_offset": 40139819,
+      "data_fork": {
+        "uncompressed_size": 752,
+        "compressed_size": 390,
+        "compression_method": 13,
+        "crc16": 21828,
+        "data_offset": 40139923
+      },
+      "resource_fork": null,
+      "finder_type": "TEXT",
+      "finder_creator": "R*ch",
+      "creation_time_utc": "2016-09-09T18:38:25+00:00",
+      "modification_time_utc": "2018-11-08T09:38:00+00:00"
+    },
+    {
+      "path": "Deimos Rising Install/MD5-checksum.txt",
+      "kind": "file",
+      "archive_offset": 40140313,
+      "data_fork": {
+        "uncompressed_size": 51,
+        "compressed_size": 53,
+        "compression_method": 13,
+        "crc16": 17721,
+        "data_offset": 40140413
+      },
+      "resource_fork": null,
+      "finder_type": "TEXT",
+      "finder_creator": "R*ch",
+      "creation_time_utc": "2019-12-16T09:52:11+00:00",
+      "modification_time_utc": "2019-12-16T09:52:47+00:00"
+    }
+  ],
+  "observations": [
+    "Catalog was parsed without decompressing proprietary payloads.",
+    "All visible file forks use StuffIt compression method 13.",
+    "The dominant payload is deimos_rising.iso (104,851,456 bytes uncompressed).",
+    "AboutThis.txt carries both a data fork and a resource fork.",
+    "No original proprietary payload is included in this repository-ready drop."
+  ],
+  "external_corroboration": {
+    "sha1_exact_match": "71919aa86a83334e25f060c5ae86bcbb7a3b0e3f",
+    "reported_version": "1.0.3",
+    "status": "external-only; internal version confirmation pending ISO extraction"
+  }
+}

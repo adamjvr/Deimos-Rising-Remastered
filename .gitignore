@@ -1,0 +1,23 @@
+# Proprietary/reference evidence must stay local.
+reference/
+evidence/raw/
+evidence/extracted/
+*.sit
+*.sitx
+*.iso
+*.dmg
+*.toast
+*.img
+*.bin
+*.app/
+*.exe
+
+# Reverse-engineering tool output
+reverse/work/
+reverse/ghidra/
+reverse/disassembly/raw/
+
+# Builds
+build/
+out/
+.DS_Store
