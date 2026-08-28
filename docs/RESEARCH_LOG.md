@@ -68,3 +68,62 @@ All four canonical PAKs use only ZIP method 0/stored members. A dependency-free 
 ### Text-format type correction
 
 Real-corpus validation showed that `tefo` field `Format_ID` is polymorphic at the text level: values include the four-character tokens `LEFT`, `CENT`, `CEBU`, `RIGHT` and the one-character values `3` and `4`. The clean parser preserves this as an opaque token rather than assuming the `_ID` suffix implies a FourCC.
+
+## 2026-08-28 — entity transition interpreter recovered
+
+### Exact string/action semantics
+
+The common PPC comparator at code `0x57820` was disassembled and is a plain
+byte-exact `strcmp`. This corrected an earlier case-folding assumption. State
+actions in `0x146F0` recognize exact `Delete`, exact `Destroy`, or an exact local
+state name. Any other non-empty label returns without changing state.
+
+Re-running the complete canonical corpus under exact lookup changes the active
+unresolved/no-op count from 29 to **44**. The additional 15 are all the literal
+`Wait for Player Approach`, while the corresponding state is
+`Wait For Player Approach`. They occur as `Is Active` rule actions and are
+preserved as original no-ops rather than repaired silently.
+
+### Full 17-condition rule dispatch
+
+Rule evaluator `0x15550` contains a 17-way dispatch table even though canonical
+1.0.6 data uses only nine non-empty condition strings. Handler semantics were
+mapped for tracking, active/inactive, destroyable-air/ground presence, player
+presence, player range, animation stop, required visibility/tint/scale, and
+unit-count equality/less-than/greater-than.
+
+The five rule slots execute in file order and the first true predicate wins.
+The evaluator exits after calling the state-action routine even when that action
+is an unresolved/no-op label.
+
+### Timer RNG and exact tick trigger
+
+Helper `0x46580` maps the 15-bit RNG result from `0x553E0` with
+`min + rng % (max-min+1)`, using the endpoint directly when `min == max`.
+The base RNG is the 32-bit LCG update `seed = seed * 1103515245 + 12345` and
+returns bits 16..30.
+
+State entry stores the current tick and chosen delay. The main entity update
+fires the timer only on exact equality with `entryTick + delay`, not when the
+current tick is later. All 1,167 canonical timer bound pairs satisfy `min <= max`.
+
+### State-entry counter
+
+The entity structure contains 20 per-state entry counters. State transition
+increments the entered state's counter and immediately compares it against
+`stateOnCounter_INT`. The largest canonical threshold is 16. A non-empty state
+transition attempt resets the current slot before recursively entering the
+new state; this reset also occurs before an unresolved non-empty label becomes
+a no-op.
+
+### Range transition and update ordering
+
+The range handler at `0x15280` treats exact `0.0f` as disabled and otherwise
+uses strict `measuredDistance < configuredRange`.
+
+The main entity path around `0x33C58` establishes transition ordering: timer
+first, then animation update, then rules, later range processing. Delete/destroy
+results exit the normal update path at each stage.
+
+A dependency-free clean `state_runtime` kernel and complete 17-condition rule
+predicate layer now encode these confirmed semantics.

@@ -1,58 +1,87 @@
 # Status
 
-## 2026-08-28 — Phase 1 data/resource reconstruction
+## 2026-08-28 — Phase 1 state-runtime semantics milestone
 
 ### Evidence corpus
 
-- `DR-EVID-001` — older StuffIt-packaged disc image; remains open for cross-version extraction/correlation.
-- `DR-EVID-002` — Mac 1.0.6 installation fully recovered from its StuffIt/HFS layers.
-- `DR-EVID-003` — Windows PE32/NSIS distribution identified; payload expansion and Mac↔Windows binary correlation remain active.
+- `DR-EVID-001` — older StuffIt-packaged disc image; retained as a cross-version oracle.
+- `DR-EVID-002` — Mac 1.0.6 installation fully recovered from StuffIt/HFS layers.
+- `DR-EVID-003` — Windows PE32/NSIS distribution identified; payload expansion/correlation remains active.
 - `DR-EVID-004` — add-ons/update/reference/mod/music corpus; Apple Bundle update and Perfect Demos evidence recovered.
 
-Phase 0 remains open only because more evidence may arrive. Active engineering is Phase 1.
+Phase 0 remains open only for additional evidence. Active engineering is Phase 1, with the first proven Phase-2 runtime primitives now implemented behind tests.
 
-### Clean core now implemented
+### Clean runtime/data core
 
-- exact four-byte resource IDs and IA/IC plate-name parsing;
-- dependency-free reader for the canonical stored-ZIP PAK subset;
-- CRC32 validation for original PAK members;
-- `Data/Local`-over-PAK resource provider;
-- exact legacy seven-bit resource-byte decoder plus canonical synthetic encoder;
-- generic tagged-text grammar parser and typed integer/float/Boolean/FourCC/RECT/RGB helpers;
-- strict typed `.leve` loader;
-- typed ID/float/color/rect/string list loaders and the 17-field Text Format loader;
-- partial/proven-field `.film` v10005 parser;
-- `deimos_reference_probe` for validating a user-owned original `Game.pak` directly through the clean core.
+Implemented and tested:
+
+- exact FourCC/resource names and IA/IC plate parsing;
+- dependency-free stored-ZIP PAK reader with CRC32 validation;
+- `Data/Local` override layer over canonical PAK content;
+- recovered seven-bit legacy tagged-text transform and grammar;
+- typed scalar/FourCC/RECT/RGB fields;
+- canonical level, data-table, Text Format, and v10005 film loaders;
+- typed unit, weapon, and player definitions;
+- explicit unit states, nested spawn sets, five-slot state rules, and weapon-spawn records;
+- complete 17-condition executable rule vocabulary;
+- binary-confirmed first-true-rule evaluation semantics;
+- exact/case-sensitive state-action lookup with unresolved labels preserved as runtime no-ops;
+- timer/state-entry-counter/range transition primitives recovered from PPC;
+- cross-definition unit-reference validation;
+- PEF pattern-data/import/relocation probe with synthetic relocation tests.
 
 ### Real-corpus validation
 
-The clean C++ reader/parser has been run against the recovered original 1.0.6 resources, not only synthetic fixtures:
+The current clean core has been run against original 1.0.6 `Game.pak`:
 
-- `Audio.pak`: 96 actual files CRC-validated;
-- `Game.pak`: 763 actual files CRC-validated;
-- `Interface.pak`: 9 actual files CRC-validated;
-- `Music.pak`: 3 actual files CRC-validated;
-- **871 original files total**;
-- all 12 canonical levels parsed;
-- all **565** declared level placements reconciled;
-- all 4 canonical PAK replay films parsed as v10005.
+- 763 files CRC-validated;
+- 12 levels / 565 placed objects;
+- 4 canonical replay films;
+- 6 ID lists, 1 float table, 1 color list, 1 rect list, 5 string lists, 54 text formats;
+- **386 units / 1,167 states / 532 spawn sets / 5,835 rules**;
+- **5 weapons / 15 weapon spawns / 2 players**;
+- zero unknown canonical rule-condition strings;
+- zero invalid proven unit references;
+- **44 active unresolved/no-op state-action occurrences** preserved exactly;
+- 30 inert unresolved range-action occurrences.
 
-The repository test suite contains only synthetic clean fixtures and currently passes **7/7** tests.
+The 44 active no-ops include 15 case-only `Wait for Player Approach` mismatches that exact PPC `strcmp` does not resolve.
 
-### Major reverse-engineering findings
+Across all four canonical PAKs, 871 original files CRC-validate.
 
-- Ten game-data extensions (`leve`, `unde`, `plde`, `wede`, `idli`, `flli`, `coli`, `tefo`, `stli`, `reli`) share a reversible seven-bit text transform rather than opaque binary serialization.
-- All **473** canonical resources in those buckets decode cleanly to ASCII.
-- Unit definitions reveal a heavily data-driven entity/state-machine model: 386 units, 1,167 repeated state records, and 5,835 state-rule records by canonical key counts.
-- `.flli` is the global float/constants table; `.tefo` is Text Format; `.reli` is Rect List.
-- Level format is fully mapped at the placement level.
-- Fifteen v10005 films (4 canonical + 11 Perfect Demos) expose 135,840 active input ticks. The action set is known from documentation, but exact bit/action mapping remains intentionally unassigned until stronger evidence.
-- Canonical level terrain geometry is 480×3600 with a corresponding 96×720 media mask, a 5:1 dimension ratio on each axis.
+### Entity runtime findings now binary-confirmed
+
+- State/action resolver: code `0x146F0`.
+- Range handler: `0x15280`.
+- Rule evaluator: `0x15550`.
+- Animation update: `0x15930`.
+- Inclusive integer RNG helper: `0x46580`.
+- 15-bit LCG RNG: `0x553E0`.
+- Exact string comparator: `0x57820`.
+- Rule evaluator supports 17 conditions and five ordered slots.
+- First true rule ends rule evaluation even when its action is a no-op.
+- Range-rule threshold zero makes both within/not-within predicates false.
+- Timer delay is inclusive `[min,max]` and fires on exact target-tick equality.
+- Entity owns 20 persistent state-entry counters; counter checks occur immediately on state entry.
+- Range transitions use exact-zero disable plus strict `<` comparison.
+- Main per-entity ordering establishes timer -> animation -> rules -> later range handling.
+
+### PEF/binary milestone retained
+
+- 89,661 packed section-1 bytes expand exactly to 104,632 initialized bytes;
+- one 860-block relocation program executes to 5,153 fixups;
+- all 445 imports are consumed coherently;
+- main transition vector resolves to code `0x4D540`, TOC/r2 section-1 offset `0x8000`;
+- executable internally identifies itself as `1.0.6`, `Jan  2 2004`, `11:55:01`.
+
+### Tests
+
+Synthetic repository tests pass **15/15**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Active reverse-engineering fronts
 
-1. Type the `.unde`, `.wede`, `.plde`, and table resources without guessing uncertain behavioral semantics.
-2. Map v10005 replay bit assignments and second-player record semantics from PPC/controlled evidence.
-3. Reconstruct deterministic entity/state-machine execution from data + `G_*` / `U_*` code correspondences.
-4. Expand and correlate the Windows build.
-5. Continue PEF function/TOC/relocation mapping and bind binary behavior back to the clean simulation.
+1. Recover spawn-set scheduling, volleys, delays, repeat behavior, and exact RNG-consumption order.
+2. Bind movement/tracking/rotation fields to entity runtime functions.
+3. Recover hit/damage/destruction and collision/terrain behavior.
+4. Finish v10005 replay bit assignment/two-player semantics and turn films into deterministic simulation oracles.
+5. Expand/correlate the Windows executable payload.

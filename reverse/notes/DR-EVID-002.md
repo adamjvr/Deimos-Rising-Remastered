@@ -11,12 +11,15 @@
 - All twelve numbered level definitions are present.
 - `Game.pak` has 386 `.unde` resources and four built-in `.film` recordings.
 - Audio `.IMA` assets are AIFC/IMA4.
+- Relocated startup code references embedded build identity `1.0.6`, `Jan  2 2004`, `11:55:01`; the version is therefore internally confirmed from the executable.
 
 ## PEF loader summary
 
 - 3 sections: code, pattern-initialized data, loader.
 - 445 imported symbols across 10 libraries.
-- Entry descriptor points into initialized data and will require normal PEF TOC/entry reconstruction.
+- Pattern-initialized data and relocation program are decoded.
+- Main transition vector resolves to code offset `0x4D540` with r2/TOC at section-1 offset `0x8000`.
+- 5,153 relocation fixups are reconstructed, including all 445 imports.
 - Rich source/assert strings provide subsystem names and serialized-key candidates.
 
 ## Immediate use

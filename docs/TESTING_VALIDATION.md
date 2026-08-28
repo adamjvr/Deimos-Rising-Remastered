@@ -21,7 +21,7 @@ Recovered game-data formats are not accepted from guessed C structs. Each parser
 
 ## Replay/behavior validation
 
-The corpus contains four canonical built-in `.film` resources and ten additional declared demo films. Once the film format is decoded, these recordings become high-value deterministic regression inputs for:
+The corpus contains four canonical built-in `.film` resources and eleven additional Perfect Demos recordings. Once the film format is decoded, these recordings become high-value deterministic regression inputs for:
 
 - player motion and firing;
 - enemy/unit sequencing;
@@ -32,6 +32,23 @@ The corpus contains four canonical built-in `.film` resources and ten additional
 - RNG/timing behavior where encoded or inferable.
 
 Recorded reference outcomes are compared to the clean simulation. Discrepancies are logged rather than normalized away.
+
+### State-runtime regression rules
+
+Binary-confirmed transition behavior receives explicit synthetic tests for:
+
+- exact/case-sensitive state-name lookup;
+- all 17 supported rule-condition classifications;
+- first-true-rule ordering, including unresolved/no-op actions;
+- the zero-range behavior of within/not-within-player conditions;
+- exact float equality for visibility/tint/scale predicates;
+- the original 32-bit LCG and 15-bit result sequence;
+- inclusive integer range mapping and equal-bound no-consume behavior;
+- exact timer-tick equality;
+- 20-slot state-entry counters and immediate counter threshold checks;
+- strict `<` range-transition comparison.
+
+Real `Game.pak` validation is then rerun to detect any parser/compiler drift across all 386 units and 5,835 rule slots.
 
 ## Platform parity
 

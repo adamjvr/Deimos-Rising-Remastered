@@ -9,6 +9,13 @@ add_library(deimos_core STATIC
     src/core/pak_archive.cpp
     src/core/resource_store.cpp
     src/core/data_tables.cpp
+    src/core/definition_fields.cpp
+    src/core/unit_definition.cpp
+    src/core/weapon_definition.cpp
+    src/core/player_definition.cpp
+    src/core/unit_behavior.cpp
+    src/core/state_runtime.cpp
+    src/core/game_definitions.cpp
 )
 target_include_directories(deimos_core PUBLIC include)
 target_compile_features(deimos_core PUBLIC cxx_std_20)
@@ -34,9 +41,23 @@ if(BUILD_TESTING)
         film_test
         pak_archive_test
         resource_store_test
-        data_tables_test)
+        data_tables_test
+        definition_fields_test
+        unit_definition_test
+        weapon_definition_test
+        player_definition_test
+        unit_behavior_test
+        state_runtime_test
+        game_definitions_test)
         add_executable(${test_name} tests/${test_name}.cpp)
         target_link_libraries(${test_name} PRIVATE deimos_core)
         add_test(NAME ${test_name} COMMAND ${test_name})
     endforeach()
+
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+        add_test(
+            NAME pef_probe_test
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/pef_probe_test.py)
+    endif()
 endif()

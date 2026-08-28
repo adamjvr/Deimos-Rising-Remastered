@@ -4,7 +4,7 @@ Evidence-driven, clean-code reconstruction and native remaster of **Deimos Risin
 
 ## Evidence baseline
 
-The working corpus includes an older Mac distribution, a fully recovered Mac **1.0.6** installation, a Windows PE32/NSIS distribution, and an add-ons/update/reference/mod/music corpus. Phase 0 remains open for additional evidence, but active development is in Phase 1.
+The working corpus includes an older Mac distribution, a fully recovered Mac **1.0.6** installation, a Windows PE32/NSIS distribution, and an add-ons/update/reference/mod/music corpus. Phase 0 remains open for additional evidence, while active development is in Phase 1 with the first binary-confirmed Phase-2 state-runtime primitives now implemented.
 
 ## Reconstruction rule
 
@@ -23,9 +23,15 @@ The portable C++20 core now contains:
 - a strict level loader validated against all 12 original levels;
 - typed ID/float/color/rect/string-table and Text Format loaders;
 - a conservative v10005 replay parser for fields proven from the corpus;
+- typed unit/weapon/player definitions with explicit states, spawn sets, rules, and weapon spawns;
+- a unit-behavior compiler with the complete 17-condition PPC dispatch vocabulary;
+- exact first-match rule execution and exact/case-sensitive state-action resolution;
+- binary-confirmed timer, state-entry-counter, and range-transition runtime primitives;
+- cross-resource reference validation;
+- a PEF packed-data/import/relocation probe that resolves the original main transition vector and TOC;
 - a `deimos_reference_probe` executable that validates an original `Game.pak` through the clean implementation.
 
-The original 1.0.6 `Game.pak` has been loaded directly through this clean code: all 763 files CRC-validate, all 12 levels parse, all 565 level placements reconcile, and all four canonical PAK films parse. Across all four original PAKs, **871 actual files** pass CRC validation.
+The original 1.0.6 `Game.pak` has been loaded directly through this clean code: all 763 files CRC-validate, all 12 levels parse, all 565 level placements reconcile, and all four canonical PAK films parse, and all 386 unit definitions / 5 weapons / 2 player definitions parse and cross-validate. Across all four original PAKs, **871 actual files** pass CRC validation.
 
 ## Build tests
 
@@ -35,9 +41,9 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 
 # Optional: validate your local canonical reference PAK directly
-./build/deimos_reference_probe reference/DR-EVID-002/paks/Game.pak
+./build/deimos_reference_probe reference/DR-EVID-002/canonical/Paks/Game.pak
 ```
 
-Committed tests use synthetic fixtures only. Original assets remain in the ignored local reference workspace.
+Committed tests use synthetic fixtures only; the current suite passes 15/15. Original assets remain in the ignored local reference workspace.
 
 See `docs/STATUS.md`, `docs/ROADMAP.md`, and `reverse/formats/` for current reconstruction details.

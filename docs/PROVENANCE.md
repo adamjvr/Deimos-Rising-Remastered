@@ -20,7 +20,7 @@ User-supplied `DeimosRising.sit`.
 - SHA-1: `c434bc0972a064dc8a6dbb4583fad5839f2fa0e5`
 - SHA-256: `dc75c002995d8bfdd3124bda433efded2698343b1f1a2fa171b9a33c0a4b2f77`
 
-Contains `Deimos Rising 1.0.6.smi`. The extracted HFS volume is internally named `Deimos Rising 1.0.6` and contains the complete game installation.
+Contains `Deimos Rising 1.0.6.smi`. The extracted HFS volume is internally named `Deimos Rising 1.0.6` and contains the complete game installation. The relocated PowerPC startup path independently references the embedded build strings `1.0.6`, `Jan  2 2004`, and `11:55:01`, internally confirming both the version and build timestamp carried by this evidence set.
 
 ## DR-EVID-003
 

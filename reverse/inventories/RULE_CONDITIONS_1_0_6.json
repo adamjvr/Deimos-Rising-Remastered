@@ -1,0 +1,136 @@
+{
+  "build": "Deimos Rising 1.0.6",
+  "rule_evaluator_code_offset": "0x15550",
+  "condition_string_base_code_offset": "0xD6824",
+  "condition_string_stride_bytes": 64,
+  "dispatch_table_relocated_section1_offset": "0x8380",
+  "supported_condition_count": 17,
+  "canonical_rule_slots": 5835,
+  "conditions": [
+    {
+      "index": 0,
+      "text": "Is Tracking Player",
+      "handler_code_offset": "0x156DC",
+      "canonical_occurrences": 2773,
+      "predicate": "tracking_query(rule.unit_id, entity_position, rule.range)"
+    },
+    {
+      "index": 1,
+      "text": "Is Not Tracking Player",
+      "handler_code_offset": "0x156F4",
+      "canonical_occurrences": 0,
+      "predicate": "!tracking_query(rule.unit_id, entity_position, rule.range)"
+    },
+    {
+      "index": 2,
+      "text": "Is Active",
+      "handler_code_offset": "0x15718",
+      "canonical_occurrences": 52,
+      "predicate": "active_query(rule.unit_id, entity_position, rule.range)"
+    },
+    {
+      "index": 3,
+      "text": "Is Not Active",
+      "handler_code_offset": "0x15730",
+      "canonical_occurrences": 67,
+      "predicate": "!active_query(rule.unit_id, entity_position, rule.range)"
+    },
+    {
+      "index": 4,
+      "text": "No Destroyable Air Entities Are Active",
+      "handler_code_offset": "0x15754",
+      "canonical_occurrences": 2,
+      "predicate": "!destroyable_air_entities_active()"
+    },
+    {
+      "index": 5,
+      "text": "No Destroyable Ground Entities Are Active",
+      "handler_code_offset": "0x1576C",
+      "canonical_occurrences": 41,
+      "predicate": "!destroyable_ground_entities_active()"
+    },
+    {
+      "index": 6,
+      "text": "No Destroyable Air or Ground Entities Are Active",
+      "handler_code_offset": "0x15784",
+      "canonical_occurrences": 0,
+      "predicate": "!destroyable_air_entities_active() && !destroyable_ground_entities_active()"
+    },
+    {
+      "index": 7,
+      "text": "No Players Are Active",
+      "handler_code_offset": "0x157B4",
+      "canonical_occurrences": 15,
+      "predicate": "!players_active()"
+    },
+    {
+      "index": 8,
+      "text": "This Entity is Within Range of a Player",
+      "handler_code_offset": "0x157CC",
+      "canonical_occurrences": 0,
+      "predicate": "rule.range != 0 && entity_within_player_range(rule.range)"
+    },
+    {
+      "index": 9,
+      "text": "This Entity is Not Within Range of a Player",
+      "handler_code_offset": "0x157F0",
+      "canonical_occurrences": 0,
+      "predicate": "rule.range != 0 && !entity_within_player_range(rule.range)"
+    },
+    {
+      "index": 10,
+      "text": "This Entity's Animation Has Stopped",
+      "handler_code_offset": "0x15820",
+      "canonical_occurrences": 6,
+      "predicate": "entity.animation_stopped"
+    },
+    {
+      "index": 11,
+      "text": "This Entity's Visibility is at Required Level",
+      "handler_code_offset": "0x15828",
+      "canonical_occurrences": 0,
+      "predicate": "entity.visibility == entity.required_visibility"
+    },
+    {
+      "index": 12,
+      "text": "This Entity's Tint is at Required Level",
+      "handler_code_offset": "0x15840",
+      "canonical_occurrences": 0,
+      "predicate": "entity.tint == entity.required_tint"
+    },
+    {
+      "index": 13,
+      "text": "This Entity's Scale is at Required Level",
+      "handler_code_offset": "0x15858",
+      "canonical_occurrences": 0,
+      "predicate": "entity.scale == entity.required_scale"
+    },
+    {
+      "index": 14,
+      "text": "Number of This Type of Entity Active",
+      "handler_code_offset": "0x15870",
+      "canonical_occurrences": 17,
+      "predicate": "active_count(rule.unit_id) == rule.range"
+    },
+    {
+      "index": 15,
+      "text": "Are Fewer of These Entities Active",
+      "handler_code_offset": "0x15890",
+      "canonical_occurrences": 1,
+      "predicate": "active_count(rule.unit_id) < rule.range"
+    },
+    {
+      "index": 16,
+      "text": "Are More of These Entities Active",
+      "handler_code_offset": "0x158B8",
+      "canonical_occurrences": 0,
+      "predicate": "active_count(rule.unit_id) > rule.range"
+    }
+  ],
+  "unused_empty_condition_occurrences": 2861,
+  "notes": [
+    "The executable supports all 17 conditions even though canonical 1.0.6 data uses only nine non-empty condition strings.",
+    "Condition strings are compared byte-for-byte by PPC helper 0x57820.",
+    "The evaluator scans five state-rule slots in file order and exits after the first true predicate."
+  ]
+}
