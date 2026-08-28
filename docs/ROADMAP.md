@@ -8,7 +8,7 @@ Maintain hashes, forks, provenance, build relationships, and separation of offic
 
 ## Phase 1 — Binary, resource, serialization, and behavior-contract reconstruction
 
-**Current active phase; transition kernel and spawn-request path are now substantially recovered.**
+**Current active phase; transition kernel, spawn path, and normal entity-construction path are now substantially recovered.**
 
 Completed/confirmed:
 
@@ -28,11 +28,13 @@ Completed/confirmed:
 - spawn scheduler/volley/repeat behavior and asymmetric RNG-consumption order reconstructed;
 - spawn target terrain-effect gate and Unit Definition memory anchors reconstructed;
 - relative/absolute/rotated spawn geometry and legacy trig-table contract reconstructed;
-- portable proven spawn-request seed implemented.
+- portable proven spawn-request seed implemented;
+- normal `0x33220 -> 0x35BF0 -> 0x35CD0` group/member constructor path implemented headlessly;
+- group/appearance RNG, constructor gates, serial identities, parent safe references, float RNG, initial position/speed/heading, state-zero entry, and cumulative group delay recovered.
 
 Remaining Phase 1 exit criteria:
 
-- recover remaining `0x33220` entity-construction/ownership/player-activity semantics;
+- recover the rare special single-member parent-container path and remaining world/list-registration semantics around `0x33220`;
 - bind major movement/tracking/rotation/hit/damage/collision routines to decoded fields;
 - expand Windows installer and establish Mac↔Windows code/data correspondences;
 - finish replay action-bit mapping including second-player semantics;
@@ -56,7 +58,7 @@ Already implemented from binary-confirmed behavior:
 
 Exit criteria:
 
-- integrate those primitives into the full entity/state-machine interpreter;
+- extend the now-live headless normal constructor into world registration and the full per-member update interpreter;
 - integrate world/entity construction, then reconstruct movement, weapons, projectiles, collision, damage, scoring, power-ups, camera/scrolling, two-player behavior, menus/preferences, timing, and audio triggers;
 - feed v10005 recordings into the clean simulation as deterministic regression oracles;
 - retain original assets as the canonical content tier.

@@ -118,7 +118,11 @@ std::optional<SpawnRequestSeed> build_spawn_request_seed(
     request.y = placement.y;
     request.heading_is_set = placement.heading_is_set;
     request.heading_degrees = placement.heading_degrees;
-    // PPC 0x16178..0x16184 copies these two spawn-set bytes into request
+    request.player_owner_index = context.parent_player_owner_index;
+    request.parent = context.parent_reference;
+    // The global request template leaves +0x0C/+0x18 at zero and +0x28 at
+    // 1.0 for child spawns. PPC 0x16178..0x16184 copies these two spawn-set
+    // bytes into request +0x1C/+0x1D.
     // +0x1C/+0x1D; the entity constructor later inherits them.
     request.stationary = spawn_set.stationary_option;
     request.terrain_effects_enabled = spawn_set.terrain_effects_option;

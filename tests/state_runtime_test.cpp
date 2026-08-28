@@ -32,6 +32,17 @@ int main() {
     assert(deimos::choose_inclusive_integer(110, 20, 88) == 198);
     assert(deimos::choose_inclusive_integer(110, 20, 89) == 110);
 
+    // 0x465E0 single-precision float helper. Equal endpoints do not advance
+    // the LCG. Reversed endpoints preserve the original signed span instead
+    // of becoming a conventional normalized range.
+    deimos::LegacyRandom float_equal_rng(1);
+    assert(deimos::choose_legacy_float(2.5f, 2.5f, float_equal_rng) == 2.5f);
+    assert(float_equal_rng.seed() == 1u);
+    const float halfway = deimos::choose_legacy_float(0.0f, 10.0f, 16384u);
+    assert(halfway > 5.0f && halfway < 5.001f);
+    const float reversed_float = deimos::choose_legacy_float(10.0f, 0.0f, 16384u);
+    assert(reversed_float < -5.0f && reversed_float > -5.001f);
+
     deimos::CompiledUnitBehavior behavior;
     behavior.states.resize(2);
     behavior.states[0].timer_min = 5;

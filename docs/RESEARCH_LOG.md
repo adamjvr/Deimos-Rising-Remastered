@@ -154,3 +154,14 @@ The geometry tail at `0x15E18..0x16158` reconstructs relative/absolute coordinat
 ### Clean request boundary
 
 A scheduler `spawn_due` event can now be converted into a portable spawn request seed after resolving the target Unit Definition. The seed contains target FourCC, position, optional heading, and inherited child stationary/terrain flags. Parent pointers/owner IDs and remaining `0x33220` entity-construction behavior are deliberately deferred rather than guessed.
+## 2026-08-28 — Entity construction / initial member runtime
+
+- Directly disassembled `0x33220`, `0x35BF0`, `0x35CD0`, `0x369F0`, `0x36AB0`, `0x37930`, `0x37B50`, and float RNG `0x465E0`.
+- Replaced the provisional one-request/one-entity abstraction with a group/container plus surviving live-member model.
+- Confirmed group/appearance RNG precedes the player-active and duplicate/cap gates.
+- Mapped the 44-byte request's owner and parent fields to a signed player-owner byte and pointer+serial safe parent reference.
+- Recovered independent group/member serial counters and first-member output-reference behavior.
+- Implemented original initial-position asymmetries, float RNG, canonical initial-speed/heading paths, state-zero initialization ordering, and cumulative group delays.
+- Real `Game.pak` validation: all 386 Unit Definitions pass initial-member math; normal shared-RNG probe constructed 386 groups / 546 live members.
+- Canonical `Mine[mine]` is the only initial-hunt definition; `Screw Mk 2[sc02]` contains the only reversed X/Y offset range (`100..0`).
+

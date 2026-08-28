@@ -1,4 +1,5 @@
 #include "deimos/data_tables.hpp"
+#include "deimos/entity_runtime.hpp"
 #include "deimos/film.hpp"
 #include "deimos/game_definitions.hpp"
 #include "deimos/legacy_text.hpp"
@@ -127,6 +128,120 @@ int main(int argc, char** argv) {
         return 12;
     }
     const auto reference_issues = definitions->validate_unit_references();
+
+    // Validate the PPC 0x37930 / 0x37B50 initial member math against every
+    // canonical Unit Definition independently of group appearance rolls.
+    std::size_t constructor_math_units = 0;
+    std::size_t constructor_hunt_units = 0;
+    std::size_t constructor_random_location_units = 0;
+    std::size_t constructor_variable_speed_units = 0;
+    std::size_t constructor_reversed_axis_ranges = 0;
+    const deimos::LegacyTrigTables constructor_trig;
+
+    for (const auto& tagged : definitions->units()) {
+        deimos::SpawnRequestSeed request;
+        request.unit_id = tagged.id;
+        request.x = 100.0f;
+        request.y = 200.0f;
+        request.editor_heading_degrees = 180;
+        const auto group = deimos::build_entity_group_runtime(request, 1, 0, 0);
+
+        const bool heading_mode = tagged.definition.core_fields
+            .bool_value("initialHeadingSetInEditor_BOOL").value_or(false);
+        const int supplied_heading = request.editor_heading_degrees;
+        deimos::LegacyRandom member_rng(1);
+        const int pre_heading = deimos::choose_initial_member_heading(
+            tagged.definition, heading_mode, supplied_heading, member_rng);
+        const auto position = deimos::choose_initial_member_position(
+            tagged.definition, group, member_rng, constructor_trig);
+
+        deimos::EntityInitialMotionFacts motion_facts;
+        // Only one canonical definition (Mine[mine]) uses the hunt branch.
+        // Supplying a deterministic target validates the recovered vector math
+        // without pretending that target selection itself is reconstructed yet.
+        motion_facts.hunt_target_position = deimos::EntityPoint{
+            position.position.x + 100.0f,
+            position.position.y + 50.0f};
+        const auto motion = deimos::choose_initial_member_motion(
+            tagged.definition, group, position.position, false,
+            heading_mode, pre_heading, 1.0f,
+            motion_facts, member_rng, constructor_trig);
+        if (motion.status != deimos::EntityInitialMotionStatus::complete) {
+            std::cerr << tagged.path << ": canonical initial-motion path is not reconstructed\n";
+            return 14;
+        }
+        ++constructor_math_units;
+
+        const auto& fields = tagged.definition.core_fields;
+        constructor_hunt_units += fields.bool_value("initiallyHuntsClosestPlayer_BOOL").value_or(false);
+        constructor_random_location_units += fields.bool_value("randomiseInitialLoc_BOOL").value_or(false);
+        const float speed_min = fields.float_value("initialSpeedMin_FLOAT").value_or(0.0f);
+        const float speed_max = fields.float_value("initialSpeedMax_FLOAT").value_or(speed_min);
+        constructor_variable_speed_units += speed_min != speed_max;
+        const float x_min = fields.float_value("xOffsetMin_FLOAT").value_or(0.0f);
+        const float x_max = fields.float_value("xOffsetMax_FLOAT").value_or(x_min);
+        const float y_min = fields.float_value("yOffsetMin_FLOAT").value_or(0.0f);
+        const float y_max = fields.float_value("yOffsetMax_FLOAT").value_or(y_min);
+        constructor_reversed_axis_ranges += x_max < x_min;
+        constructor_reversed_axis_ranges += y_max < y_min;
+    }
+
+    // Exercise the complete currently-recovered normal group/member bridge
+    // with one shared RNG/identity stream, as the real game does. Appearance
+    // may legitimately reduce a request to zero members; that is not failure.
+    std::size_t group_requests = 0;
+    std::size_t group_constructed = 0;
+    std::size_t group_rejected_by_appearance = 0;
+    std::size_t live_members_constructed = 0;
+    std::size_t member_spawn_runtime_records = 0;
+    std::size_t delete_existing_owner_intents = 0;
+    deimos::LegacyRandom construction_rng(1);
+    deimos::EntityIdentityCounters identities;
+    identities.next_member_handle = 1;
+
+    for (const auto& tagged : definitions->units()) {
+        ++group_requests;
+        deimos::SpawnRequestSeed request;
+        request.unit_id = tagged.id;
+        request.x = 100.0f;
+        request.y = 200.0f;
+        request.editor_heading_degrees = 180;
+        request.player_owner_index = 0;
+
+        deimos::EntityHeadlessConstructionContext context;
+        context.preflight.current_tick = 0;
+        context.preflight.player_gate.global_gate_enabled = true;
+        context.preflight.player_gate.qualifying_player_present = true;
+        context.preflight.player_gate.suppression_active = false;
+        context.motion_facts.hunt_target_position = deimos::EntityPoint{300.0f, 250.0f};
+        context.motion_facts.parent_heading_degrees = 180;
+
+        const auto built = deimos::construct_entity_group_headless(
+            tagged.definition, request, context, identities,
+            construction_rng, constructor_trig);
+        if (built.status == deimos::EntityGroupBuildStatus::rejected) {
+            if (built.plan.rejection == deimos::EntityConstructionRejection::no_group_members) {
+                ++group_rejected_by_appearance;
+                continue;
+            }
+            std::cerr << tagged.path << ": unexpected constructor rejection\n";
+            return 15;
+        }
+        if (!built.constructed()) {
+            std::cerr << tagged.path << ": incomplete canonical constructor branch\n";
+            return 16;
+        }
+        ++group_constructed;
+        delete_existing_owner_intents += built.plan.delete_existing_owned_type;
+        live_members_constructed += built.members.size();
+        for (const auto& member : built.members) {
+            if (member.state.current_state < member.spawn_runtime_by_state.size()) {
+                member_spawn_runtime_records += member.spawn_runtime_by_state[
+                    member.state.current_state].spawn_sets.size();
+            }
+        }
+    }
+
     if (!reference_issues.empty()) {
         for (const auto& issue : reference_issues) {
             std::cerr << issue.source_path << ": unresolved Unit Definition reference "
@@ -168,6 +283,20 @@ int main(int argc, char** argv) {
               << "  active unresolved/no-op state actions: " << unresolved_active_actions << '\n'
               << "  inert unresolved state actions: " << unresolved_inert_actions << '\n'
               << "  unknown rule conditions: " << unknown_rule_conditions << '\n'
-              << "  unit-reference issues: " << reference_issues.size() << '\n';
+              << "  unit-reference issues: " << reference_issues.size() << '\n'
+              << "  initial-member math validated: " << constructor_math_units << '\n'
+              << "    initially-hunting units: " << constructor_hunt_units << '\n'
+              << "    randomized-location units: " << constructor_random_location_units << '\n'
+              << "    variable-speed units: " << constructor_variable_speed_units << '\n'
+              << "    reversed X/Y offset ranges: " << constructor_reversed_axis_ranges << '\n'
+              << "  headless normal-path group requests: " << group_requests << '\n'
+              << "    groups constructed: " << group_constructed << '\n'
+              << "    groups eliminated by appearance rolls: " << group_rejected_by_appearance << '\n'
+              << "    live members constructed: " << live_members_constructed << '\n'
+              << "    spawn records in resulting current states: " << member_spawn_runtime_records << '\n'
+              << "    delete-existing-owner intents: " << delete_existing_owner_intents << '\n'
+              << "    next group serial: " << identities.next_group_serial << '\n'
+              << "    next member serial: " << identities.next_member_serial << '\n'
+              << "    final construction RNG seed: " << construction_rng.seed() << '\n';
     return 0;
 }

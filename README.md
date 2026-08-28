@@ -27,7 +27,8 @@ The portable C++20 core now contains:
 - a unit-behavior compiler with the complete 17-condition PPC dispatch vocabulary;
 - exact first-match rule execution and exact/case-sensitive state-action resolution;
 - binary-confirmed timer, state-entry-counter, and range-transition runtime primitives;
-- binary-confirmed spawn scheduler, target terrain-effect gate, rotated/absolute/relative geometry, and spawn-request seed;
+- binary-confirmed spawn scheduler, target terrain-effect gate, rotated/absolute/relative geometry, and full constructor-request handoff;
+- headless normal group/member construction with original group/appearance RNG, owner/parent identity, serials, initial position/speed/heading, state-zero entry, spawn-runtime initialization, and cumulative group delay;
 - recovered original 360-entry trig-table construction contract;
 - cross-resource reference validation;
 - a PEF packed-data/import/relocation probe that resolves the original main transition vector and TOC;
@@ -46,6 +47,6 @@ ctest --test-dir build --output-on-failure
 ./build/deimos_reference_probe reference/DR-EVID-002/canonical/Paks/Game.pak
 ```
 
-Committed tests use synthetic fixtures only; the current suite passes 17/17. Original assets remain in the ignored local reference workspace.
+Committed tests use synthetic fixtures only; the current suite passes 18/18. Original assets remain in the ignored local reference workspace.
 
 See `docs/STATUS.md`, `docs/ROADMAP.md`, and `reverse/formats/` for current reconstruction details.

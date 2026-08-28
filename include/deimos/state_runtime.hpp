@@ -55,6 +55,20 @@ struct StateEntryResult {
     int maximum,
     LegacyRandom& random);
 
+// PPC 0x465E0 maps the same 15-bit LCG to a single-precision range.  Equal
+// endpoints return immediately without consuming RNG.  Reversed endpoints
+// are intentionally *not* normalized: the routine adds a signed (max-min)
+// fraction to the numerically lower endpoint exactly as the executable does.
+[[nodiscard]] float choose_legacy_float(
+    float minimum,
+    float maximum,
+    std::uint32_t random_value);
+
+[[nodiscard]] float choose_legacy_float(
+    float minimum,
+    float maximum,
+    LegacyRandom& random);
+
 // State entry sets the tick, chooses the state's timer delay and increments
 // that state's persistent entry-count slot.  Counter thresholds are tested
 // immediately after the increment in the original transition routine.

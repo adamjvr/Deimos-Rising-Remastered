@@ -1,0 +1,335 @@
+#pragma once
+
+#include "deimos/spawn_runtime.hpp"
+#include "deimos/unit_behavior.hpp"
+#include "deimos/unit_definition.hpp"
+
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <optional>
+#include <vector>
+
+namespace deimos {
+
+using EntityHandle = EntityReferenceHandle;
+inline constexpr EntityHandle kNoEntityHandle = kNoEntityReferenceHandle;
+
+// The original constructor (PPC 0x33220) does not create one live unit in all
+// cases. It first chooses a group size with 0x369F0, applies constructor gates,
+// creates a group/container, then 0x35BF0 creates the surviving live members.
+struct EntityGroupSelection {
+    int selected_before_appearance = 0;
+    int surviving_members = 0;
+    int appearance_rng_rolls = 0;
+};
+
+// Exact UnitDef-driven group selection at PPC 0x369F0. RNG consumption is
+// part of the gameplay stream: a variable group-size consumes one draw, and
+// each candidate with appearsPercent neither 0 nor 100 consumes a 0..100 roll.
+[[nodiscard]] EntityGroupSelection select_entity_group_members(
+    const UnitDefinition& unit,
+    LegacyRandom& random);
+
+// These three booleans correspond conservatively to the three runtime facts
+// tested by PPC 0x332D8..0x33300 when the UnitDef carries
+// canBeSpawnedOnlyWhenPlayersActive_BOOL. Their deeper game-mode semantics are
+// intentionally not renamed until the surrounding player subsystem is mapped.
+struct EntityPlayerGateFacts {
+    bool global_gate_enabled = true;       // global byte r2-24860
+    bool qualifying_player_present = true;// result of PPC 0x6110
+    bool suppression_active = false;       // result of PPC 0x5CF0
+};
+
+struct EntityConstructionContext {
+    std::uint32_t current_tick = 0;
+    EntityPlayerGateFacts player_gate{};
+    bool same_unit_type_already_exists = false; // result of PPC 0x36AF0
+    int active_live_member_count = 0;            // global count before this request
+};
+
+enum class EntityConstructionRejection {
+    none,
+    no_group_members,
+    player_gate_global_disabled,
+    no_qualifying_player,
+    player_gate_suppressed,
+    duplicate_type_exists,
+    live_member_limit
+};
+
+struct EntityGroupConstructionPlan {
+    EntityConstructionRejection rejection = EntityConstructionRejection::none;
+    EntityGroupSelection group{};
+
+    // UnitDef deleteExistingEntitiesOfThisTypeOwnedByPlayer_BOOL causes
+    // PPC 0x36BE0(unitID, request.player_owner_index, 0) after all rejection
+    // gates, but only when the signed owner byte is not -1.
+    bool delete_existing_owned_type = false;
+    std::int8_t delete_existing_owner_index = -1;
+
+    [[nodiscard]] bool accepted() const {
+        return rejection == EntityConstructionRejection::none;
+    }
+};
+
+// Constructor preflight through PPC 0x3338C. Crucially, group selection runs
+// before the player/duplicate/cap gates, so rejected requests may consume RNG.
+[[nodiscard]] EntityGroupConstructionPlan prepare_entity_group_construction(
+    const UnitDefinition& unit,
+    const SpawnRequestSeed& request,
+    const EntityConstructionContext& context,
+    LegacyRandom& random);
+
+
+struct EntityPoint {
+    float x = 0.0f;
+    float y = 0.0f;
+};
+
+// Portable mirror of the proven fields initialized on the original 188-byte
+// group/container at PPC 0x33454.  The clean object stores no host pointer or
+// original intrusive-list internals.
+struct EntityGroupRuntime {
+    std::uint32_t serial = 0;
+    FourCC unit_id{};
+    EntityPoint base_position{};
+    int member_count = 0;
+    int editor_heading_degrees = 0;
+    bool stationary = false;
+    bool terrain_effects_enabled = false;
+};
+
+// The original keeps independent monotonically increasing serials for group
+// containers and live members.  A portable handle counter substitutes for the
+// original member pointer while preserving the pointer+serial safe-reference
+// contract.
+struct EntityIdentityCounters {
+    std::uint32_t next_group_serial = 0;
+    std::uint32_t next_member_serial = 0;
+    EntityHandle next_member_handle = 1;
+};
+
+struct EntityInitialPositionResult {
+    EntityPoint position{};
+    int rng_draws = 0;
+};
+
+// World facts needed only by branches proven to query another live object.
+// Canonical 1.0.6 has one initially-hunting Unit Definition and no Burst/
+// Implode definitions.  Keep these inputs explicit instead of burying world
+// queries inside the deterministic constructor math.
+struct EntityInitialMotionFacts {
+    std::optional<EntityPoint> hunt_target_position;
+    std::optional<int> parent_heading_degrees;
+};
+
+enum class EntityInitialMotionStatus {
+    complete,
+    missing_hunt_target,
+    unsupported_burst_or_implode
+};
+
+struct EntityInitialMotionResult {
+    EntityInitialMotionStatus status = EntityInitialMotionStatus::complete;
+    float velocity_x = 0.0f;
+    float velocity_y = 0.0f;
+    int heading_degrees = 0;
+    int rng_draws = 0;
+};
+
+struct EntityHeadlessConstructionContext {
+    EntityConstructionContext preflight{};
+    int world_y_origin = 0; // result of PPC 0xFEC0 for request +0x0C
+    EntityInitialMotionFacts motion_facts{};
+};
+
+enum class EntityGroupBuildStatus {
+    complete,
+    rejected,
+    missing_hunt_target,
+    unsupported_burst_or_implode
+};
+
+
+// PPC 0x35FC8..0x35FF8 chooses one group delay for every member, including the
+// first/final member, accumulates it, and stores the cumulative delay in the
+// live member. This helper models that isolated operation; callers must place
+// it in the full member-construction RNG sequence after state initialization.
+[[nodiscard]] int append_group_member_delay(
+    const UnitDefinition& unit,
+    int accumulated_delay,
+    LegacyRandom& random);
+
+// Initial heading logic at PPC 0x35EB4..0x35F1C. If heading_mode is false, the
+// UnitDef initialHeading_INT is used without RNG. If true, the supplied heading
+// receives a symmetric +/- floor(initialHeadingTolerance/2) jitter.
+[[nodiscard]] int choose_initial_member_heading(
+    const UnitDefinition& unit,
+    bool heading_mode,
+    int supplied_heading_degrees,
+    LegacyRandom& random);
+
+enum class EntityLifecycle {
+    active,
+    deleted,
+    destroyed
+};
+
+struct EntityStateSpawnRuntime {
+    std::vector<SpawnSetRuntime> spawn_sets;
+};
+
+// Clean headless state-machine representation of one *live member*. The
+// original distinguishes this from the 188-byte group/container allocated by
+// PPC 0x33220. Identity fields mirror proven member fields where practical.
+struct EntityRuntime {
+    EntityHandle handle = kNoEntityHandle;
+    std::uint32_t serial = 0;       // original live member +0x9C
+    std::uint32_t group_serial = 0; // original live member +0xA0
+    EntityReference parent{};       // original +0x140/+0x144 safe pair
+    std::int8_t player_owner_index = -1; // original +0xD8
+    FourCC unit_id{};
+
+    float x = 0.0f;
+    float y = 0.0f;
+    float velocity_x = 0.0f;
+    float velocity_y = 0.0f;
+    int heading_degrees = 0;
+    int group_delay_ticks = 0; // original live member +0xB0
+    bool stationary = false;
+    bool terrain_effects_enabled = false;
+
+    EntityLifecycle lifecycle = EntityLifecycle::active;
+    CompiledUnitBehavior behavior;
+    UnitStateRuntime state;
+    std::vector<EntityStateSpawnRuntime> spawn_runtime_by_state;
+    int rotation_pause_ticks = 0;
+};
+
+[[nodiscard]] EntityGroupRuntime build_entity_group_runtime(
+    const SpawnRequestSeed& request,
+    int member_count,
+    std::uint32_t group_serial,
+    int world_y_origin);
+
+// PPC 0x37930 initial placement math.  This includes the original asymmetry:
+// when both axes vary it first chooses an angle and optionally a radial random
+// distance; otherwise each varying axis is truncated to integer endpoints and
+// uses the signed inclusive integer RNG helper.
+[[nodiscard]] EntityInitialPositionResult choose_initial_member_position(
+    const UnitDefinition& unit,
+    const EntityGroupRuntime& group,
+    LegacyRandom& random,
+    const LegacyTrigTables& trig);
+
+// PPC 0x37B50 initial velocity/orientation subset.  Heading-mode values passed
+// from the request/editor have already received the member-constructor
+// tolerance jitter via choose_initial_member_heading().
+[[nodiscard]] EntityInitialMotionResult choose_initial_member_motion(
+    const UnitDefinition& unit,
+    const EntityGroupRuntime& group,
+    const EntityPoint& member_position,
+    bool stationary,
+    bool heading_mode,
+    int preselected_heading_degrees,
+    float velocity_multiplier,
+    const EntityInitialMotionFacts& facts,
+    LegacyRandom& random,
+    const LegacyTrigTables& trig);
+
+[[nodiscard]] bool unit_requires_active_players(const UnitDefinition& unit);
+
+// Enter a live entity state using the original state-entry transition and
+// spawn-set initialization paths. This owns RNG consumption; callers must not
+// pre-draw a value. Counter-triggered state changes are followed immediately.
+void enter_entity_state(
+    EntityRuntime& entity,
+    const UnitDefinition& unit,
+    std::size_t state_index,
+    std::uint32_t current_tick,
+    LegacyRandom& random);
+
+// Initialize only the independently recovered headless state-machine portion
+// of an already-created member. This is deliberately NOT named as PPC 0x33220
+// construction: group selection, position, velocity, shields and world-list
+// insertion are separate constructor stages still being reconstructed.
+void initialize_entity_state_machine(
+    EntityRuntime& entity,
+    const UnitDefinition& unit,
+    std::uint32_t current_tick,
+    LegacyRandom& random);
+
+// Apply one already-resolved action. State changes call enter_entity_state,
+// Delete/Destroy mark lifecycle, and unresolved labels remain runtime no-ops.
+void apply_entity_state_action(
+    EntityRuntime& entity,
+    const UnitDefinition& unit,
+    const ResolvedStateAction& action,
+    std::uint32_t current_tick,
+    LegacyRandom& random);
+
+struct EntityGroupBuildResult {
+    EntityGroupBuildStatus status = EntityGroupBuildStatus::rejected;
+    EntityGroupConstructionPlan plan{};
+    std::optional<EntityGroupRuntime> group;
+    std::vector<EntityRuntime> members;
+    EntityReference first_member_reference{};
+
+    [[nodiscard]] bool constructed() const {
+        return status == EntityGroupBuildStatus::complete;
+    }
+};
+
+// Faithful headless normal-path bridge from PPC 0x33220 -> 0x35BF0 -> 0x35CD0.
+// It models group selection/gates, normal 188-byte group identity, initial
+// heading/position/motion, state-entry/spawn-runtime initialization and
+// cumulative group delay in original RNG order.  Intrusive world-list
+// insertion, shields/render state and the rare special single-member parent
+// container path remain separate reconstruction work.
+[[nodiscard]] EntityGroupBuildResult construct_entity_group_headless(
+    const UnitDefinition& unit,
+    const SpawnRequestSeed& request,
+    const EntityHeadlessConstructionContext& context,
+    EntityIdentityCounters& identities,
+    LegacyRandom& random,
+    const LegacyTrigTables& trig);
+
+struct EntityTickContext {
+    std::uint32_t current_tick = 0;
+
+    // Facts are sampled after the original animation-update phase and before
+    // the five rule slots. A missing provider skips rule evaluation while
+    // animation/world reconstruction is still incomplete.
+    UnitRuleFactsProvider facts_for_rule;
+
+    // Range transition is evaluated later than rules. A missing measurement
+    // means the world layer has not supplied a player-distance result yet.
+    std::optional<float> measured_player_range;
+
+    SpawnScheduleContext spawn_schedule;
+};
+
+struct EntityTickSpawnEvent {
+    std::size_t state_index = 0;
+    std::size_t spawn_set_index = 0;
+};
+
+struct EntityTickResult {
+    bool timer_action_processed = false;
+    bool rule_matched = false;
+    bool range_action_processed = false;
+    std::vector<EntityTickSpawnEvent> spawns_due;
+};
+
+// Recovered headless subset of the 1.0.6 per-member update order:
+// timer action -> (animation/world facts supplied by caller) -> first matching
+// rule -> range action -> spawn scheduling. State actions refresh current state
+// immediately, so later phases in the same tick observe the new state.
+[[nodiscard]] EntityTickResult advance_entity_runtime(
+    EntityRuntime& entity,
+    const UnitDefinition& unit,
+    const EntityTickContext& context,
+    LegacyRandom& random);
+
+} // namespace deimos

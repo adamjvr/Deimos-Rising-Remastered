@@ -71,22 +71,47 @@ struct SpawnTargetProperties {
     bool adjust_initial_location_for_owner_scale = false;
 };
 
+// A safe parent reference is stored by the original as a pointer plus the
+// pointed-to member's monotonically increasing serial. PPC 0x36AB0 validates
+// the pair before dereferencing the parent. The clean runtime uses a portable
+// handle rather than a host pointer while preserving the serial contract.
+using EntityReferenceHandle = std::uint64_t;
+inline constexpr EntityReferenceHandle kNoEntityReferenceHandle = 0;
+
+struct EntityReference {
+    EntityReferenceHandle handle = kNoEntityReferenceHandle;
+    std::uint32_t serial = 0;
+
+    [[nodiscard]] bool empty() const { return handle == kNoEntityReferenceHandle; }
+};
+
 struct SpawnRequestContext {
     SpawnPlacementContext placement;
     bool parent_is_stationary = false;
     bool parent_terrain_effects_enabled = false;
+
+    // PPC 0x15DB0..0x16188 copies these from the spawning live member into
+    // request +0x14 and +0x20/+0x24 respectively.
+    std::int8_t parent_player_owner_index = -1;
+    EntityReference parent_reference{};
 };
 
-// Portable, proven subset of the original 44-byte spawn request assembled by
-// PPC 0x15DB0..0x16188. Owner pointers/handles remain a world-runtime concern.
+// Semantic representation of the exact 44-byte constructor request consumed
+// by PPC 0x33220. The portable structure is not intentionally packed; comments
+// record original byte offsets while clean code uses named fields.
 struct SpawnRequestSeed {
-    FourCC unit_id{};
-    float x = 0.0f;
-    float y = 0.0f;
-    bool heading_is_set = false;
-    int heading_degrees = 0;
-    bool stationary = false;
-    bool terrain_effects_enabled = false;
+    FourCC unit_id{};                         // +0x00
+    float x = 0.0f;                          // +0x04
+    float y = 0.0f;                          // +0x08
+    bool subtract_world_y_origin = false;    // +0x0C
+    bool heading_is_set = false;             // +0x0D
+    int heading_degrees = 0;                 // +0x10
+    std::int8_t player_owner_index = -1;     // +0x14
+    int editor_heading_degrees = 0;          // +0x18
+    bool stationary = false;                 // +0x1C
+    bool terrain_effects_enabled = false;    // +0x1D
+    EntityReference parent{};                // +0x20/+0x24
+    float initial_velocity_multiplier = 1.0f;// +0x28
 };
 
 struct SpawnPlacement {

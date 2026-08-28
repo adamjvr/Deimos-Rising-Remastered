@@ -1,0 +1,62 @@
+{
+  "schema": "deimos-entity-construction-1.0.6-v1",
+  "build": {
+    "version": "1.0.6",
+    "date": "Jan  2 2004",
+    "time": "11:55:01"
+  },
+  "routines": {
+    "top_constructor": "0x33220",
+    "member_loop": "0x35BF0",
+    "member_constructor": "0x35CD0",
+    "group_selection": "0x369F0",
+    "safe_reference_validation": "0x36AB0",
+    "initial_position": "0x37930",
+    "initial_motion": "0x37B50",
+    "random_integer": "0x46580",
+    "random_float": "0x465E0",
+    "lcg": "0x553E0"
+  },
+  "request_size_bytes": 44,
+  "normal_group_size_bytes": 188,
+  "request_fields": {
+    "0x00": "unit_id",
+    "0x04": "x",
+    "0x08": "y",
+    "0x0C": "subtract_world_y_origin",
+    "0x0D": "explicit_heading_present",
+    "0x10": "explicit_heading",
+    "0x14": "player_owner_index",
+    "0x18": "editor_heading",
+    "0x1C": "stationary",
+    "0x1D": "terrain_effects_enabled",
+    "0x20/0x24": "parent_pointer_and_serial",
+    "0x28": "initial_velocity_multiplier"
+  },
+  "canonical_statistics": {
+    "unit_definitions": 386,
+    "initial_member_math_validated": 386,
+    "initially_hunts_closest_player": 1,
+    "randomise_initial_location": 9,
+    "variable_initial_speed": 36,
+    "burst": 0,
+    "implode": 0,
+    "reversed_xy_offset_ranges": 1,
+    "reversed_xy_offset_unit": "Screw Mk 2[sc02]",
+    "probe_group_requests": 386,
+    "probe_groups_constructed": 386,
+    "probe_live_members_constructed": 546,
+    "probe_delete_existing_owner_intents": 5
+  },
+  "confidence": {
+    "normal_constructor_order": "confirmed",
+    "group_selection_rng": "confirmed",
+    "request_layout_listed_fields": "confirmed",
+    "group_and_member_serials": "confirmed",
+    "initial_position": "confirmed",
+    "initial_speed_and_heading": "confirmed",
+    "mine_world_target_selection": "partial",
+    "burst_implode_heading_conversion": "deferred_unused_by_canonical_1.0.6",
+    "rare_single_member_special_parent_path": "unresolved"
+  }
+}

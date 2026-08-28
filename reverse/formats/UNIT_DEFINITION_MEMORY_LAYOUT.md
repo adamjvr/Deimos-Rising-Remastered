@@ -17,3 +17,34 @@ The key strings themselves are recovered from relocated initialized data reached
 ## Confidence rule
 
 Only offsets with a direct parser-key-to-destination call site are named here. Nearby bytes remain opaque until equivalent evidence is recovered.
+## Constructor-facing anchors
+
+The same parser/disassembly correlation now establishes the fields used by the normal entity constructor and initial-motion routines:
+
+| Serialized key | Compiled UnitDef offset | Runtime consumer |
+| --- | ---: | --- |
+| `#doNotSpawnIfTypeAlreadyExists_BOOL` | `+0x118` | top constructor `0x33304` |
+| `#deleteExistingEntitiesOfThisTypeOwnedByPlayer_BOOL` | `+0x119` | top constructor `0x33364` |
+| `#initiallyHuntsClosestPlayer_BOOL` | `+0x11F` | initial motion `0x37BE4` |
+| `#doBurst_BOOL` | `+0x122` | initial motion `0x37C88` |
+| `#doImplode_BOOL` | `+0x123` | initial motion `0x37C94` |
+| `#initialHeadingSetInEditor_BOOL` | `+0x124` | top/member/initial-motion heading route |
+| `#useOwnerHeading_BOOL` | `+0x129` | initial motion `0x37D4C` |
+| `#randomiseInitialLoc_BOOL` | `+0x12D` | initial position `0x3799C` |
+| `#numInGroupMin_INT` | `+0x194` | group selection `0x369F0` |
+| `#numInGroupMax_INT` | `+0x198` | group selection `0x369F0` |
+| `#groupDelayMin_INT` | `+0x19C` | member constructor `0x35FB8` |
+| `#groupDelayMax_INT` | `+0x1A0` | member constructor `0x35FBC` |
+| `#initialHeading_INT` | `+0x1A4` | member/initial-motion heading |
+| `#initialHeadingTolerance_INT` | `+0x1A8` | member/initial-motion jitter |
+| `#appearsPercent_INT` | `+0x1C0` | group selection `0x369F0` |
+| `#xOffsetMin_FLOAT` | `+0x25C` | initial position `0x37960` |
+| `#xOffsetMax_FLOAT` | `+0x260` | initial position `0x37964` |
+| `#yOffsetMin_FLOAT` | `+0x264` | initial position `0x37968` |
+| `#yOffsetMax_FLOAT` | `+0x268` | initial position `0x3796C` |
+| `#initialSpeedMin_FLOAT` | `+0x26C` | initial motion `0x37BBC` |
+| `#initialSpeedMax_FLOAT` | `+0x270` | initial motion `0x37BC0` |
+| draw-layer ID | `+0x2E0` | copied to live member `+0x4C` |
+
+See `ENTITY_CONSTRUCTION.md` for the execution and RNG-order consequences.
+

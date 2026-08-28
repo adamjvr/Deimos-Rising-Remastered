@@ -199,17 +199,9 @@ sin[d] = frsp(MathLib::sin(angle))
 
 The clean core preserves the exact embedded input constant, call/table order, and float rounding boundaries. It currently uses the host C++ math library for `sin/cos`; a future replay/emulation comparison can determine whether classic Mac MathLib differs by any final-table ULPs. If necessary, the canonical table can be captured/baked without changing the surrounding API.
 
-## Portable spawn request seed
+## Construction request handoff
 
-The clean core now turns a scheduler `spawn_due` event into a portable proven request subset after resolving the target Unit Definition:
-
-- target FourCC;
-- x/y;
-- heading-set byte and heading;
-- child stationary option;
-- child terrain-effects option.
-
-The original request also contains parent pointer/owner identity and other fields that belong to the upcoming world/entity-constructor reconstruction. Those are intentionally not guessed here.
+The scheduler/geometry layer now fills the proven child-spawn fields of the full **44-byte** request consumed by `0x33220`, including target ID, position, optional heading, player-owner index, parent pointer+serial safe reference, stationary/terrain options, and the default velocity multiplier. The complete request layout and constructor semantics are documented in `ENTITY_CONSTRUCTION.md`.
 
 ## Canonical corpus statistics
 

@@ -17,6 +17,7 @@ add_library(deimos_core STATIC
     src/core/state_runtime.cpp
     src/core/legacy_math.cpp
     src/core/spawn_runtime.cpp
+    src/core/entity_runtime.cpp
     src/core/game_definitions.cpp
 )
 target_include_directories(deimos_core PUBLIC include)
@@ -52,6 +53,7 @@ if(BUILD_TESTING)
         state_runtime_test
         legacy_math_test
         spawn_runtime_test
+        entity_runtime_test
         game_definitions_test)
         add_executable(${test_name} tests/${test_name}.cpp)
         target_link_libraries(${test_name} PRIVATE deimos_core)

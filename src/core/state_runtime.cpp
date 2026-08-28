@@ -34,6 +34,30 @@ int choose_inclusive_integer(int minimum, int maximum, LegacyRandom& random) {
     return choose_inclusive_integer(minimum, maximum, random.next15());
 }
 
+float choose_legacy_float(float minimum, float maximum, std::uint32_t random_value) {
+    if (minimum == maximum) return minimum;
+
+    // PPC 0x465E0:
+    //   low = min(minimum, maximum)
+    //   span = frsp(maximum - minimum)   // sign deliberately preserved
+    //   scaled = fmuls(span, float(rng15))
+    //   fraction = fdivs(scaled, 32767.0f)
+    //   result = fadds(fraction, low)
+    // Keep explicit single-precision round points instead of normalizing the
+    // endpoints into a conventional random range.
+    const float low = minimum <= maximum ? minimum : maximum;
+    const float span = static_cast<float>(maximum - minimum);
+    const float draw = static_cast<float>(static_cast<std::int32_t>(random_value));
+    const float scaled = static_cast<float>(span * draw);
+    const float fraction = static_cast<float>(scaled / 32767.0f);
+    return static_cast<float>(fraction + low);
+}
+
+float choose_legacy_float(float minimum, float maximum, LegacyRandom& random) {
+    if (minimum == maximum) return minimum;
+    return choose_legacy_float(minimum, maximum, random.next15());
+}
+
 StateEntryResult enter_unit_state(
     UnitStateRuntime& runtime,
     const CompiledUnitBehavior& behavior,
