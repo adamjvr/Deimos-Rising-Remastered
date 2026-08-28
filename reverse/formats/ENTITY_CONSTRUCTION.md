@@ -76,9 +76,9 @@ The normal path allocates **188 bytes (`0xBC`)** at `0x33454`. Proven fields inc
 | `+0x94` | group serial |
 | `+0x98` | Unit FourCC |
 | `+0x9C/+0xA0` | base X/Y |
-| `+0xA4` | surviving member count |
-| `+0xA8` | same count initially |
-| `+0xAC` | zero-initialized counter/field |
+| `+0xA4` | original member count established at construction |
+| `+0xA8` | active member count; initialized equal to original count |
+| `+0xAC` | destroyed-member count; initialized to zero |
 | `+0xB0` | member collection |
 | `+0xB4` | request editor heading |
 | `+0xB8/+0xB9` | stationary / terrain-effects options |

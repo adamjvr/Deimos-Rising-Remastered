@@ -70,7 +70,10 @@ struct CompiledUnitStateBehavior {
 
     // Collision/damage fields mapped directly from the 1.0.6 compiled-state
     // parser and runtime consumers at PPC 0x36CF0 / 0x14F10.
-    bool pass_hits_to_owner = false;                 // state +0x32B
+    bool can_be_destroyed_on_owner_destruction = false; // state +0x329
+    bool can_be_deleted_on_owner_deletion = false;      // state +0x32A
+    bool pass_hits_to_owner = false;                     // state +0x32B
+    bool destroy_owner_on_destruction = false;           // state +0x32D
     bool collides = false;                           // state +0x347
     bool invulnerable_on_collision = false;          // state +0x348
     bool collides_with_players = false;              // state +0x34F
@@ -89,6 +92,15 @@ struct CompiledUnitStateBehavior {
     std::vector<CompiledStateRule> rules;
 };
 
+struct CompiledDestructionSoundBehavior {
+    FourCC id{};
+    int min_volume = 0;
+    int max_volume = 0;
+    int priority = 0;
+    float min_pitch = 0.0f;
+    float max_pitch = 0.0f;
+};
+
 struct CompiledUnitBehavior {
     // Unit-level collision contract. The original loader derives collision
     // domain +0x08 from isGroundBased_BOOL: FourCC 'grnd' or 'air '.
@@ -102,7 +114,23 @@ struct CompiledUnitBehavior {
     float shields_level_increment = 0.0f;            // UnitDef +0x440
     float shields_max = 0.0f;                        // UnitDef +0x444
     FourCC hit_particles{};                          // UnitDef +0x2D8
+    FourCC deletion_spawn{};                         // UnitDef +0x2DC
+
+    // Destruction/removal fields consumed by PPC 0x16300 / 0x36120 / 0x36610.
+    FourCC destruction_spawn{};                      // UnitDef +0x478
+    FourCC destruction_particles{};                  // UnitDef +0x47C
+    Rgb24 destruction_particle_color{};              // UnitDef +0x480
+    std::string destruction_notice;                  // UnitDef +0x482 fixed string
+    int destruction_coin_count = 0;                  // UnitDef +0x4A4
+    FourCC destruction_coin{};                       // UnitDef +0x4A8
+    FourCC destruction_group_kill_coin{};            // UnitDef +0x4AC
+    bool destruction_destroy_children = false;       // UnitDef +0x4B0
+    bool destruction_delete_children = false;        // UnitDef +0x4B1
+    bool destruction_create_obstacle = false;        // UnitDef +0x4B2
+    bool destruction_draw_to_terrain = false;        // UnitDef +0x4B3
+    bool destruction_release_random_bonus = false;   // UnitDef +0x4B4
     int score = 0;                                   // UnitDef +0x4B8
+    CompiledDestructionSoundBehavior destruction_sound; // UnitDef +0x4BC..+0x4D0
     FourCC pickup_type{};                            // UnitDef +0x4D4
     int pickup_value = 0;                            // UnitDef +0x4DC
 

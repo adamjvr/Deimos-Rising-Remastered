@@ -46,11 +46,13 @@ Completed/confirmed:
 - player Rect/radius geometry, viewport gate, two-player impact loop, pickup exclusivity, owner-redirection, reciprocal damage ordering, and status recheck reconstructed in a bounded clean scanner;
 - pickup type/value compiled fields bound to `pickup_Type_ID` / `pickup_Value_INT` and validated across canonical Game.pak (8 pickup units);
 - level-scaled shield constructor math recovered from `0x35E50..0x35EB0` without changing RNG consumption;
+- ordinary destruction effects `0x16300` and group/member teardown `0x36120` reconstructed, including child destroy/delete cascades, coin/group-kill rewards, random bonuses, deletion spawns, owner propagation, obstacle/terrain requests, and the `SERM` exemption;
+- canonical random-bonus positional resources (`Game[gafl]` 209..219 / `Objects[gaob]` 25..34) bound with label verification;
 
 Remaining Phase 1 exit criteria:
 
 - recover the rare special single-member parent-container path and remaining original intrusive-list/pool semantics around `0x33220`;
-- complete player-side pickup/damage semantics, ground/terrain collision, and full destruction/removal consequences;
+- complete player-side pickup/damage semantics, ground/terrain collision/mutation, the `0x16880` ground-sensitive spawn gate, and the special `0x17E70` destruction path;
 - finish remaining Flee trigger/lifecycle edges and bind them to decoded fields;
 - expand Windows installer and establish Mac↔Windows code/data correspondences;
 - finish replay action-bit mapping including second-player semantics;
@@ -58,7 +60,7 @@ Remaining Phase 1 exit criteria:
 
 ## Phase 2 — Deterministic gameplay reconstruction
 
-**Started as a deterministic headless world; transition, construction, owner/motion, and bounded entity collision/damage are operational, but this is not yet a full game simulation.**
+**Started as a deterministic headless world; transition, construction, owner/motion, collision/damage, player-impact geometry, and bounded destruction/group teardown are operational, but this is not yet a full game simulation.**
 
 Already implemented from binary-confirmed behavior:
 
@@ -74,11 +76,12 @@ Already implemented from binary-confirmed behavior:
 - bounded entity-vs-entity collision candidate scan with exact radial geometry;
 - symmetric collision damage, shield depletion/invulnerability, delayed on-hit action, collision-spawn facts, and ordinary destruction state;
 - bounded entity-vs-player collision scan with exact AABB/radial geometry, viewport gates, pickup branch, owner redirection, and reciprocal player-damage callback;
-- level-scaled shield initialization.
+- level-scaled shield initialization;
+- ordinary destruction effects and two-stage group/member teardown, including child/owner propagation, reward facts, random-bonus selection, deletion spawns, obstacle/terrain requests, and `SERM` behavior.
 
 Exit criteria:
 
-- finish player inventory/life mutation, terrain collision, and complete destruction/removal consequences;
+- finish player inventory/life mutation, ground/terrain collision and mutation, the `0x16880` terrain-sensitive gate, the special `0x17E70` destruction branch, and remaining destruction entry-site orchestration;
 - integrate world/entity construction, then reconstruct movement, weapons, projectiles, collision, damage, scoring, power-ups, camera/scrolling, two-player behavior, menus/preferences, timing, and audio triggers;
 - feed v10005 recordings into the clean simulation as deterministic regression oracles;
 - retain original assets as the canonical content tier.

@@ -1,5 +1,6 @@
 #include "deimos/collision_runtime.hpp"
 
+#include "deimos/destruction_runtime.hpp"
 #include "deimos/spawn_runtime.hpp"
 
 #include <algorithm>
@@ -178,7 +179,9 @@ PlayerCollisionScanResult scan_legacy_player_collisions(
     LegacyRandom& random,
     const LegacyPlayerCollisionCallbacks& callbacks,
     float player_impact_damage_to_entities,
-    int entity_hit_delay_ticks) {
+    int entity_hit_delay_ticks,
+    LegacyRemovalContext* removal_context,
+    LegacyRemovalTrace* removal_trace) {
     PlayerCollisionScanResult result;
     if (!active(entity)) return result;
     if (!players.any_active_player()) return result;
@@ -245,8 +248,21 @@ PlayerCollisionScanResult scan_legacy_player_collisions(
             event.pickup_consumed = consumed;
             if (consumed) {
                 ++result.pickup_consumptions;
-                entity.lifecycle = EntityLifecycle::destroyed;
-                entity.destroyed_by_owner_index = player.player_index;
+                // PPC 0x34214 calls 0x16300 immediately, before +0xCA is set.
+                // When the caller supplies the destruction context/trace, run
+                // those effects in-place so any random-bonus RNG draw remains
+                // in exact collision-loop order. The bounded fallback retains
+                // the previously proven lifecycle result.
+                if (removal_context && removal_trace) {
+                    (void)apply_legacy_destruction_effects(
+                        entity, player.player_index, *removal_context, random, *removal_trace);
+                } else {
+                    entity.lifecycle = EntityLifecycle::destroyed;
+                    entity.destroyed_by_owner_index = player.player_index;
+                }
+                // PPC 0x3421C..0x34220 sets live +0xCA after successful 0x16300.
+                // 0x36120 later uses it to suppress ordinary/group reward coins.
+                entity.consumed_as_player_pickup = true;
                 result.entity_became_inactive = true;
             }
             event.player_remained_active = player.status == 4;
@@ -268,7 +284,9 @@ PlayerCollisionScanResult scan_legacy_player_collisions(
             player.player_index,
             current_tick,
             random,
-            entity_hit_delay_ticks);
+            entity_hit_delay_ticks,
+            removal_context,
+            removal_trace);
 
         // 0x342BC..0x342F8 always calls player damage after the entity-side
         // leg, even if that leg destroyed the entity or its owner. The damage
@@ -295,7 +313,9 @@ CollisionDamageResult apply_collision_damage(
     std::int8_t source_owner_index,
     std::uint32_t current_tick,
     LegacyRandom& random,
-    int entity_hit_delay_ticks) {
+    int entity_hit_delay_ticks,
+    LegacyRemovalContext* removal_context,
+    LegacyRemovalTrace* removal_trace) {
     CollisionDamageResult result;
     if (!active(target)) return result;
 
@@ -342,8 +362,18 @@ CollisionDamageResult apply_collision_damage(
 
     if (target.shields <= 0.0f) {
         result.score_award = target.behavior.score;
-        target.lifecycle = EntityLifecycle::destroyed;
-        target.destroyed_by_owner_index = source_owner_index;
+        // PPC 0x1504C..0x15078 awards score, then enters ordinary 0x16300
+        // immediately unless the special +0xCD path is active. The clean
+        // runtime has not named/reconstructed +0xCD yet; for the ordinary path
+        // preserve immediate effect/RNG ordering whenever a removal context is
+        // supplied, with a lifecycle-only fallback for bounded callers.
+        if (removal_context && removal_trace) {
+            (void)apply_legacy_destruction_effects(
+                target, source_owner_index, *removal_context, random, *removal_trace);
+        } else {
+            target.lifecycle = EntityLifecycle::destroyed;
+            target.destroyed_by_owner_index = source_owner_index;
+        }
         result.entity_destroyed = true;
         result.shields_after = target.shields;
         return result;
@@ -403,7 +433,9 @@ CollisionPairResult apply_legacy_collision_pair(
     std::uint32_t current_tick,
     const CollisionUnitDefinitionProvider& definition_for_unit,
     LegacyRandom& random,
-    int entity_hit_delay_ticks) {
+    int entity_hit_delay_ticks,
+    LegacyRemovalContext* removal_context,
+    LegacyRemovalTrace* removal_trace) {
     CollisionPairResult result;
     result.collided = true;
 
@@ -417,7 +449,9 @@ CollisionPairResult apply_legacy_collision_pair(
         candidate.player_owner_index,
         current_tick,
         random,
-        entity_hit_delay_ticks);
+        entity_hit_delay_ticks,
+        removal_context,
+        removal_trace);
 
     // The original re-evaluates the candidate's current state after the first
     // damage call, so a state transition in the first leg can affect the
@@ -432,7 +466,9 @@ CollisionPairResult apply_legacy_collision_pair(
         self.player_owner_index,
         current_tick,
         random,
-        entity_hit_delay_ticks);
+        entity_hit_delay_ticks,
+        removal_context,
+        removal_trace);
 
     return result;
 }
@@ -443,7 +479,9 @@ CollisionScanResult scan_legacy_entity_collisions(
     std::uint32_t current_tick,
     const CollisionUnitDefinitionProvider& definition_for_unit,
     LegacyRandom& random,
-    int entity_hit_delay_ticks) {
+    int entity_hit_delay_ticks,
+    LegacyRemovalContext* removal_context,
+    LegacyRemovalTrace* removal_trace) {
     CollisionScanResult result;
     if (!active(self) || !current_state(self).collides) return result;
 
@@ -467,7 +505,7 @@ CollisionScanResult scan_legacy_entity_collisions(
 
         (void)apply_legacy_collision_pair(
             world, self, candidate, current_tick, definition_for_unit, random,
-            entity_hit_delay_ticks);
+            entity_hit_delay_ticks, removal_context, removal_trace);
         ++result.collisions_applied;
 
         if (!active(self)) {

@@ -10,6 +10,9 @@
 
 namespace deimos {
 
+struct LegacyRemovalContext;
+struct LegacyRemovalTrace;
+
 // Integer AABB produced by PPC 0x12AD0. The original converts each edge with
 // fctiwz, so C++ truncation toward zero is the relevant portable operation.
 struct LegacyCollisionBounds {
@@ -142,7 +145,9 @@ struct PlayerCollisionScanResult {
     LegacyRandom& random,
     const LegacyPlayerCollisionCallbacks& callbacks = {},
     float player_impact_damage_to_entities = 100.0f,
-    int entity_hit_delay_ticks = 1);
+    int entity_hit_delay_ticks = 1,
+    LegacyRemovalContext* removal_context = nullptr,
+    LegacyRemovalTrace* removal_trace = nullptr);
 
 // PPC 0x14F10. `entity_hit_delay_ticks` is the value read from Game.gafl
 // index 167 (canonical 1.0.6: Entity_HitDelay = 1.0, truncated to 1).
@@ -153,7 +158,9 @@ struct PlayerCollisionScanResult {
     std::int8_t source_owner_index,
     std::uint32_t current_tick,
     LegacyRandom& random,
-    int entity_hit_delay_ticks = 1);
+    int entity_hit_delay_ticks = 1,
+    LegacyRemovalContext* removal_context = nullptr,
+    LegacyRemovalTrace* removal_trace = nullptr);
 
 // Non-geometry candidate gates from PPC 0x36CF0. This intentionally includes
 // the executable's asymmetric projectile policy and the opposing
@@ -181,7 +188,9 @@ struct CollisionPairResult {
     std::uint32_t current_tick,
     const CollisionUnitDefinitionProvider& definition_for_unit,
     LegacyRandom& random,
-    int entity_hit_delay_ticks = 1);
+    int entity_hit_delay_ticks = 1,
+    LegacyRemovalContext* removal_context = nullptr,
+    LegacyRemovalTrace* removal_trace = nullptr);
 
 struct CollisionScanResult {
     std::size_t candidates_considered = 0;
@@ -201,6 +210,8 @@ struct CollisionScanResult {
     std::uint32_t current_tick,
     const CollisionUnitDefinitionProvider& definition_for_unit,
     LegacyRandom& random,
-    int entity_hit_delay_ticks = 1);
+    int entity_hit_delay_ticks = 1,
+    LegacyRemovalContext* removal_context = nullptr,
+    LegacyRemovalTrace* removal_trace = nullptr);
 
 } // namespace deimos

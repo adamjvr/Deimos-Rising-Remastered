@@ -69,7 +69,24 @@ The binary-confirmed collision layer has a dedicated synthetic regression execut
 - scan early exit after self becomes inactive;
 - level-scaled shield base/increment/max behavior, including the no-max-clamp branch when increment is non-positive.
 
-The repository suite is currently **21/21 PASS**. The optional canonical `Game.pak` probe additionally validates all compiled collision fields and reports 436 collision-enabled states, 135 air / 251 ground Unit Definitions, 8 pickup Unit Definitions, and the other corpus counts recorded in `STATUS.md`. It also verifies that the existing shared constructor and first player-aware tick remain deterministic at RNG seeds `2249411936` and `2633739833` respectively.
+The repository suite is currently **22/22 PASS**. The optional canonical `Game.pak` probe additionally validates all compiled collision fields and reports 436 collision-enabled states, 135 air / 251 ground Unit Definitions, 8 pickup Unit Definitions, and the other corpus counts recorded in `STATUS.md`. It also verifies that the existing shared constructor and first player-aware tick remain deterministic at RNG seeds `2249411936` and `2633739833` respectively.
+
+### Destruction/group-removal regression rules
+
+The binary-confirmed destruction layer has a dedicated synthetic regression executable covering:
+
+- exact `0x16300` consequence ordering and idempotence when collision already processed destruction effects;
+- destruction spawn, particles/color, notice tick, and complete sound-descriptor capture;
+- `FourCC{}` plus serialized `none`/`NULL` resource-sentinel handling;
+- child destruction versus deletion using serial-only parent matching and the per-state opt-in flags;
+- separate original/active/destroyed group counters and group-kill detection from destroyed-count equality;
+- player-attributed ordinary/group-kill coin rewards and consumed-pickup suppression;
+- the special `SERM` group-removal exemption;
+- owner destruction propagation, deletion spawns, obstacle requests, and terrain-draw requests in outer cleanup order;
+- canonical random-bonus threshold selection, the pending ground-accuracy reward branch, progression gating, and resource-table label validation;
+- legacy float-to-integer truncation when compiling random-bonus percentage resources.
+
+The optional canonical `Game.pak` probe additionally checks every newly compiled destruction field against the source-format Unit Definition/state values and verifies the fixed random-bonus positional contracts. Canonical destruction coverage currently reports 99 destruction-spawn units, 99 particle units, 77 destruction sounds, 28 ordinary coin-reward units, 15 group-kill reward units, 13 obstacle creators, 32 terrain-draw units, and 7 random-bonus units.
 
 ## Platform parity
 

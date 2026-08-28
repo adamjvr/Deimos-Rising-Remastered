@@ -93,6 +93,20 @@ void EntityWorld::register_group(EntityGroupBuildResult&& build) {
     for (auto& member : build.members) members_.push_back(std::move(member));
 }
 
+EntityGroupRuntime* EntityWorld::find_group(std::uint32_t serial) {
+    for (auto& group : groups_) {
+        if (group.serial == serial) return &group;
+    }
+    return nullptr;
+}
+
+const EntityGroupRuntime* EntityWorld::find_group(std::uint32_t serial) const {
+    for (const auto& group : groups_) {
+        if (group.serial == serial) return &group;
+    }
+    return nullptr;
+}
+
 EntityRuntime* EntityWorld::find_member(EntityHandle handle) {
     if (handle == kNoEntityHandle) return nullptr;
     auto it = std::find_if(members_.begin(), members_.end(), [handle](const auto& member) {

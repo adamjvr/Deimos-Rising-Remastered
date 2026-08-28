@@ -298,3 +298,75 @@ sound descriptor. The exact semantics/order of the remaining boolean cluster
 `+0x4B2..+0x4B4` are being held at bounded confidence until the terrain,
 obstacle, and random-bonus callees are all correlated; clean code should not
 name those fields prematurely.
+
+
+## 2026-08-28 — Destruction, group removal, and random-bonus runtime
+
+PPC `0x16300`, `0x36120`, child helpers `0x363C0` / `0x364F0`, and the outer
+inactive-member cleanup around `0x36610` were traced as a single two-stage
+teardown system rather than collapsed into a generic "delete entity" action.
+The clean runtime now preserves that split: immediate ordinary destruction
+side effects can occur at the lethal call site, while group/list removal and
+counter consequences happen later and are idempotent with respect to effects
+already emitted.
+
+The Unit Definition offset cluster around the destruction fields is now named
+from exact `.unde` loader keys rather than correlation alone. In particular,
+`+0x4B2/+0x4B3/+0x4B4` are `destructCreateObstacle_BOOL`,
+`destructDrawToTerrain_BOOL`, and `destructReleaseRandomBonus_BOOL`.
+`+0x478/+0x47C/+0x480/+0x482` are destruction spawn, particle, particle color,
+and notice; `+0x4A4/+0x4A8/+0x4AC` are ordinary coin count/ID and group-kill
+coin ID; `+0x4BC..+0x4D0` is the complete destruction sound descriptor.
+`+0x2DC` is the deletion-only spawn. State-relative `+0x329/+0x32A/+0x32D`
+map to child-destroy opt-in, child-delete opt-in, and destroy-owner-on-destruction.
+
+Group fields are now independently proven: `+0xA4` is the original member
+count, `+0xA8` the current active count, and `+0xAC` the destroyed-member
+counter. Group kill is detected when destroyed count reaches the original
+count, not when the active count merely reaches zero. Ordinary and group-kill
+coin rewards require player-attributed destruction and are suppressed for the
+pickup-consumed marker at live `+0xCA`. Group FourCC `SERM` is explicitly
+exempt from ordinary group-removal behavior.
+
+Child propagation also preserves a non-modernized original detail: the helper
+matches the child's stored **parent serial** against the owner's serial and does
+not first validate the pointer half of the safe reference. Per-state flags then
+decide whether that child participates in destruction or deletion propagation.
+The outer cleanup separately handles validated parent destruction, deletion
+spawns, obstacle conversion, and terrain-draw requests.
+
+The random-bonus path was closed against fixed positional resources rather than
+inventing a data-driven replacement. `Game[gafl]` 209..219 are label-verified
+as the nine cumulative percentage thresholds plus ground-accuracy threshold and
+minimum-progression value. `Objects[gaob]` 25..34 are label-verified as
+`RandomBonus_1..10` and resolve to `rb01..rb10`. Canonical thresholds are
+70,78,82,84,87,91,95,98,100; the special threshold is 10 and minimum progression
+is 3. Loader float values are converted with the original truncation behavior.
+The >=98 tail gates `rb09/rb10` on game-context `+0x14`; that context field's
+higher-level name remains deliberately unresolved.
+
+Collision integration exposed exact immediate ordering: an ordinary lethal
+`0x14F10` call reaches `0x16300` at the call site, so random-bonus selection can
+consume RNG before later cleanup. Successful pickup likewise invokes `0x16300`
+before writing the pickup-consumed marker. Clean collision callers can now
+supply a removal context to reproduce this order without double-emitting effects
+when the later group teardown runs.
+
+A synthetic-fixture regression found an implementation-only sentinel edge:
+an all-zero `FourCC{}` must be treated as absent alongside serialized `none` and
+`NULL`; otherwise clean tests can emit a phantom resource even though canonical
+Unit Definitions normally carry an explicit sentinel. The destruction runtime
+now normalizes all three absent forms.
+
+Canonical Game.pak cross-checks currently report 99 destruction-spawn units,
+99 destruction-particle units, 77 destruction sounds, 28 ordinary coin-reward
+units, 15 group-kill reward units, 54 destroy-children units, 58 delete-children
+units, 13 obstacle creators, 32 terrain-draw units, and 7 random-bonus units.
+The repository suite is 22/22 PASS. Shared construction remains 386 groups / 546
+members with RNG seed 2249411936, and the first player-aware tick remains 544
+active with motion seed 2633739833.
+
+The deliberately bounded next edge is helper `0x16880` (ground-sensitive spawn
+eligibility), actual terrain/obstacle mutation, special live `+0xCD` destruction
+through `0x17E70`, concrete player pickup/damage mutation, and orchestration of
+remaining non-collision destruction entry sites.

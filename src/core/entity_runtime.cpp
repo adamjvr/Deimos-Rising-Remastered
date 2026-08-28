@@ -296,6 +296,8 @@ EntityGroupRuntime build_entity_group_runtime(
         group.base_position.y = request.y;
     }
     group.member_count = member_count;
+    group.active_member_count = member_count;
+    group.destroyed_member_count = 0;
     group.editor_heading_degrees = request.editor_heading_degrees;
     group.stationary = request.stationary;
     group.terrain_effects_enabled = request.terrain_effects_enabled;

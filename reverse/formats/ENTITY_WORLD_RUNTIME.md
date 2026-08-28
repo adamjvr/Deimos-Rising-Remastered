@@ -41,7 +41,7 @@ The routine walks active members and selects entries where:
 
 Each match is passed into the original member-removal path `0x36120`.
 
-The exact death/effect flags inside `0x36120` are still under reconstruction.
+The destruction/removal semantics inside `0x36120` are now reconstructed; see `DESTRUCTION_GROUP_RUNTIME.md` for child propagation, group counters, rewards, and cleanup ordering.
 The clean world therefore implements only the proven world-visible consequence
 for constructor use: matching members cease to participate as active entities.
 It does **not** invent death particles, scoring, or death-spawn behavior.
@@ -215,7 +215,7 @@ Still separate:
 
 - original intrusive-list node layout and allocator pools;
 - player subsystem internals behind `0x6090`;
-- collision/interaction scan `0x36CF0`;
-- member removal/death effects behind `0x36120`;
+- concrete player inventory/life mutation behind the already-recovered collision/interaction layer;
+- ground-sensitive spawn gate `0x16880`, actual terrain/obstacle mutation, and special destruction branch `0x17E70`;
 - target-selection/hunting world queries;
-- terrain/collision/damage/scoring.
+- ground/terrain collision and remaining scoring/game-state integration.

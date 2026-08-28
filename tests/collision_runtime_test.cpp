@@ -1,4 +1,5 @@
 #include "deimos/collision_runtime.hpp"
+#include "deimos/destruction_runtime.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -369,13 +370,23 @@ int main() {
     pickup_callbacks.try_pickup = [](deimos::PlayerRuntimeSlot&, const deimos::EntityRuntime&) {
         return true;
     };
+    pickup_entity->behavior.destruction_spawn = id("puff");
+    deimos::LegacyRemovalContext pickup_removal_context;
+    deimos::LegacyRemovalTrace pickup_removal_trace;
     pickup_scan = deimos::scan_legacy_player_collisions(
         pickup_world, *pickup_entity, pickup_players, {320, 240}, 2,
-        pickup_provider, rng, pickup_callbacks);
+        pickup_provider, rng, pickup_callbacks, 100.0f, 1,
+        &pickup_removal_context, &pickup_removal_trace);
     assert(pickup_scan.pickup_consumptions == 1);
     assert(pickup_scan.entity_became_inactive);
     assert(pickup_entity->lifecycle == deimos::EntityLifecycle::destroyed);
     assert(pickup_entity->destroyed_by_owner_index == 7);
+    assert(pickup_entity->destruction_effects_processed);
+    assert(pickup_entity->consumed_as_player_pickup);
+    assert(pickup_removal_trace.consequences.size() == 1);
+    assert(pickup_removal_trace.consequences[0].kind ==
+           deimos::LegacyRemovalConsequenceKind::destruction_spawn);
+    assert(pickup_removal_trace.consequences[0].resource_id == id("puff"));
     assert(pickup_player_damage_calls == 0);
 
     // Exact candidate policy: same air/ground domain, opposite harmless class,
@@ -418,14 +429,39 @@ int main() {
     d = deimos::apply_collision_damage(damage_target, enemy_u, 1.0f, 2, 3, rng);
     assert(!d.applied && near(damage_target.shields, 7.0f));
 
-    // Damage clamps at zero and converts a normal live member to Destroyed,
-    // preserving the source owner and score event fact.
-    d = deimos::apply_collision_damage(damage_target, enemy_u, 100.0f, 7, 4, rng);
+    // Damage clamps at zero and enters 0x16300 immediately when a destruction
+    // context is present. This preserves death-effect/random-bonus RNG order
+    // inside the collision call instead of deferring it to the cleanup pass.
+    damage_target.behavior.destruction_spawn = id("frag");
+    damage_target.behavior.destruction_release_random_bonus = true;
+    deimos::LegacyRemovalContext damage_removal_context;
+    damage_removal_context.random_bonus.progression_value = 3;
+    damage_removal_context.random_bonus_config.percent_thresholds =
+        {70, 78, 82, 84, 87, 91, 95, 98, 100};
+    damage_removal_context.random_bonus_config.ground_accuracy_reward_percent = 10;
+    damage_removal_context.random_bonus_config.minimum_progression_for_highest_bonus = 3;
+    damage_removal_context.random_bonus_config.bonus_ids = {
+        id("rb01"), id("rb02"), id("rb03"), id("rb04"), id("rb05"),
+        id("rb06"), id("rb07"), id("rb08"), id("rb09"), id("rb10")
+    };
+    deimos::LegacyRemovalTrace damage_removal_trace;
+    deimos::LegacyRandom expected_death_rng(rng.seed());
+    (void)deimos::choose_inclusive_integer(0, 100, expected_death_rng);
+    d = deimos::apply_collision_damage(
+        damage_target, enemy_u, 100.0f, 7, 4, rng, 1,
+        &damage_removal_context, &damage_removal_trace);
     assert(d.applied && d.entity_destroyed);
     assert(near(d.absorbed_damage, 7.0f));
     assert(damage_target.lifecycle == deimos::EntityLifecycle::destroyed);
     assert(damage_target.destroyed_by_owner_index == 7);
+    assert(damage_target.destruction_effects_processed);
     assert(d.score_award == enemy_o.score);
+    assert(rng.seed() == expected_death_rng.seed());
+    assert(damage_removal_trace.consequences.size() == 2);
+    assert(damage_removal_trace.consequences[0].kind ==
+           deimos::LegacyRemovalConsequenceKind::destruction_spawn);
+    assert(damage_removal_trace.consequences[1].kind ==
+           deimos::LegacyRemovalConsequenceKind::random_bonus_spawn);
 
     // Invulnerability restores old shields after calculating the absorbed
     // amount, exactly as 0x14FD4..0x14FE0 does.

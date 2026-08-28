@@ -1,6 +1,6 @@
 # Status
 
-## 2026-08-28 — collision/damage-runtime milestone
+## 2026-08-28 — destruction/group-runtime milestone
 
 ### Evidence corpus
 
@@ -76,7 +76,7 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **21/21**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **22/22**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Spawn runtime findings now binary-confirmed
 
@@ -150,12 +150,24 @@ Synthetic repository tests pass **21/21**. Original assets/binaries are used onl
 - `UnitDef +0x4D4/+0x4DC` are now bound to `pickup_Type_ID` / `pickup_Value_INT`. Non-`none` pickups use the exclusive pickup branch: a failed pickup does no damage; a successful pickup consumes/destroys the entity and skips reciprocal impact. Canonical corpus: 8 pickup units (4 `coin`, 2 `shie`, 1 `exli`, 1 `mult`).
 - Shield construction now follows `0x35E50..0x35EB0`: base + positive increment * (`gameContext+0x14 - 1`), clamped to max only on the positive-increment branch. The higher-level semantic name of game-context `+0x14` remains intentionally unresolved.
 - Canonical Unit Definitions: 135 air / 251 ground collision domains, 226 harmless units, 9 player projectiles, 110 player-projectile-hittable units, 120 nonzero collision-damage units, 131 nonzero base-shield units, and 8 pickup units.
-- Ordinary shield-depletion/pickup destruction is represented headlessly as lifecycle + source-owner/event facts. Full `0x16300` death effects, player inventory/life mutation, ground/terrain collision, and group/child/terrain consequences remain bounded research fronts.
+- Lethal ordinary collision and successful pickup can now execute the recovered `0x16300` destruction effects immediately when supplied a removal context, preserving same-call random-bonus RNG order. Later group cleanup is idempotent with respect to those already-processed effects.
+
+### Destruction/group findings now binary-confirmed
+
+- Ordinary destruction/effect routine `0x16300`, group/member removal `0x36120`, child-destruction helper `0x363C0`, child-deletion helper `0x364F0`, and the outer inactive-member cleanup around `0x36610` are represented in the clean core.
+- `destructSpawn_ID`, `destructParticle_ID`, packed destruction color, notice, complete sound descriptor, coin count/ID, group-kill coin ID, child flags, obstacle, terrain-draw, random-bonus, deletion-spawn, and owner/child state flags are compiled directly from source-format names.
+- UnitDef `+0x4B2/+0x4B3/+0x4B4` are proven as `destructCreateObstacle_BOOL`, `destructDrawToTerrain_BOOL`, and `destructReleaseRandomBonus_BOOL`.
+- Group `+0xA4/+0xA8/+0xAC` are original member count, active member count, and destroyed-member count. Group kill is destroyed-count equality, not active-count exhaustion.
+- Ordinary/group-kill coin rewards require player-attributed destruction and are suppressed for a member already marked as a consumed pickup. The special group FourCC `SERM` is exempt from ordinary group-removal semantics.
+- Child propagation uses serial-only parent matching plus per-state opt-in flags, reproducing the original destroy-vs-delete distinction. Owner destruction on child removal uses the validated parent safe reference in the outer cleanup pass.
+- Random bonus binding is exact for `Game[gafl]` 209..219 and `Objects[gaob]` 25..34, with source labels verified before use. Canonical thresholds are 70,78,82,84,87,91,95,98,100; ground-accuracy threshold 10; minimum progression 3; object IDs `rb01`..`rb10`.
+- Canonical destruction corpus: 99 destruction-spawn units, 99 particle units, 77 destruction sounds, 28 ordinary coin-reward units, 15 group-kill reward units, 54 destroy-children units, 58 delete-children units, 13 obstacle creators, 32 terrain-draw units, and 7 random-bonus units.
+- Empty clean-core `FourCC{}` and the serialized sentinels `none`/`NULL` are all treated as absent resource IDs, preventing synthetic fixtures from emitting phantom destruction resources.
 
 ### Active reverse-engineering fronts
 
-1. Complete destruction/removal consequences around `0x16300` / `0x36120`: death spawn/particles/notice/sound, coins/group-kill reward, child handling, terrain/obstacle effects, and the remaining destruction flags.
-2. Reconstruct concrete player-side pickup/inventory semantics in `0x37580` and player shield/life damage in `0x27100`, then wire the recovered player-impact scanner into the full member tick with runtime viewport facts.
-3. Recover ground/terrain collision and the rare special single-member parent-container / intrusive-list semantics around `0x33220`.
-4. Finish v10005 replay bit assignment/two-player semantics and turn films into deterministic simulation oracles.
-5. Expand/correlate the Windows executable payload.
+1. Recover ground-sensitive helper `0x16880`, then replace the bounded spawn/terrain callbacks with exact terrain-sensitive destruction/deletion-spawn eligibility and actual obstacle/terrain mutation.
+2. Reconstruct concrete player-side pickup/inventory semantics in `0x37580` and player shield/life damage in `0x27100`, then bind those mutations behind the already-recovered player-impact scanner.
+3. Recover the special live `+0xCD` destruction path through `0x17E70`, and wire every non-collision destruction entry site through the same clean teardown orchestration.
+4. Recover ground/terrain collision and the rare special single-member parent-container / intrusive-list semantics around `0x33220`.
+5. Expand Windows evidence and replay/action mapping after the remaining Mac gameplay-core boundaries are stable.

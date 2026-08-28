@@ -2,7 +2,7 @@
 
 This document records the clean-room reconstruction boundary for the canonical
 Deimos Rising 1.0.6 PowerPC executable. It separates binary-confirmed behavior
-from player/terrain/destruction work that is still intentionally bounded.
+from the remaining player/terrain/special-destruction work that is still intentionally bounded.
 
 ## Recovered entity/entity pipeline
 
@@ -48,10 +48,11 @@ and collision-spawn decisions later in the same call use the **pre-transition**
 state. Collision-spawn delay accepts equality (`current >= last + delay`), and
 non-repeat state is tracked per live entity.
 
-When ordinary clean-room shield depletion reaches zero, the headless runtime
-records lifecycle/source/score facts. Full `0x16300` audiovisual, child,
-terrain, obstacle, reward, and group consequences are intentionally not
-invented yet.
+When ordinary shield depletion reaches zero, the clean runtime can now invoke
+the recovered `0x16300` consequence layer immediately when a removal context is
+available. This preserves destruction-spawn/random-bonus ordering and RNG
+consumption. Later `0x36120` group teardown is idempotent with respect to those
+already-processed effects.
 
 ## Shield initialization
 
@@ -130,7 +131,7 @@ Concrete inventory/weapon/stat changes remain behind a callback until
 
 ## Current validation
 
-The repository test suite is **21/21 PASS**. Canonical Game.pak validation still
+The repository test suite is **22/22 PASS**. Canonical Game.pak validation still
 produces:
 
 - 386 groups / 546 live members after construction;
@@ -144,14 +145,16 @@ produces:
 
 ## Next binary boundary
 
-The next collision/destruction work is deliberately concentrated in:
+The ordinary destruction/group consequence graph has moved to
+`DESTRUCTION_GROUP_RUNTIME.md`. Remaining collision-adjacent boundaries are:
 
-- `0x16300`: full destruction side effects;
-- `0x36120`: group/member removal, coins/group-kill reward, child handling;
-- concrete `0x37580` pickup mutation;
-- concrete `0x27100` player damage/life semantics;
-- ground/terrain collision and terrain mutation.
+- ground-sensitive helper `0x16880`, including exact terrain-dependent spawn eligibility;
+- actual ground/terrain collision, obstacle insertion, and terrain mutation;
+- concrete `0x37580` player pickup/inventory mutation;
+- concrete `0x27100` player shield/life damage semantics;
+- special live `+0xCD` destruction path through `0x17E70`;
+- orchestration of the remaining non-collision destruction entry sites.
 
-Several destruction offsets are already strongly correlated, but the remaining
-`+0x4B2..+0x4B4` boolean cluster will not be assigned final semantic names until
-all terrain/obstacle/random-bonus callees are correlated.
+UnitDef `+0x4B2/+0x4B3/+0x4B4` are no longer opaque: they are proven as
+`destructCreateObstacle_BOOL`, `destructDrawToTerrain_BOOL`, and
+`destructReleaseRandomBonus_BOOL` respectively.

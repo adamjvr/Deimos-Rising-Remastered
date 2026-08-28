@@ -63,6 +63,9 @@ public:
 
     void register_group(EntityGroupBuildResult&& build);
 
+    [[nodiscard]] EntityGroupRuntime* find_group(std::uint32_t serial);
+    [[nodiscard]] const EntityGroupRuntime* find_group(std::uint32_t serial) const;
+
     [[nodiscard]] EntityRuntime* find_member(EntityHandle handle);
     [[nodiscard]] const EntityRuntime* find_member(EntityHandle handle) const;
 
@@ -77,10 +80,10 @@ public:
     [[nodiscard]] bool has_active_unit(FourCC unit_id) const;
     [[nodiscard]] std::size_t active_member_count() const;
 
-    // PPC 0x36BE0 scans matching Unit ID + signed owner index. The original
-    // then enters its member-removal path. Until death-effect semantics are
-    // reconstructed, this clean world performs only the proven world-visible
-    // result: matching members stop participating as active entities.
+    // PPC 0x36BE0 scans matching Unit ID + signed owner index. This helper
+    // performs the proven query/marking step; full consequence processing is
+    // owned by the destruction/removal runtime so callers can preserve the
+    // original two-stage teardown order.
     [[nodiscard]] std::size_t mark_owned_unit_deleted(
         FourCC unit_id,
         std::int8_t player_owner_index);

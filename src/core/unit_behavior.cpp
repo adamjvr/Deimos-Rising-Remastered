@@ -38,6 +38,14 @@ FourCC core_id(const UnitDefinition& unit, std::string_view key) {
     if (auto value = unit.core_fields.id_value(key)) return *value;
     return {};
 }
+std::string core_string(const UnitDefinition& unit, std::string_view key) {
+    if (auto value = unit.core_fields.string_value(key)) return std::string(*value);
+    return {};
+}
+Rgb24 core_color(const UnitDefinition& unit, std::string_view key) {
+    if (auto value = unit.core_fields.color_value(key)) return *value;
+    return {};
+}
 constexpr FourCC fourcc(char a, char b, char c, char d) {
     return FourCC{{a, b, c, d}};
 }
@@ -94,7 +102,26 @@ CompiledUnitBehavior compile_unit_behavior(const UnitDefinition& unit) {
     out.shields_level_increment = core_float(unit, "shields_LevelIncrement_FLOAT");
     out.shields_max = core_float(unit, "shields_MaxAmount_FLOAT");
     out.hit_particles = core_id(unit, "hitParticles_ID");
+    out.deletion_spawn = core_id(unit, "deletionSpawn_ID");
+    out.destruction_spawn = core_id(unit, "destructSpawn_ID");
+    out.destruction_particles = core_id(unit, "destructParticle_ID");
+    out.destruction_particle_color = core_color(unit, "destructParticleColor_COLOR");
+    out.destruction_notice = core_string(unit, "destructNotice_STR");
+    out.destruction_coin_count = core_int(unit, "destructNumCoinsToRelease_INT");
+    out.destruction_coin = core_id(unit, "destructCoin_ID");
+    out.destruction_group_kill_coin = core_id(unit, "destructCoinOnGroupKill_ID");
+    out.destruction_destroy_children = core_bool(unit, "destructDestroyChildren_BOOL");
+    out.destruction_delete_children = core_bool(unit, "destructDeleteChildren_BOOL");
+    out.destruction_create_obstacle = core_bool(unit, "destructCreateObstacle_BOOL");
+    out.destruction_draw_to_terrain = core_bool(unit, "destructDrawToTerrain_BOOL");
+    out.destruction_release_random_bonus = core_bool(unit, "destructReleaseRandomBonus_BOOL");
     out.score = core_int(unit, "score_INT");
+    out.destruction_sound.id = core_id(unit, "destructSound_ID");
+    out.destruction_sound.min_volume = core_int(unit, "destructSound_MinVolume_INT");
+    out.destruction_sound.max_volume = core_int(unit, "destructSound_MaxVolume_INT");
+    out.destruction_sound.priority = core_int(unit, "destructSound_Priority_INT");
+    out.destruction_sound.min_pitch = core_float(unit, "destructSound_MinPitch_FLOAT");
+    out.destruction_sound.max_pitch = core_float(unit, "destructSound_MaxPitch_FLOAT");
     // PPC player-impact helper 0x37580 dispatches UnitDef +0x4D4 as a
     // pickup category and reads +0x4DC as its value. Loader/source correlation
     // binds those fields to pickup_Type_ID / pickup_Value_INT.
@@ -105,7 +132,13 @@ CompiledUnitBehavior compile_unit_behavior(const UnitDefinition& unit) {
         CompiledUnitStateBehavior compiled;
         compiled.range = field_float(state, "stateOnRange_FLOAT");
         compiled.on_range = resolve_state_action(unit, field_string(state, "stateOnRangeChangeTo_STR"));
+        compiled.can_be_destroyed_on_owner_destruction = field_bool(
+            state, "canBeDestroyedOnOwnerDestruction_BOOL");
+        compiled.can_be_deleted_on_owner_deletion = field_bool(
+            state, "canBeDeletedOnOwnerDeletion_BOOL");
         compiled.pass_hits_to_owner = field_bool(state, "passHitsToOwner_BOOL");
+        compiled.destroy_owner_on_destruction = field_bool(
+            state, "destroyOwnerOnDestruction_BOOL");
         compiled.collides = field_bool(state, "stateCollides_BOOL");
         compiled.invulnerable_on_collision = field_bool(
             state, "stateInvulnerable_ShieldsDoNotDepleteOnCollision_BOOL");

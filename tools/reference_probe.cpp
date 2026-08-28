@@ -1,5 +1,6 @@
 #include "deimos/collision_runtime.hpp"
 #include "deimos/data_tables.hpp"
+#include "deimos/destruction_runtime.hpp"
 #include "deimos/entity_runtime.hpp"
 #include "deimos/entity_world.hpp"
 #include "deimos/film.hpp"
@@ -14,6 +15,7 @@
 
 #include <filesystem>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -48,9 +50,20 @@ int main(int argc, char** argv) {
     std::size_t unit_harmless = 0, unit_player_projectile = 0, unit_player_projectile_hittable = 0;
     std::size_t unit_nonzero_collision_damage = 0, unit_nonzero_shields = 0;
     std::size_t unit_pickups = 0;
+    std::size_t unit_destruction_spawns = 0, unit_deletion_spawns = 0;
+    std::size_t unit_destruction_particles = 0, unit_destruction_notices = 0;
+    std::size_t unit_destruction_sounds = 0, unit_destruction_coin_rewards = 0;
+    std::size_t unit_group_kill_coin_rewards = 0, unit_destroy_children = 0;
+    std::size_t unit_delete_children = 0, unit_create_obstacle = 0;
+    std::size_t unit_draw_to_terrain = 0, unit_random_bonus = 0;
+    std::size_t state_destroy_with_owner = 0, state_delete_with_owner = 0;
+    std::size_t state_destroy_owner = 0;
     std::size_t units_with_lock_owner = 0, units_with_link_owner = 0, units_with_orbit_owner = 0;
     std::size_t weapons = 0, weapon_spawns = 0, players = 0;
     std::size_t unresolved_active_actions = 0, unresolved_inert_actions = 0, unknown_rule_conditions = 0;
+
+    std::optional<deimos::NamedTable<float>> canonical_game_floats;
+    std::optional<deimos::NamedTable<deimos::FourCC>> canonical_game_objects;
 
     for (const auto& entry : pak->entries()) {
         if (entry.is_directory) continue;
@@ -95,9 +108,28 @@ int main(int argc, char** argv) {
                 behavior.collision_damage != unit->core_fields.float_value("damage_FLOAT").value_or(0.0f) ||
                 behavior.shields_base != unit->core_fields.float_value("shields_BaseAmount_FLOAT").value_or(0.0f) ||
                 behavior.score != unit->core_fields.int_value("score_INT").value_or(0) ||
+                !(behavior.deletion_spawn == unit->core_fields.id_value("deletionSpawn_ID").value_or(deimos::FourCC{})) ||
+                !(behavior.destruction_spawn == unit->core_fields.id_value("destructSpawn_ID").value_or(deimos::FourCC{})) ||
+                !(behavior.destruction_particles == unit->core_fields.id_value("destructParticle_ID").value_or(deimos::FourCC{})) ||
+                !(behavior.destruction_particle_color == unit->core_fields.color_value("destructParticleColor_COLOR").value_or(deimos::Rgb24{})) ||
+                behavior.destruction_notice != unit->core_fields.string_value("destructNotice_STR").value_or(std::string_view{}) ||
+                behavior.destruction_coin_count != unit->core_fields.int_value("destructNumCoinsToRelease_INT").value_or(0) ||
+                !(behavior.destruction_coin == unit->core_fields.id_value("destructCoin_ID").value_or(deimos::FourCC{})) ||
+                !(behavior.destruction_group_kill_coin == unit->core_fields.id_value("destructCoinOnGroupKill_ID").value_or(deimos::FourCC{})) ||
+                behavior.destruction_destroy_children != unit->core_fields.bool_value("destructDestroyChildren_BOOL").value_or(false) ||
+                behavior.destruction_delete_children != unit->core_fields.bool_value("destructDeleteChildren_BOOL").value_or(false) ||
+                behavior.destruction_create_obstacle != unit->core_fields.bool_value("destructCreateObstacle_BOOL").value_or(false) ||
+                behavior.destruction_draw_to_terrain != unit->core_fields.bool_value("destructDrawToTerrain_BOOL").value_or(false) ||
+                behavior.destruction_release_random_bonus != unit->core_fields.bool_value("destructReleaseRandomBonus_BOOL").value_or(false) ||
+                !(behavior.destruction_sound.id == unit->core_fields.id_value("destructSound_ID").value_or(deimos::FourCC{})) ||
+                behavior.destruction_sound.min_volume != unit->core_fields.int_value("destructSound_MinVolume_INT").value_or(0) ||
+                behavior.destruction_sound.max_volume != unit->core_fields.int_value("destructSound_MaxVolume_INT").value_or(0) ||
+                behavior.destruction_sound.priority != unit->core_fields.int_value("destructSound_Priority_INT").value_or(0) ||
+                behavior.destruction_sound.min_pitch != unit->core_fields.float_value("destructSound_MinPitch_FLOAT").value_or(0.0f) ||
+                behavior.destruction_sound.max_pitch != unit->core_fields.float_value("destructSound_MaxPitch_FLOAT").value_or(0.0f) ||
                 !(behavior.pickup_type == unit->core_fields.id_value("pickup_Type_ID").value_or(deimos::FourCC{})) ||
                 behavior.pickup_value != unit->core_fields.int_value("pickup_Value_INT").value_or(0)) {
-                std::cerr << entry.path << ": compiled collision UnitDef fields disagree with parsed source\n";
+                std::cerr << entry.path << ": compiled collision/destruction UnitDef fields disagree with parsed source\n";
                 return 19;
             }
             unit_ground_collision_domain += ground;
@@ -108,6 +140,21 @@ int main(int argc, char** argv) {
             unit_nonzero_collision_damage += behavior.collision_damage != 0.0f;
             unit_nonzero_shields += behavior.shields_base != 0.0f;
             unit_pickups += behavior.pickup_type.str() != "none" && !(behavior.pickup_type == deimos::FourCC{});
+            const auto present = [](deimos::FourCC value) {
+                return !(value == deimos::FourCC{}) && value.str() != "none" && value.str() != "NULL";
+            };
+            unit_destruction_spawns += present(behavior.destruction_spawn);
+            unit_deletion_spawns += present(behavior.deletion_spawn);
+            unit_destruction_particles += present(behavior.destruction_particles);
+            unit_destruction_notices += !behavior.destruction_notice.empty();
+            unit_destruction_sounds += present(behavior.destruction_sound.id);
+            unit_destruction_coin_rewards += behavior.destruction_coin_count > 0 && present(behavior.destruction_coin);
+            unit_group_kill_coin_rewards += present(behavior.destruction_group_kill_coin);
+            unit_destroy_children += behavior.destruction_destroy_children;
+            unit_delete_children += behavior.destruction_delete_children;
+            unit_create_obstacle += behavior.destruction_create_obstacle;
+            unit_draw_to_terrain += behavior.destruction_draw_to_terrain;
+            unit_random_bonus += behavior.destruction_release_random_bonus;
             unresolved_active_actions += behavior.unresolved_active_actions;
             unresolved_inert_actions += behavior.unresolved_inert_actions;
             bool unit_has_lock_owner = false;
@@ -123,13 +170,22 @@ int main(int argc, char** argv) {
                 const bool expected_players = state.fields.bool_value("stateCollidesWithPlayers_BOOL").value_or(false);
                 const bool expected_no_glow = state.fields.bool_value("stateDoNotGlowOnCollision_BOOL").value_or(false);
                 const auto expected_spawn = state.fields.id_value("collision_Spawn_ID").value_or(deimos::FourCC{});
+                const bool expected_destroy_with_owner = state.fields.bool_value(
+                    "canBeDestroyedOnOwnerDestruction_BOOL").value_or(false);
+                const bool expected_delete_with_owner = state.fields.bool_value(
+                    "canBeDeletedOnOwnerDeletion_BOOL").value_or(false);
+                const bool expected_destroy_owner = state.fields.bool_value(
+                    "destroyOwnerOnDestruction_BOOL").value_or(false);
                 if (compiled_state.collides != expected_collides ||
                     compiled_state.pass_hits_to_owner != expected_pass ||
                     compiled_state.invulnerable_on_collision != expected_invulnerable ||
                     compiled_state.collides_with_players != expected_players ||
                     compiled_state.do_not_glow_on_collision != expected_no_glow ||
-                    !(compiled_state.collision_spawn == expected_spawn)) {
-                    std::cerr << entry.path << ": compiled collision state fields disagree with parsed source\n";
+                    !(compiled_state.collision_spawn == expected_spawn) ||
+                    compiled_state.can_be_destroyed_on_owner_destruction != expected_destroy_with_owner ||
+                    compiled_state.can_be_deleted_on_owner_deletion != expected_delete_with_owner ||
+                    compiled_state.destroy_owner_on_destruction != expected_destroy_owner) {
+                    std::cerr << entry.path << ": compiled collision/destruction state fields disagree with parsed source\n";
                     return 20;
                 }
                 state_collides += expected_collides;
@@ -138,6 +194,9 @@ int main(int argc, char** argv) {
                 state_collides_players += expected_players;
                 state_no_collision_glow += expected_no_glow;
                 state_collision_spawns += expected_spawn.str() != "none" && !(expected_spawn == deimos::FourCC{});
+                state_destroy_with_owner += expected_destroy_with_owner;
+                state_delete_with_owner += expected_delete_with_owner;
+                state_destroy_owner += expected_destroy_owner;
 
                 const bool lock_owner = state.fields.bool_value("stateLockToOwnerLoc_BOOL").value_or(false);
                 const bool link_owner = state.fields.bool_value("stateLinkToOwnerLoc_BOOL").value_or(false);
@@ -194,8 +253,18 @@ int main(int argc, char** argv) {
             auto doc = deimos::parse_tagged_text(deimos::decode_legacy_text(*bytes), &error);
             if (!doc) { std::cerr << entry.path << ": " << error << '\n'; return 7; }
             bool ok = false;
-            if (ext == ".idli") { ok = bool(deimos::parse_id_list(*doc, &error)); ++id_lists; }
-            if (ext == ".flli") { ok = bool(deimos::parse_float_list(*doc, &error)); ++float_lists; }
+            if (ext == ".idli") {
+                auto table = deimos::parse_id_list(*doc, &error);
+                ok = bool(table);
+                if (table && entry.path == "idli/Objects[gaob].idli") canonical_game_objects = *table;
+                ++id_lists;
+            }
+            if (ext == ".flli") {
+                auto table = deimos::parse_float_list(*doc, &error);
+                ok = bool(table);
+                if (table && entry.path == "flli/Game[gafl].flli") canonical_game_floats = *table;
+                ++float_lists;
+            }
             if (ext == ".coli") { ok = bool(deimos::parse_color_list(*doc, &error)); ++color_lists; }
             if (ext == ".tefo") { ok = bool(deimos::parse_text_format(*doc, &error)); ++text_formats; }
             if (ext == ".stli") { ok = bool(deimos::parse_string_list(*doc, &error)); ++string_lists; }
@@ -204,6 +273,17 @@ int main(int argc, char** argv) {
         }
     }
 
+
+    if (!canonical_game_floats || !canonical_game_objects) {
+        std::cerr << "canonical Game[gafl]/Objects[gaob] tables not found\n";
+        return 22;
+    }
+    const auto random_bonus_config = deimos::compile_legacy_random_bonus_config(
+        *canonical_game_floats, *canonical_game_objects, &error);
+    if (!random_bonus_config) {
+        std::cerr << "canonical random-bonus config: " << error << '\n';
+        return 23;
+    }
 
     auto definitions = deimos::GameDefinitions::load_from_game_pak(*pak, &error);
     if (!definitions) {
@@ -432,6 +512,36 @@ int main(int argc, char** argv) {
               << "    nonzero collision damage: " << unit_nonzero_collision_damage << '\n'
               << "    nonzero base shields: " << unit_nonzero_shields << '\n'
               << "    pickup units: " << unit_pickups << '\n'
+              << "  destruction/removal fields:\n"
+              << "    destruction spawns: " << unit_destruction_spawns << '\n'
+              << "    deletion spawns: " << unit_deletion_spawns << '\n'
+              << "    destruction particle effects: " << unit_destruction_particles << '\n'
+              << "    destruction notices: " << unit_destruction_notices << '\n'
+              << "    destruction sounds: " << unit_destruction_sounds << '\n'
+              << "    ordinary coin reward units: " << unit_destruction_coin_rewards << '\n'
+              << "    group-kill coin reward units: " << unit_group_kill_coin_rewards << '\n'
+              << "    destroy-children units: " << unit_destroy_children << '\n'
+              << "    delete-children units: " << unit_delete_children << '\n'
+              << "    create-obstacle units: " << unit_create_obstacle << '\n'
+              << "    draw-to-terrain units: " << unit_draw_to_terrain << '\n'
+              << "    random-bonus units: " << unit_random_bonus << '\n'
+              << "    states destroyed with owner: " << state_destroy_with_owner << '\n'
+              << "    states deleted with owner: " << state_delete_with_owner << '\n'
+              << "    states that destroy owner: " << state_destroy_owner << '\n'
+              << "    random bonus thresholds: "
+              << random_bonus_config->percent_thresholds[0] << ','
+              << random_bonus_config->percent_thresholds[1] << ','
+              << random_bonus_config->percent_thresholds[2] << ','
+              << random_bonus_config->percent_thresholds[3] << ','
+              << random_bonus_config->percent_thresholds[4] << ','
+              << random_bonus_config->percent_thresholds[5] << ','
+              << random_bonus_config->percent_thresholds[6] << ','
+              << random_bonus_config->percent_thresholds[7] << ','
+              << random_bonus_config->percent_thresholds[8] << '\n'
+              << "    ground-accuracy random-bonus threshold: "
+              << random_bonus_config->ground_accuracy_reward_percent << '\n'
+              << "    highest random-bonus minimum progression: "
+              << random_bonus_config->minimum_progression_for_highest_bonus << '\n'
               << "  unit terrain effects: " << unit_terrain_effects << '\n'
               << "  unit owner-scale spawn-offset flag: " << unit_adjust_owner_scale << '\n'
               << "  unit player-active-only spawn flag: " << unit_player_active_only << '\n'

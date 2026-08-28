@@ -94,7 +94,9 @@ struct EntityGroupRuntime {
     std::uint32_t serial = 0;
     FourCC unit_id{};
     EntityPoint base_position{};
-    int member_count = 0;
+    int member_count = 0;          // original group +0xA4: original member count
+    int active_member_count = 0;   // original group +0xA8
+    int destroyed_member_count = 0;// original group +0xAC
     int editor_heading_degrees = 0;
     bool stationary = false;
     bool terrain_effects_enabled = false;
@@ -263,7 +265,15 @@ struct EntityRuntime {
     std::int32_t last_on_hit_transition_tick = 0;   // original +0xFC
     std::int32_t last_collision_spawn_tick = 0;     // original +0xD0
     int collision_spawn_count = 0;                  // original +0xD4
+    bool consumed_as_player_pickup = false;          // original +0xCA
     std::int8_t destroyed_by_owner_index = -1;      // original +0xD9
+
+    // Clean-only bookkeeping for the two-stage legacy teardown. The original
+    // marks destruction at +0xCB/+0xDA, then later PPC 0x36120 removes the
+    // live member from its group/list and updates counters. Existing clean
+    // callers can mark lifecycle=destroyed before this teardown stage.
+    bool destruction_effects_processed = false;
+    bool removal_processed = false;
 
     // PPC 0x33600 / 0x37130 / 0x37230 / 0x37350 owner-location
     // bookkeeping. These mirror live-member +0x124..+0x130 and the Orbit

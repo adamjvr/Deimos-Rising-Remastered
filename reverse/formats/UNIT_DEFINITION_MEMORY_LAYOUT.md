@@ -62,3 +62,80 @@ used by the post-construction owner-location routines:
 
 Canonical 1.0.6 uses the three flags mutually exclusively: 156 Lock states,
 10 Link states, and 8 Orbit states. See `ENTITY_WORLD_RUNTIME.md`.
+
+
+## Collision/damage anchors
+
+Collision scan `0x36CF0`, damage routine `0x14F10`, and the Unit Definition
+loader establish the following direct anchors. `UnitDef +0x08` is a derived
+FourCC: loader code writes `grnd` when `isGroundBased_BOOL` is true and `air `
+otherwise. It is therefore a collision domain, not the draw-layer ID at
+`+0x2E0`.
+
+| Serialized Unit Definition key | Compiled offset | Runtime use |
+| --- | ---: | --- |
+| `#harmlessToPlayers_BOOL` | `+0x11A` | candidate classes must be opposite |
+| `#playerProjectile_BOOL` | `+0x11B` | projectile candidate/offscreen policy |
+| `#canBeHitByPlayerProjectile_BOOL` | `+0x11C` | projectile compatibility |
+| `#hittableWhenInvisible_BOOL` | `+0x121` | live collision-participation/visibility byte |
+| `#isGroundBased_BOOL` | `+0x125` | derives `UnitDef+0x08` = `grnd` / `air ` |
+| `#collidesWithGroundObstacles_BOOL` | `+0x128` | separate ground-obstacle path |
+| `#damage_FLOAT` | `+0x274` | damage dealt in entity collision |
+| `#hitParticles_ID` | `+0x2D8` | hit particle effect |
+| `#shields_BaseAmount_FLOAT` | `+0x43C` | base shields |
+| `#shields_LevelIncrement_FLOAT` | `+0x440` | level-dependent shield constructor term |
+| `#shields_MaxAmount_FLOAT` | `+0x444` | shield constructor clamp |
+| `#score_INT` | `+0x4B8` | shield-depletion score value |
+
+State base remains `UnitDef +0x4E0 + stateIndex*0x5E0`. Collision-facing state
+anchors are:
+
+| Serialized state key | Compiled state offset |
+| --- | ---: |
+| `#collision_Spawn_ID` | `+0x2E0` |
+| `#collision_RepeatSpawns_BOOL` | `+0x2E4` |
+| `#collision_SpawnDelay_INT` | `+0x2E8` |
+| `#passHitsToOwner_BOOL` | `+0x32B` |
+| `#stateCollides_BOOL` | `+0x347` |
+| `#stateInvulnerable_ShieldsDoNotDepleteOnCollision_BOOL` | `+0x348` |
+| `#stateIsTargetable_BOOL` | `+0x34E` |
+| `#stateCollidesWithPlayers_BOOL` | `+0x34F` |
+| `#stateDoNotGlowOnCollision_BOOL` | `+0x354` |
+| `#stateUseThisStateOnShieldDepletion_BOOL` | `+0x356` |
+| `#stateOnHitChangeStateDelay_INT` | `+0x3B8` |
+| `#stateOnHitChangeTo_STR` | `+0x59C` |
+
+See `COLLISION_DAMAGE_RUNTIME.md` for scan ordering, damage timing, and explicit
+unreconstructed boundaries.
+
+
+## Destruction/removal anchors
+
+PPC `0x16300`, `0x36120`, the Unit Definition loader, and the state loader now establish these direct fields:
+
+| Serialized key | Compiled offset | Use |
+| --- | ---: | --- |
+| `#deletionSpawn_ID` | `+0x2DC` | deletion-only spawn in outer cleanup |
+| `#destructSpawn_ID` | `+0x478` | ordinary destruction spawn |
+| `#destructParticle_ID` | `+0x47C` | destruction particle resource |
+| `#destructParticleColor_COLOR` | `+0x480` | packed particle color |
+| `#destructNotice_STR` | `+0x482` | destruction notice |
+| `#destructNumCoinsToRelease_INT` | `+0x4A4` | ordinary coin count |
+| `#destructCoin_ID` | `+0x4A8` | ordinary coin resource |
+| `#destructCoinOnGroupKill_ID` | `+0x4AC` | group-kill reward resource |
+| `#destructDestroyChildren_BOOL` | `+0x4B0` | destroy opted-in children |
+| `#destructDeleteChildren_BOOL` | `+0x4B1` | delete opted-in children |
+| `#destructCreateObstacle_BOOL` | `+0x4B2` | obstacle conversion request |
+| `#destructDrawToTerrain_BOOL` | `+0x4B3` | terrain draw request for ground unit |
+| `#destructReleaseRandomBonus_BOOL` | `+0x4B4` | random-bonus selection |
+| `#score_INT` | `+0x4B8` | score contribution |
+| `#destructSound_ID` | `+0x4BC` | destruction sound ID |
+| `#destructSound_MinVolume_INT` | `+0x4C0` | sound minimum volume |
+| `#destructSound_MaxVolume_INT` | `+0x4C4` | sound maximum volume |
+| `#destructSound_Priority_INT` | `+0x4C8` | sound priority |
+| `#destructSound_MinPitch_FLOAT` | `+0x4CC` | sound minimum pitch |
+| `#destructSound_MaxPitch_FLOAT` | `+0x4D0` | sound maximum pitch |
+| `#pickup_Type_ID` | `+0x4D4` | player pickup discriminator |
+| `#pickup_Value_INT` | `+0x4DC` | player pickup value |
+
+State-relative destruction flags are `canBeDestroyedOnOwnerDestruction_BOOL +0x329`, `canBeDeletedOnOwnerDeletion_BOOL +0x32A`, `passHitsToOwner_BOOL +0x32B`, and `destroyOwnerOnDestruction_BOOL +0x32D`. See `DESTRUCTION_GROUP_RUNTIME.md` for ordering and group-counter semantics.
