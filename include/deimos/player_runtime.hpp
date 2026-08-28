@@ -11,8 +11,10 @@
 namespace deimos {
 
 // Semantic subset of the compiled Player Definition consumed directly by the
-// recovered 1.0.6 pickup/damage routines. The original stores these at fixed
-// offsets (+0x48..+0xD0); the clean runtime keeps source-format names.
+// recovered 1.0.6 pickup/damage/lifecycle routines. The compiled Player
+// Definition is NOT laid out in serialization order: notably
+// entry_InvulnerabilityTime_INT lives at +0x8C, ahead of the entry-position
+// block, while entry_InitialDelay_INT remains at +0xB8.
 struct CompiledPlayerRuntimeDefinition {
     float default_shield_percentage = 100.0f;      // PlayerDef +0x48
     float shield_warning_percentage = 15.0f;      // +0x4C
@@ -21,10 +23,28 @@ struct CompiledPlayerRuntimeDefinition {
     int life_max = 10;                             // +0x60
     int life_initial = 3;                          // +0x64
     FourCC life_spawn{};                           // +0x70
+
+    int game_over_time_ticks = 20;                 // +0x80
+    int dying_time_ticks = 80;                     // +0x84
+    int final_dying_time_ticks = 40;               // +0x88
+    int entry_invulnerability_time_ticks = 60;     // +0x8C
+    int entry_solo_start_x = 208;                  // +0x90
+    int entry_solo_start_y = 330;                  // +0x94
+    int entry_multi_start_x = 104;                 // +0x98
+    int entry_multi_start_y = 330;                 // +0x9C
+    FourCC entry_spawn{};                           // +0xA0
+    int entry_initial_delay_ticks = 55;            // +0xB8
     FourCC death_spawn{};                          // +0xBC
     FourCC active_spawn_on_hit{};                  // +0xC8
     FourCC active_shield_warning_object{};         // +0xCC
     FourCC active_defence_bonus_object{};          // +0xD0
+};
+
+enum class LegacyPlayerStatus : int {
+    game_over = 1,
+    waiting = 2,
+    dying = 3,
+    active = 4,
 };
 
 [[nodiscard]] CompiledPlayerRuntimeDefinition compile_player_runtime_definition(
@@ -121,5 +141,32 @@ struct LegacyPlayerDamageResult {
     std::uint32_t current_tick,
     int delay_between_hit_spawns = 10,
     const LegacyPlayerRuntimeResources* resources = nullptr);
+
+// Headless reconstruction of PPC 0x2A150 plus the state/position subset of
+// its respawn initializer 0x29CC0. The original fifth argument to 0x2A150 is
+// a byte gate controlling whether an expired dying state consumes a life. Its
+// direct caller feeds a global latch that becomes 1 once Player 1 first reaches
+// active status 4, so the bounded higher-level meaning is "gameplay has
+// started". `defer_invulnerability_expiry` models the separate 0x5CF0 gate
+// consulted only while status 4 is invulnerable.
+struct LegacyPlayerLifecycleResult {
+    int status_before = 0;
+    int status_after = 0;
+    bool life_decremented = false;
+    bool respawned = false;
+    bool game_over_entered = false;
+    bool disabled_after_game_over = false;
+    bool invulnerability_cleared = false;
+    bool active_entry_waiting = false;
+    std::optional<EntityPoint> respawn_position;
+    std::optional<FourCC> entry_spawn_due;
+};
+
+[[nodiscard]] LegacyPlayerLifecycleResult advance_legacy_player_lifecycle(
+    PlayerRuntimeSlot& player,
+    const CompiledPlayerRuntimeDefinition& definition,
+    std::uint32_t current_tick,
+    bool consume_life_on_death = true,
+    bool defer_invulnerability_expiry = false);
 
 } // namespace deimos

@@ -76,7 +76,7 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **24/24**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **25/25**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Spawn runtime findings now binary-confirmed
 
@@ -158,8 +158,13 @@ Synthetic repository tests pass **24/24**. Original assets/binaries are used onl
 - `0x37580` is now concrete: canonical pickups are 4 `coin`, 1 `mult`, 1 `exli`, 2 `shie`; executable-retained `air `/`grnd` branches reject while player invulnerability `+0xCE` is set.
 - Money pickup adds only nonzero values; multiplier follows `1->2->3->4->5->10`; extra life is capped but still consumes at max; shield pickup adds and clamps to `[0,100]`.
 - `0x27100` stores the player hit tick before invulnerability, scales incoming UnitDef damage directly by `shieldBaseHitPercentage`, does not clamp shield, and enters death only at shield `< 0`; zero shield survives. Hit glow still runs for an invulnerable accepted hit.
-- `0x27E50` immediate death entry emits `death_Spawn_ID`, clears hit bookkeeping, decomposes money in 50/10/5/1 units, sets status 3/current tick, and raises invulnerability. It does **not** decrement lives; that belongs to the later death/respawn state machine.
+- `0x27E50` immediate death entry emits `death_Spawn_ID`, clears hit bookkeeping, decomposes money in 50/10/5/1 units, sets status 3/current tick, and raises invulnerability. It does **not** decrement lives; life consumption is now separately recovered in `0x2A150`.
 - Fixed player contracts are now label-verified: `Game[gafl]` 161/162/167 = impact damage / hit-spawn delay / entity-hit delay and `Objects[gaob]` 2..5 = `calg/cals/casg/cass` money units. Canonical values are 100/10/1.
+- Player lifecycle `0x2A150` is recovered: status 1 game-over, 2 waiting/entry, 3 dying, 4 active; all timer expirations use strict `currentTick > statusSince + duration` comparisons.
+- PlayerDef compiled layout is not serialization order: `gameOver/dying/finalDying/entryInvulnerability` occupy `+0x80/+0x84/+0x88/+0x8C`, solo/multi entry coordinates `+0x90..+0x9C`, `entry_Spawn_ID +0xA0`, and `entry_InitialDelay +0xB8`.
+- Status 3 uses `finalDyingTime` only when exactly one life remains, then the caller's gameplay-start latch controls life decrement; lives remaining call respawn initializer `0x29CC0`, while zero lives enter status 1 until `gameOverTime` later disables the player.
+- `0x29CC0` selects solo/multi entry coordinates via live `+0xCD`, writes velocity from the executable's shared literal `{0,0}`, writes status 4/current tick, and emits `entry_Spawn_ID`; post-death respawn restores default shield and clears hit/warning clocks.
+- Status-4 invulnerability expires only after the strict `entry_InvulnerabilityTime` deadline and only when both the external `0x5CF0` gate and live `+0xCF` permit it.
 
 ### Destruction/group findings now binary-confirmed
 
@@ -186,7 +191,7 @@ Synthetic repository tests pass **24/24**. Original assets/binaries are used onl
 ### Active reverse-engineering fronts
 
 1. Integrate the proven ground-obstacle stop into the complete member tick with its still-bounded live `+0x19` gate, then recover renderer/bitmap effects behind `0x12F20` and any terrain-image mutation beyond the persistent Rect store.
-2. Continue past immediate player death entry into the later life decrement / respawn / entry-invulnerability / game-over state machine; bind returned player spawn/audio/UI facts into full world orchestration.
+2. Bind the recovered player life/respawn/game-over lifecycle spawn/audio/UI facts into full world orchestration and continue into the remaining active-player movement/weapon boundaries.
 3. Recover the special live `+0xCD` destruction path through `0x17E70`, and wire every non-collision destruction entry site through the same clean teardown orchestration.
 4. Recover the rare special single-member parent-container / intrusive-list semantics around `0x33220` and bind an actual decoded Media Mask provider to the terrain/media runtime.
 5. Expand Windows evidence and replay/action mapping after the remaining Mac gameplay-core boundaries are stable.

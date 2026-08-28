@@ -42,6 +42,14 @@ struct PlayerRuntimeSlot {
     std::uint32_t last_shield_hit_tick = 0; // original +0x204
     std::uint32_t last_spawn_on_hit_tick = 0; // original +0x208
     std::uint32_t status_since_tick = 0;    // original +0xC8
+
+    // Lifecycle/entry fields recovered from PPC 0x26260 / 0x26410 / 0x29CC0 /
+    // 0x2A150. These are appended so the older four-field aggregate
+    // initializers used by target-selection tests keep their meaning.
+    bool enabled = true;                    // original player +0xC4
+    bool use_solo_entry_position = true;    // original +0xCD; selects Def +0x90/+0x94
+    float velocity_x = 0.0f;                // original live +0x10
+    float velocity_y = 0.0f;                // original live +0x14
 };
 
 struct ClosestPlayerResult {

@@ -55,6 +55,7 @@ if(BUILD_TESTING)
         weapon_definition_test
         player_definition_test
         player_runtime_test
+        player_lifecycle_test
         unit_behavior_test
         state_runtime_test
         legacy_math_test

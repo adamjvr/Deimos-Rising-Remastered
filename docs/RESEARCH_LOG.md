@@ -413,3 +413,47 @@ Added label-verified player runtime contracts for `Game[gafl]` 161/162/167 and
 `Objects[gaob]` 2..5. The clean suite is now 24/24 PASS. Canonical `Game.pak`
 still produces 386 groups / 546 members, construction RNG seed `2249411936`,
 544 active after the first player-aware tick, and motion RNG seed `2633739833`.
+
+## 2026-08-28 — Player death/respawn lifecycle and compiled PlayerDef layout
+
+Traced the downstream player status switch at PPC `0x2A150` and its respawn
+initializer `0x29CC0`, keeping immediate death entry `0x27E50` as a separate
+stage. Status values are now bounded as 1 = game-over countdown, 2 = waiting /
+entry delay, 3 = dying, and 4 = active. Every lifecycle duration test uses the
+original signed 32-bit tick arithmetic with strict `currentTick > statusSince +
+duration`; equality still waits.
+
+The Player Definition's compiled memory order is not the serialization order.
+Cross-references prove `gameOverTime/dyingTime/finalDyingTime` at
+`+0x80/+0x84/+0x88`, `entry_InvulnerabilityTime` at `+0x8C`, solo entry x/y at
+`+0x90/+0x94`, multiplayer entry x/y at `+0x98/+0x9C`, `entry_Spawn_ID` at
+`+0xA0`, `entry_InitialDelay` at `+0xB8`, and the independently proven
+`death_Spawn_ID` at `+0xBC`. This corrects the earlier provisional claim that
+entry invulnerability occupied `+0xB8`.
+
+Status 3 chooses `finalDyingTime` only when the semantic life count is exactly
+one; otherwise it uses `dyingTime`. The fifth argument to `0x2A150` controls
+whether expiry consumes a life. Its direct caller supplies a global byte that
+latches to one after Player 1 first reaches active status 4, bounding the flag's
+meaning as a gameplay-start latch. After optional decrement, remaining lives
+call `0x29CC0`; zero lives enter status 1 and preserve player enabled `+0xC4`
+until a later strict `gameOverTime` expiry clears it.
+
+`0x29CC0` selects PlayerDef solo or multiplayer entry coordinates based on live
+`+0xCD`, writes x/y, and copies live velocity `+0x10/+0x14` from a shared
+relocated executable constant. PEF TOC reconstruction resolves that constant to
+exact float bits `{0.0f,0.0f}`. This is direct binary evidence that the
+serialized `entry_StartVelocity*` values are not written by this respawn path.
+The initializer then enters status 4 at the current tick and requests
+`entry_Spawn_ID`; the returning status-3 branch restores default shield and
+clears the shield-hit, hit-spawn, and warning bookkeeping.
+
+Active status-4 invulnerability uses `entry_InvulnerabilityTime` at `+0x8C` and
+has two independent blockers before clearing: external gate `0x5CF0` and live
+`+0xCF`. The clean API keeps `0x5CF0` as an explicit bounded orchestration input
+rather than inventing its higher-level meaning.
+
+A dedicated lifecycle regression raises the repository suite to 25/25 PASS and
+covers strict equality boundaries, solo/multi entry selection, zero-velocity
+respawn, ordinary/final-life timings, gameplay-start-gated life consumption,
+game-over disable, and both invulnerability blockers.

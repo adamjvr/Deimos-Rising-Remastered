@@ -20,6 +20,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 int main(int argc, char** argv) {
     if (argc != 2) {
@@ -66,6 +67,7 @@ int main(int argc, char** argv) {
     std::size_t state_destroy_owner = 0;
     std::size_t units_with_lock_owner = 0, units_with_link_owner = 0, units_with_orbit_owner = 0;
     std::size_t weapons = 0, weapon_spawns = 0, players = 0;
+    std::vector<std::pair<std::string, deimos::CompiledPlayerRuntimeDefinition>> player_runtime_defs;
     std::size_t unresolved_active_actions = 0, unresolved_inert_actions = 0, unknown_rule_conditions = 0;
 
     std::optional<deimos::NamedTable<float>> canonical_game_floats;
@@ -282,6 +284,16 @@ int main(int argc, char** argv) {
                 runtime.life_max != player->fields.int_value("life_MaxNum_INT").value_or(10) ||
                 runtime.life_initial != player->fields.int_value("life_NumInitial_INT").value_or(3) ||
                 !(runtime.life_spawn == player->fields.id_value("life_Spawn_ID").value_or(deimos::FourCC{})) ||
+                runtime.game_over_time_ticks != player->fields.int_value("gameOverTime_INT").value_or(20) ||
+                runtime.dying_time_ticks != player->fields.int_value("dyingTime_INT").value_or(80) ||
+                runtime.final_dying_time_ticks != player->fields.int_value("finalDyingTime_INT").value_or(40) ||
+                runtime.entry_invulnerability_time_ticks != player->fields.int_value("entry_InvulnerabilityTime_INT").value_or(60) ||
+                runtime.entry_solo_start_x != player->fields.int_value("entry_soloStartX_INT").value_or(208) ||
+                runtime.entry_solo_start_y != player->fields.int_value("entry_soloStartY_INT").value_or(330) ||
+                runtime.entry_multi_start_x != player->fields.int_value("entry_multiStartX_INT").value_or(104) ||
+                runtime.entry_multi_start_y != player->fields.int_value("entry_multiStartY_INT").value_or(330) ||
+                !(runtime.entry_spawn == player->fields.id_value("entry_Spawn_ID").value_or(deimos::FourCC{})) ||
+                runtime.entry_initial_delay_ticks != player->fields.int_value("entry_InitialDelay_INT").value_or(55) ||
                 !(runtime.death_spawn == player->fields.id_value("death_Spawn_ID").value_or(deimos::FourCC{})) ||
                 !(runtime.active_spawn_on_hit == player->fields.id_value("active_SpawnOnHit_ID").value_or(deimos::FourCC{})) ||
                 !(runtime.active_shield_warning_object == player->fields.id_value("active_ShieldWarningObject_ID").value_or(deimos::FourCC{})) ||
@@ -289,6 +301,7 @@ int main(int argc, char** argv) {
                 std::cerr << entry.path << ": compiled player-runtime fields disagree with parsed source\n";
                 return 25;
             }
+            player_runtime_defs.emplace_back(player->name, runtime);
             ++players;
         } else if (ext == ".idli" || ext == ".flli" || ext == ".coli" || ext == ".tefo" ||
                    ext == ".stli" || ext == ".reli") {
@@ -580,7 +593,20 @@ int main(int argc, char** argv) {
               << " grnd=" << pickup_ground
               << " spec=" << pickup_special
               << " other=" << pickup_other << '\n'
-              << "  player runtime globals:\n"
+              << "  player lifecycle definitions:\n";
+    for (const auto& [name, runtime] : player_runtime_defs) {
+        std::cout << "    " << name
+                  << ": timers="
+                  << runtime.game_over_time_ticks << '/'
+                  << runtime.dying_time_ticks << '/'
+                  << runtime.final_dying_time_ticks << '/'
+                  << runtime.entry_initial_delay_ticks << '/'
+                  << runtime.entry_invulnerability_time_ticks
+                  << " solo=" << runtime.entry_solo_start_x << ',' << runtime.entry_solo_start_y
+                  << " multi=" << runtime.entry_multi_start_x << ',' << runtime.entry_multi_start_y
+                  << " entry=" << runtime.entry_spawn.str() << '\n';
+    }
+    std::cout << "  player runtime globals:\n"
               << "    Player_ImpactDamageToEntities: " << player_runtime_globals->impact_damage_to_entities << '\n'
               << "    Player_DelayBetweenHitSpawns: " << player_runtime_globals->delay_between_hit_spawns << '\n'
               << "    Entity_HitDelay: " << player_runtime_globals->entity_hit_delay_ticks << '\n'

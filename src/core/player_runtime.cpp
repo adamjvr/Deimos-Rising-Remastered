@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <string>
 #include <string_view>
 
@@ -19,6 +20,45 @@ bool none_or_empty(FourCC id) {
 std::optional<FourCC> present(FourCC id) {
     if (none_or_empty(id)) return std::nullopt;
     return id;
+}
+
+bool legacy_tick_strictly_after(
+    std::uint32_t current_tick,
+    std::uint32_t since_tick,
+    int duration_ticks) {
+    // 0x2A150 uses a 32-bit `add` followed by signed `cmpw`, then takes the
+    // transition only when currentTick > deadline. Preserve the wrap/sign
+    // behavior rather than widening the arithmetic.
+    const auto deadline_bits = since_tick + static_cast<std::uint32_t>(duration_ticks);
+    return std::bit_cast<std::int32_t>(current_tick) >
+        std::bit_cast<std::int32_t>(deadline_bits);
+}
+
+void enter_active_player_state(
+    PlayerRuntimeSlot& player,
+    const CompiledPlayerRuntimeDefinition& definition,
+    std::uint32_t current_tick,
+    LegacyPlayerLifecycleResult& result) {
+    // 0x29D00..0x29DA4: +0xCD chooses the solo or multiplayer coordinate pair.
+    const int entry_x = player.use_solo_entry_position
+        ? definition.entry_solo_start_x
+        : definition.entry_multi_start_x;
+    const int entry_y = player.use_solo_entry_position
+        ? definition.entry_solo_start_y
+        : definition.entry_multi_start_y;
+    player.x = static_cast<float>(entry_x);
+    player.y = static_cast<float>(entry_y);
+
+    // 0x29DA8..0x29DC4 loads the same canonical zero-vector used elsewhere in
+    // the engine. PlayerDef entry_StartVelocityX/Y are not read by this helper.
+    player.velocity_x = 0.0f;
+    player.velocity_y = 0.0f;
+
+    player.status = static_cast<int>(LegacyPlayerStatus::active);
+    player.status_since_tick = current_tick;
+    result.respawned = true;
+    result.respawn_position = EntityPoint{player.x, player.y};
+    result.entry_spawn_due = present(definition.entry_spawn);
 }
 
 void enter_legacy_player_death(
@@ -52,9 +92,8 @@ void enter_legacy_player_death(
     player.last_spawn_on_hit_tick = 0;
     player.shield_warning_latched = false;
 
-    // 0x28114..0x28124 raises +0xCE when the player instance is enabled. A
-    // collision-reachable active player is enabled in the clean model.
-    player.invulnerable = true;
+    // 0x28114..0x28124 raises +0xCE only while player +0xC4 is enabled.
+    if (player.enabled) player.invulnerable = true;
 }
 
 } // namespace
@@ -130,6 +169,25 @@ CompiledPlayerRuntimeDefinition compile_player_runtime_definition(
     out.life_max = definition.fields.int_value("life_MaxNum_INT").value_or(10);
     out.life_initial = definition.fields.int_value("life_NumInitial_INT").value_or(3);
     out.life_spawn = definition.fields.id_value("life_Spawn_ID").value_or(FourCC{});
+    out.game_over_time_ticks =
+        definition.fields.int_value("gameOverTime_INT").value_or(20);
+    out.dying_time_ticks =
+        definition.fields.int_value("dyingTime_INT").value_or(80);
+    out.final_dying_time_ticks =
+        definition.fields.int_value("finalDyingTime_INT").value_or(40);
+    out.entry_invulnerability_time_ticks =
+        definition.fields.int_value("entry_InvulnerabilityTime_INT").value_or(60);
+    out.entry_solo_start_x =
+        definition.fields.int_value("entry_soloStartX_INT").value_or(208);
+    out.entry_solo_start_y =
+        definition.fields.int_value("entry_soloStartY_INT").value_or(330);
+    out.entry_multi_start_x =
+        definition.fields.int_value("entry_multiStartX_INT").value_or(104);
+    out.entry_multi_start_y =
+        definition.fields.int_value("entry_multiStartY_INT").value_or(330);
+    out.entry_spawn = definition.fields.id_value("entry_Spawn_ID").value_or(FourCC{});
+    out.entry_initial_delay_ticks =
+        definition.fields.int_value("entry_InitialDelay_INT").value_or(55);
     out.death_spawn = definition.fields.id_value("death_Spawn_ID").value_or(FourCC{});
     out.active_spawn_on_hit =
         definition.fields.id_value("active_SpawnOnHit_ID").value_or(FourCC{});
@@ -278,6 +336,110 @@ LegacyPlayerDamageResult apply_legacy_player_damage(
         player.shield_warning_latched = true;
     }
 
+    return out;
+}
+
+LegacyPlayerLifecycleResult advance_legacy_player_lifecycle(
+    PlayerRuntimeSlot& player,
+    const CompiledPlayerRuntimeDefinition& definition,
+    std::uint32_t current_tick,
+    bool consume_life_on_death,
+    bool defer_invulnerability_expiry) {
+    LegacyPlayerLifecycleResult out;
+    out.status_before = player.status;
+    out.status_after = player.status;
+
+    // 0x2A17C: disabled players skip the entire lifecycle switch.
+    if (!player.enabled) return out;
+
+    switch (player.status) {
+        case static_cast<int>(LegacyPlayerStatus::game_over): {
+            // 0x2A244..0x2A268: game-over remains enabled through equality and
+            // only disables the player when currentTick is strictly later.
+            if (legacy_tick_strictly_after(
+                    current_tick, player.status_since_tick,
+                    definition.game_over_time_ticks)) {
+                player.enabled = false;
+                out.disabled_after_game_over = true;
+            }
+            break;
+        }
+
+        case static_cast<int>(LegacyPlayerStatus::waiting): {
+            // 0x2A1B4..0x2A1E4: before the strict entry deadline the original
+            // only drives a zero-valued external player channel. The headless
+            // core records that bounded side effect without inventing it.
+            if (legacy_tick_strictly_after(
+                    current_tick, player.status_since_tick,
+                    definition.entry_initial_delay_ticks)) {
+                enter_active_player_state(player, definition, current_tick, out);
+            } else {
+                out.active_entry_waiting = true;
+            }
+            break;
+        }
+
+        case static_cast<int>(LegacyPlayerStatus::dying): {
+            // 0x2A290..0x2A2B8: the final remaining life uses the distinct
+            // finalDyingTime; every other semantic life count uses dyingTime.
+            const int duration = player.lives == 1
+                ? definition.final_dying_time_ticks
+                : definition.dying_time_ticks;
+            if (!legacy_tick_strictly_after(
+                    current_tick, player.status_since_tick, duration)) {
+                break;
+            }
+
+            // 0x2A2C8..0x2A2F0: the caller-provided byte controls whether the
+            // expired death actually consumes one life. Clamp at zero.
+            if (consume_life_on_death && player.enabled) {
+                player.lives = std::max(player.lives - 1, 0);
+                out.life_decremented = true;
+            }
+
+            if (player.lives > 0) {
+                enter_active_player_state(player, definition, current_tick, out);
+
+                // 0x2A310..0x2A368 occurs after 0x29CC0 on a death respawn.
+                // Enabled players recover the PlayerDef default shield; the
+                // original live value is biased, but clean state is semantic.
+                player.shield_percentage = player.enabled
+                    ? definition.default_shield_percentage
+                    : 0.0f;
+                player.last_shield_hit_tick = 0;
+                player.last_spawn_on_hit_tick = 0;
+                player.shield_warning_latched = false;
+            } else {
+                // 0x2A370..0x2A378: zero lives enters status 1. Player +0xC4
+                // remains enabled until gameOverTime expires on a later tick.
+                player.status = static_cast<int>(LegacyPlayerStatus::game_over);
+                player.status_since_tick = current_tick;
+                out.game_over_entered = true;
+            }
+            break;
+        }
+
+        case static_cast<int>(LegacyPlayerStatus::active): {
+            // 0x2A1E8..0x2A240: entry/death invulnerability expires only after
+            // the strict +0x8C duration, unless 0x5CF0 or +0xCF blocks clear.
+            if (player.invulnerable && !defer_invulnerability_expiry &&
+                legacy_tick_strictly_after(
+                    current_tick, player.status_since_tick,
+                    definition.entry_invulnerability_time_ticks) &&
+                player.enabled && !player.invulnerability_latched) {
+                player.invulnerable = false;
+                player.invulnerability_latched = false;
+                out.invulnerability_cleared = true;
+            }
+            break;
+        }
+
+        default:
+            // Status 0 and >=5 fall through the original switch unchanged.
+            break;
+    }
+
+    out.status_after = player.status;
     return out;
 }
 

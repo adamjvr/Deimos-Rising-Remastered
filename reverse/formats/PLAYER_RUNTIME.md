@@ -14,6 +14,8 @@ Primary PPC anchors:
 | `0x27DD0` | read player invulnerability byte `+0xCE` |
 | `0x27E50` | immediate death-entry effects/state |
 | `0x29B20` | multiplier jump-table update |
+| `0x29CC0` | player respawn/entry initializer |
+| `0x2A150` | status 1–4 lifecycle switch |
 | `0x37580` | pickup dispatcher |
 
 ## Player Definition layout subset
@@ -31,7 +33,16 @@ Primary PPC anchors:
 | `life_InitialRequiredScore_INT` | `+0x68` |
 | `life_AdditionalRequiredScore_INT` | `+0x6C` |
 | `life_Spawn_ID` | `+0x70` |
-| `entry_InvulnerabilityTime_INT` | `+0xB8` |
+| `gameOverTime_INT` | `+0x80` |
+| `dyingTime_INT` | `+0x84` |
+| `finalDyingTime_INT` | `+0x88` |
+| `entry_InvulnerabilityTime_INT` | `+0x8C` |
+| `entry_soloStartX_INT` | `+0x90` |
+| `entry_soloStartY_INT` | `+0x94` |
+| `entry_multiStartX_INT` | `+0x98` |
+| `entry_multiStartY_INT` | `+0x9C` |
+| `entry_Spawn_ID` | `+0xA0` |
+| `entry_InitialDelay_INT` | `+0xB8` |
 | `death_Spawn_ID` | `+0xBC` |
 | `active_SpawnOnHit_ID` | `+0xC8` |
 | `active_ShieldWarningObject_ID` | `+0xCC` |
@@ -95,8 +106,30 @@ The death helper repeatedly subtracts each denomination and spawns its fixed
 resource, then resets the encoded money field, sets status `3`, stores the tick,
 and raises invulnerability for an enabled player.
 
-## Important boundary
+## Player lifecycle `0x2A150`
 
-`0x27E50` does **not** decrement lives. The life decrement, respawn delay,
-entry-invulnerability countdown, and game-over transition are downstream in the
-player state machine and must be reconstructed separately.
+The lifecycle switch is now recovered as:
+
+```text
+status 1: if tick > statusSince + gameOverTime, enabled = 0
+status 2: if tick > statusSince + entryInitialDelay, call 0x29CC0
+status 3: wait dyingTime, or finalDyingTime when lives == 1;
+          optionally decrement life; respawn if lives > 0, else status = 1
+status 4: if invulnerable and both blocker gates permit,
+          clear invulnerability when tick > statusSince + entryInvulnerabilityTime
+```
+
+Every duration comparison is strict; equality waits. The life-decrement gate is
+fed by a global byte that becomes latched after Player 1 first reaches status 4,
+which bounds its meaning as a gameplay-start gate.
+
+`0x29CC0` chooses solo coordinates from PlayerDef `+0x90/+0x94` when live
+`+0xCD == 1`, otherwise multi coordinates `+0x98/+0x9C`. It writes position,
+loads velocity from a relocated executable `{0.0f,0.0f}` literal, writes status
+4/current tick, and emits `entry_Spawn_ID` from `+0xA0`. The serialized
+`entry_StartVelocity*` values are therefore not the values written by this
+respawn path. After a death respawn, `0x2A150` restores default shield and clears
+the hit clocks and warning latch.
+
+`0x27E50` remains correctly separated from this logic: it enters status 3 but
+does **not** decrement lives itself.

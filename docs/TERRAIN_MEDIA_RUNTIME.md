@@ -119,7 +119,7 @@ not yet claimed as reconstructed.
 
 ## Validation
 
-The repository suite is **24/24 PASS**. The canonical `Game.pak` probe verifies
+The repository suite is **25/25 PASS**. The canonical `Game.pak` probe verifies
 all new compiled fields and the fixed water-impact labels/IDs while retaining
 the established deterministic baseline:
 

@@ -134,7 +134,7 @@ returned life-spawn/feedback facts are handled by the world/UI/audio layer.
 
 ## Current validation
 
-The repository test suite is **24/24 PASS**. Canonical Game.pak validation still
+The repository test suite is **25/25 PASS**. Canonical Game.pak validation still
 produces:
 
 - 386 groups / 546 live members after construction;
