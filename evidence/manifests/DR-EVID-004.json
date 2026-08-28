@@ -1,0 +1,63 @@
+{
+  "schema": "deimos-rising-evidence-manifest-v1",
+  "evidence_id": "DR-EVID-004",
+  "source_label": "user-supplied deimos_addons.sit",
+  "original_filename": "deimos_addons.sit",
+  "size_bytes": 45000618,
+  "hashes": {
+    "md5": "2951e11ea8ede2cd3959467f46078917",
+    "sha1": "62eaf4dc8947ba738bab07651862972a4168e957",
+    "sha256": "2f24df9bb5ef67d0c3a0b97f7ad8639484f37276555b58562b544a2fa648651d"
+  },
+  "outer_container": {
+    "format": "StuffIt 5",
+    "stored_payloads": true,
+    "catalog_entries": 26
+  },
+  "corpus": {
+    "misc": [
+      "DeimosRising_bundle_update.sit",
+      "DeimosRising_guide.sit",
+      "Deimos_Rising_Images.sit",
+      "Demo_Levels.sit",
+      "drdesktops.sit",
+      "Perfect_Demos.sit.hqx"
+    ],
+    "mods": [
+      "2nd_Player.sit",
+      "FunnyShips.sit",
+      "Mario_Rising.zip",
+      "player_2_-_Starcraft_Battlecruiser.zip",
+      "player_mod.zip",
+      "SillySprites0.2.sit"
+    ],
+    "music": [
+      "Deimos Advertising.mp3",
+      "Deimos Ambient.mp3",
+      "Deimos Game 1.mp3",
+      "Deimos Game 2.mp3",
+      "Deimos Game 3.mp3",
+      "Deimos Game 4.mp3",
+      "Deimos Game 5.mp3",
+      "Deimos Game 6.mp3",
+      "Deimos Interface.mp3",
+      "drthemesong.sit",
+      "drthemesong2.sit"
+    ]
+  },
+  "bundle_update_1_0_6": {
+    "smi_size": 5242880,
+    "smi_sha256": "d29f5fba3026151bd9eae7e46783e31a0df3fbd391d1f1c1c8f176ea2bef8fa7",
+    "resource_fork_size": 119205,
+    "resource_fork_sha256": "0fbac5f57f8a60c3eeb8302cf54cc152ac19f031e32d58d47015263f34648976",
+    "hfs_extraction": "complete"
+  },
+  "observations": [
+    "Official Apple Bundle 1.0.6 update material is present alongside guides/reference art, demo films, music, desktops, and community mods.",
+    "The update Read Me states it targets Apple-bundled copies v1.0.0 through v1.0.5 and is not for shareware copies.",
+    "Mod documentation confirms loose override graphics under Data/Local/im08.",
+    "IA/IC image pairs correlate with application diagnostics referring to alpha and color plates.",
+    "Demo_Levels.sit declares ten 40,296-byte replay films, providing a behavioral regression corpus."
+  ],
+  "classification_rule": "Official/update/reference material and community modifications are preserved separately; mods are evidence of supported override behavior, not silently treated as canonical game content."
+}

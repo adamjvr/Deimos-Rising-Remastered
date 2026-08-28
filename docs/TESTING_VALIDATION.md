@@ -1,21 +1,38 @@
 # Testing and Validation
 
-## Evidence intake tests
+## Evidence integrity
 
-For each archive:
+Every supplied archive receives stable MD5/SHA-1/SHA-256 identity before transformation. Extracted containers, executables, resource forks, PAKs, and important derived payloads receive independent hashes. Version/build relationships are established by internal evidence where possible rather than filenames alone.
 
-1. hash before any transformation;
-2. parse container header;
-3. enumerate every entry and fork;
-4. record original uncompressed/compressed sizes and checksums;
-5. extract losslessly;
-6. validate per-fork CRC/checksum where available;
-7. hash extracted outputs;
-8. compare duplicates across evidence sets by content hash, not filename.
+## Resource-system tests
 
-## Reconstruction tests
+Clean code must preserve four-character tags byte-for-byte, including case and spaces. IA/IC plate parsing is tested independently of image decoding. Local-vs-PAK precedence will receive explicit tests before it is relied upon by gameplay code.
 
-- parser tests use synthetic fixtures;
-- behavior tests record explicit expected values;
-- discrepancies are logged rather than silently normalized;
-- confidence is tagged as confirmed / strong / tentative / unknown.
+## Serialization tests
+
+Recovered game-data formats are not accepted from guessed C structs. Each parser must have:
+
+- bounds-checked reads;
+- field-by-field evidence notes;
+- synthetic fixtures;
+- tests for malformed/truncated data;
+- round-trip tests where serialization is reconstructed;
+- cross-file reference validation against known four-character tags.
+
+## Replay/behavior validation
+
+The corpus contains four canonical built-in `.film` resources and ten additional declared demo films. Once the film format is decoded, these recordings become high-value deterministic regression inputs for:
+
+- player motion and firing;
+- enemy/unit sequencing;
+- collision/damage;
+- level timing/scrolling;
+- weapons/projectiles;
+- scoring and pickups;
+- RNG/timing behavior where encoded or inferable.
+
+Recorded reference outcomes are compared to the clean simulation. Discrepancies are logged rather than normalized away.
+
+## Platform parity
+
+Portable-core tests run identically on macOS, iPadOS host-compatible test targets where practical, Linux, and Windows. Rendering/input/audio adapters may differ, but gameplay/resource semantics must not.

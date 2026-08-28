@@ -1,0 +1,102 @@
+{
+  "schema": "deimos-rising-evidence-manifest-v1",
+  "evidence_id": "DR-EVID-002",
+  "source_label": "user-supplied DeimosRising.sit",
+  "original_filename": "DeimosRising.sit",
+  "size_bytes": 35584447,
+  "hashes": {
+    "md5": "cc6607355eb6584adf7cf9115a11292f",
+    "sha1": "c434bc0972a064dc8a6dbb4583fad5839f2fa0e5",
+    "sha256": "dc75c002995d8bfdd3124bda433efded2698343b1f1a2fa171b9a33c0a4b2f77"
+  },
+  "container": {
+    "format": "StuffIt 5",
+    "primary_entry": "Deimos Rising 1.0.6.smi",
+    "data_compression_method": 15,
+    "data_uncompressed_size": 81788928,
+    "resource_uncompressed_size": 119292
+  },
+  "extracted": {
+    "smi": {
+      "size_bytes": 81788928,
+      "sha256": "7984ce2fafec96f8d00a7d0a9d4511bb296a9fd2d5d2af38e626401746a891b4",
+      "filesystem": "Classic Macintosh HFS",
+      "volume_name": "Deimos Rising 1.0.6"
+    },
+    "smi_resource_fork": {
+      "size_bytes": 119292,
+      "sha256": "e3b32a156e71221e1fdc453d4862cf2da628d1c1ee09424d820c8d62148fafe6"
+    },
+    "hfs_extraction": {
+      "status": "complete",
+      "problems": [],
+      "manifest_source": "local reference extraction"
+    },
+    "game_application": {
+      "data_fork_size": 2045976,
+      "data_fork_sha256": "8e436c3babc582f1407ae6fed47e9749f1c930335ce4c794947e40b06b85eb29",
+      "resource_fork_size": 151602,
+      "resource_fork_sha256": "9fb61088c4d97d1b35117c82a44a0f1f848fb78eb7561b6e3964df623410d3f5",
+      "container": "PEF PowerPC"
+    },
+    "paks": {
+      "Audio.pak": {
+        "size_bytes": 1702614,
+        "sha256": "b46ce0711faca7ce0cd33c850c41e88bd3be7f7289eee9d80fe03c7013bb1039",
+        "member_files": 96,
+        "unpacked_bytes": 1687430,
+        "extensions": {
+          ".ima": 96
+        }
+      },
+      "Game.pak": {
+        "size_bytes": 54956985,
+        "sha256": "3ae865a9ee3b005dc10368de847e4a3dea402dc1a911bbd09f0728153aceee09",
+        "member_files": 763,
+        "unpacked_bytes": 54821059,
+        "extensions": {
+          ".coli": 1,
+          ".film": 4,
+          ".flli": 1,
+          ".gif": 248,
+          ".idli": 6,
+          ".leve": 12,
+          ".plde": 2,
+          ".reli": 1,
+          ".stli": 5,
+          ".tefo": 54,
+          ".tga": 38,
+          ".unde": 386,
+          ".wede": 5
+        }
+      },
+      "Interface.pak": {
+        "size_bytes": 2849896,
+        "sha256": "de7d2dd349f208f72eae156820c48c791f06e46b24ec5816e1a1bed0dfea0d93",
+        "member_files": 9,
+        "unpacked_bytes": 2848118,
+        "extensions": {
+          ".gif": 2,
+          ".tga": 7
+        }
+      },
+      "Music.pak": {
+        "size_bytes": 13601894,
+        "sha256": "3ee906a6f885ba466645ea53bab6aebba54840d756a63212f895364cebadc455",
+        "member_files": 3,
+        "unpacked_bytes": 13601386,
+        "extensions": {
+          ".aif": 1,
+          ".ima": 2
+        }
+      }
+    }
+  },
+  "observations": [
+    "The HFS volume contains a complete Deimos Rising 1.0.6 installation.",
+    "The four .pak files are standard ZIP archives using stored members.",
+    "Game.pak contains all 12 numbered level definitions and 386 unit-definition resources.",
+    "Audio .IMA files are AIFC containers using Apple IMA4 audio.",
+    "The application contains extensive diagnostic/assertion strings and original source-file names useful for independent behavioral reconstruction."
+  ]
+}

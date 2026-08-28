@@ -1,35 +1,32 @@
 # Deimos Rising Remastered
 
-Clean, evidence-driven reconstruction/remaster project for **Deimos Rising**.
+Evidence-driven, clean-code reconstruction and native remaster of **Deimos Rising**.
 
-This repository is intentionally split between:
+## Current reconstruction baseline
 
-- `reverse/` — independently recorded observations, format notes, correspondence tables, and confidence-tagged reconstruction work.
-- future `src/` / `include/` — maintainable clean implementation.
-- `evidence/` — **manifests only** in Git. Original game archives, disc images, executables, and proprietary assets stay outside the repository.
+The evidence corpus now includes:
 
-## Phase 0 status
+- an older StuffIt/disc-image distribution (`DR-EVID-001`);
+- a fully extracted Mac **1.0.6** installation (`DR-EVID-002`);
+- a Windows PE32/NSIS distribution (`DR-EVID-003`);
+- an add-ons/update/reference/mod/music corpus (`DR-EVID-004`).
 
-Evidence intake has begun with `DR-EVID-001`, the user-supplied `deimos-rising-install.sit`.
+The Mac 1.0.6 install gives us the complete canonical game resource set: all four PAKs, twelve levels, unit/weapon/player definitions, sprites, interface art, sound, music, replay films, and the PowerPC PEF application/resource fork.
 
-The StuffIt 5 catalog contains:
+## Reconstruction rule
 
-- `AboutThis.txt` (data + resource forks)
-- `deimos_rising.iso` — 104,851,456 bytes uncompressed
-- `Macintosh-Garden.txt`
-- `MD5-checksum.txt`
+**Game code is independently reconstructed. Original supplied art/audio/data are intentionally used as the canonical asset baseline until restored/upscaled replacements are produced.** See `docs/CLEAN_ROOM.md` and `docs/ASSET_POLICY.md`.
 
-The ISO is compressed with StuffIt method 13 and is the next extraction target.
+## Clean implementation
 
-## Project direction
+The first portable core code lives under `include/` and `src/`. It begins with the recovered four-character resource-ID/plate namespace so later loaders and gameplay systems can reference original and restored assets through the same stable identity.
 
-Final target platforms:
+Build the current clean core/tests with:
 
-- macOS
-- iPadOS
-- Linux
-- Windows
+```sh
+cmake -S . -B build -DBUILD_TESTING=ON
+cmake --build build -j
+ctest --test-dir build --output-on-failure
+```
 
-Initial implementation priority is macOS/iPadOS plus a portable core, while keeping Linux and Windows first-class final targets.
-
-See `docs/ROADMAP.md`.
+See `docs/STATUS.md` and `docs/ROADMAP.md` for the active reverse-engineering fronts.
