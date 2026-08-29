@@ -172,7 +172,7 @@ This ordering matters because it gives direct pixel-level precedence:
 
 ## Validation
 
-The raster/world-frame checkpoint originally established 36 passing tests; the current repository suite is **37/37 PASS in Debug** after the lifecycle/producer follow-up.
+The raster/world-frame checkpoint originally established 36 passing tests; the lifecycle/producer follow-up raised that to 37, and the current repository suite is **38/38 PASS in Debug** after native-presentation coverage.
 The canonical `Game.pak` probe additionally label-validates the five particle
 tuning entries and reports:
 
@@ -195,6 +195,4 @@ All existing canonical gameplay/render oracles remain unchanged, including:
 
 `PARTICLE_LIFECYCLE_RUNTIME.md` now closes `0x43340/0x438C0`, startup direction
 tables, and the state/hit/destruction producers. The remaining renderer boundary
-is therefore outside this composition segment: identify native presentation
-ownership/timing and any UI/player overlays beyond `0x30BC0`, while preserving
-the software compositor and particle-raster oracles.
+is therefore outside this composition segment. `NATIVE_PRESENTATION_RUNTIME.md` now closes the immediate CopyBits geometry; the next work is score-bar/UI production and final destination-buffer/swap timing while preserving the software compositor and particle-raster oracles.

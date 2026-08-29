@@ -203,7 +203,7 @@ ordinary sprite layers are composited.
 The complete recovered outer composition segment is now implemented by
 `render_legacy_world_frame()`: all three queue groups, the full terrain copy,
 and the exact `0x43BA0` particle pass preserve the `0x30BC0` ordering and draw
-latch. Native display/presentation remains a separate platform boundary.
+latch. The downstream legacy QuickDraw presentation-copy geometry is now recovered separately in `NATIVE_PRESENTATION_RUNTIME.md`.
 
 ## Validation
 
@@ -222,16 +222,14 @@ latch. Native display/presentation remains a separate platform boundary.
 - top and bottom clamp behavior from `0x10220`;
 - invalid/small destination rejection in the clean wrapper.
 
-The repository suite is **37/37 PASS in Debug**, and the canonical `Game.pak`
+The repository suite is **38/38 PASS in Debug**, and the canonical `Game.pak`
 probe confirms `416x480x16` while preserving the established gameplay oracles:
 386 groups, 546 constructed live members, 544 active after the first tick, and
 RNG seeds `2249411936` / `2633739833`.
 
 ## Remaining terrain/render boundaries
 
-- particle construction/update and state/hit/destruction producers are now closed; continue outward from the recovered `0x43BA0` raster to native presentation ownership;
-- recover any non-sprite/UI special paths and native-display ownership after
-  the closed `0x30BC0` composition segment;
+- particle construction/update and state/hit/destruction producers plus immediate QuickDraw presentation geometry are now closed; continue into score-bar/UI production and final destination-buffer/swap ownership;
+- recover score-bar/UI producers and any other non-sprite special paths that populate the source canvas outside the closed `0x30BC0` composition segment;
 - bind a decoded Media Mask provider instead of the current clean callback;
-- attach the verified 16-bit visible gameplay surface to native presentation
-  without changing the recovered software-render arithmetic.
+- map the recovered presentation plan to modern native backends without changing the recovered software-render arithmetic.

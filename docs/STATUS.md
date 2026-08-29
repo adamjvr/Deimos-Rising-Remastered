@@ -77,7 +77,7 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **37/37**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **38/38**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Software render-backend findings now binary-confirmed
 
@@ -184,7 +184,7 @@ Synthetic repository tests pass **37/37**. Original assets/binaries are used onl
 - Member constructor `0x35DAC..0x35DF0` caches the existence of any such state in live `+0xCD`.
 - On zero shields, `0x14F10` awards score and either calls ordinary destruction (`+0xCD == 0`) or `0x17E70`, which enters the first marked state (`+0xCD != 0`).
 - Stock canonical `Game.pak` has 0 marked shield-depletion states; the executable path is retained through synthetic compatibility regression.
-- Core-edge checkpoint remains covered inside the current **37/37 PASS** suite; canonical constructor/first-tick seeds remain unchanged.
+- Core-edge checkpoint remains covered inside the current **38/38 PASS** suite; canonical constructor/first-tick seeds remain unchanged.
 
 
 ### Visual/render-request findings now binary-confirmed
@@ -260,7 +260,7 @@ Synthetic repository tests pass **37/37**. Original assets/binaries are used onl
 - `0xFEE0` samples the 16-bit Media Mask and recognizes value `31` on the water-impact path. Sample coordinates are `trunc(x)+32`, `trunc(y)+worldYOrigin`.
 - `Objects[gaob]` 6..9 are label-verified water-impact IDs `spti/spsm/spme/spla`; `tiny/smal/med /larg/smra/mera/lara` routing and RNG order are reproduced exactly.
 - Ground-obstacle store `0x2A6D0/0x2A770/0x2A830/0x2A950` is reconstructed as an append-only persistent Rect list with vertical scroll shifting, inclusive edge overlap, and reset. `destructDrawToTerrain_BOOL` appends to this same store.
-- `destructCreateObstacle_BOOL` is distinct: outer cleanup copies `castsShadows_BOOL` into live render state and calls `0x12F20`; the clean core now reconstructs the deterministic visual/render-request boundary, exact source frame surfaces, exact shadow transform, software clipping/blending, queue/backend submission, per-request terrain-target composition, persistent terrain surface lifetime, camera scrolling, full-viewport background copying, exact particle raster, and the outer `0x30BC0` world-composition order. Native presentation remains separate.
+- `destructCreateObstacle_BOOL` is distinct: outer cleanup copies `castsShadows_BOOL` into live render state and calls `0x12F20`; the clean core now reconstructs the deterministic visual/render-request boundary, exact source frame surfaces, exact shadow transform, software clipping/blending, queue/backend submission, per-request terrain-target composition, persistent terrain surface lifetime, camera scrolling, full-viewport background copying, exact particle raster, and the outer `0x30BC0` world-composition order, and the downstream mode-0/mode-1 QuickDraw presentation-copy geometry. Score-bar production and final destination-buffer/swap ownership remain separate.
 - Canonical terrain/media corpus: 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units; fixed water IDs are `spti/spsm/spme/spla`.
 
 ### Sprite-frame/shadow findings now binary-confirmed
@@ -274,7 +274,7 @@ Synthetic repository tests pass **37/37**. Original assets/binaries are used onl
 
 ### Active reverse-engineering fronts
 
-1. Continue beyond the now-closed `0x30BC0` world-composition and complete particle lifecycle to recover native presentation ownership, display-copy/swap timing, and any overlays outside that segment.
+1. Trace the already-populated 160-pixel score-bar source region back to its UI producers, then follow the recovered QuickDraw destination GWorld to the final display-buffer/swap timing boundary.
 2. Bind the recovered player life/respawn/game-over lifecycle spawn/audio/UI facts into full world orchestration and continue into the remaining active-player movement/weapon boundaries.
 3. Wire every remaining non-collision destruction entry site through the same clean teardown orchestration.
 4. Recover the rare special single-member parent-container / intrusive-list semantics around `0x33220` and bind an actual decoded Media Mask provider to the terrain/media runtime.
@@ -287,4 +287,13 @@ Direct PPC reconstruction now closes `0x44630/0x431F0/0x43340/0x438C0` and binds
 
 State particles are now proven to run before the timer/rule portion, with live +0xF0 last-burst tick and +0xF4 burst count. State entry resets only +0xF4, preserving the previous timestamp. Collision-hit and destruction producers construct the same 24-byte request and can execute inline through an optional particle context, preserving original shared-RNG placement without forcing global particle state into bounded headless tests.
 
-The canonical probe source-validates all new fields and reports **3 hit-particle units (0 circular flag), 7 state-particle states (4 repeat), and 99 destruction-particle units**. All established hashes/seeds and 386/546/544 gameplay counts remain unchanged. The Debug synthetic suite is now **37/37 PASS**. The next rendering boundary is native presentation outside the closed `0x30BC0` world-composition segment.
+The canonical probe source-validates all new fields and reports **3 hit-particle units (0 circular flag), 7 state-particle states (4 repeat), and 99 destruction-particle units**. All established hashes/seeds and 386/546/544 gameplay counts remain unchanged. The native-presentation follow-up raises the Debug synthetic suite to **38/38 PASS** and label-validates the 640x480x16 = 32+416+160+32 frame contract.
+
+
+## 2026-08-28 — Native presentation geometry milestone
+
+Direct PPC tracing beyond `0x30BC0` closes the original QuickDraw copy stage. The second `0x30BC0` argument remains the terrain/particle draw latch, while the third independently gates post-world presentation. Frame mode byte `+0x04` dispatches mode 0 to `0xBC60` and mode 1 to `0xBEB0`; the normal gameplay constructor call at `0x56AC` supplies mode 1.
+
+`Game[gafl]` indices 52..60 are now label-verified as 640x480 minimum frame, 416x480 visible game, 16-bit depth, 160x480 score bar, and 32-pixel left/right borders. The identity is exact: **32 + 416 + 160 + 32 = 640**. `0xBEB0` performs two QuickDraw `CopyBits` operations from the source canvas: game `{0,0,480,416}` and score bar `{0,416,480,576}`, placing them into the centered 640x480 frame after the left border. Wider displays also `PaintRect` the two side strips black. Mode 0 instead copies one complete 640x480 frame.
+
+`LegacyPresentationConfig`, plan generation, and a bounded portable xRGB1555 plan executor now freeze those semantics. `0x9E40` was also classified precisely as a `SetGWorld` activation helper, not a score-bar renderer. Therefore score-bar **content production** remains upstream and is the next UI-specific boundary. The synthetic suite is **38/38 Debug PASS**; canonical probe reports `native presentation frame: 640x480x16 = 32 + 416 + 160 + 32` with all prior hashes, counts, and RNG seeds unchanged. See `NATIVE_PRESENTATION_RUNTIME.md`.

@@ -24,8 +24,8 @@ struct LegacyWorldRenderFrameResult {
 // Executes the exact recovered ordering:
 //   0x18B20(0) -> [0x10120] -> 0x18B20(1) -> [0x43BA0] -> 0x18B20(2)
 // Bracketed passes run only when draw_enabled is true. This function owns the
-// recovered world-composition order but deliberately stops before native
-// DrawSprocket/window presentation, which remains a separate platform layer.
+// recovered world-composition order and stops immediately before the recovered
+// post-world presentation stage modeled by presentation_runtime.hpp.
 [[nodiscard]] bool render_legacy_world_frame(
     LegacyRenderQueue& queue,
     LegacyRasterSurface& visible_surface,

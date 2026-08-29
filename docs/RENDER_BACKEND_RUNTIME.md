@@ -246,5 +246,5 @@ background/platform ownership:
 - preserve the now-bound group-0 -> full terrain viewport copy -> group-1 ->
   particle raster -> group-2 ordering around the existing compositor;
 - recover any remaining non-sprite/UI presentation special cases;
-- replace legacy QuickDraw display ownership with a native presentation layer
+- implement native platform presentation from the recovered QuickDraw geometry contract
   without changing the proven software-render arithmetic.

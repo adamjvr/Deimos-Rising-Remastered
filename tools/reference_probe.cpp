@@ -12,6 +12,7 @@
 #include "deimos/particle_runtime.hpp"
 #include "deimos/player_definition.hpp"
 #include "deimos/player_runtime.hpp"
+#include "deimos/presentation_runtime.hpp"
 #include "deimos/render_runtime.hpp"
 #include "deimos/render_backend.hpp"
 #include "deimos/sprite_resource.hpp"
@@ -648,6 +649,21 @@ int main(int argc, char** argv) {
                   << (error.empty() ? "unexpected values" : error) << '\n';
         return 31;
     }
+    const auto presentation_config = deimos::compile_legacy_presentation_config(
+        *canonical_game_floats, &error);
+    if (!presentation_config || presentation_config->min_screen_width != 640 ||
+        presentation_config->min_screen_height != 480 ||
+        presentation_config->visible_game_width != 416 ||
+        presentation_config->visible_game_height != 480 ||
+        presentation_config->display_depth != 16 ||
+        presentation_config->score_bar_width != 160 ||
+        presentation_config->score_bar_height != 480 ||
+        presentation_config->left_border_width != 32 ||
+        presentation_config->right_border_width != 32) {
+        std::cerr << "canonical native-presentation config: "
+                  << (error.empty() ? "unexpected values" : error) << '\n';
+        return 33;
+    }
     const auto shadow_runtime_config = deimos::compile_legacy_shadow_runtime_config(
         *canonical_game_floats, &error);
     if (!shadow_runtime_config || shadow_runtime_config->air_x_offset != -48.0f ||
@@ -1125,6 +1141,14 @@ int main(int argc, char** argv) {
               << terrain_surface_config->visible_width << 'x'
               << terrain_surface_config->visible_height << 'x'
               << terrain_surface_config->display_depth << '\n'
+              << "    native presentation frame: "
+              << presentation_config->min_screen_width << 'x'
+              << presentation_config->min_screen_height << 'x'
+              << presentation_config->display_depth << " = "
+              << presentation_config->left_border_width << " + "
+              << presentation_config->visible_game_width << " + "
+              << presentation_config->score_bar_width << " + "
+              << presentation_config->right_border_width << '\n'
               << "  destruction/removal fields:\n"
               << "    destruction spawns: " << unit_destruction_spawns << '\n'
               << "    deletion spawns: " << unit_deletion_spawns << '\n'

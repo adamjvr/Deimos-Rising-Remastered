@@ -132,7 +132,7 @@ composition.
 - sprite-base `+0x90` one-per-sequence main terrain stamp;
 - end-to-end semantic request -> queue -> compositor mutation.
 
-The complete repository suite is **37/37 PASS** and the external canonical
+The complete repository suite is **38/38 PASS** and the external canonical
 `Game.pak` / `Audio.pak` / `Music.pak` probe remains unchanged, including the
 software-render corpus hash `0x32290b39b091e970` and the historical gameplay
 RNG/count oracle.
@@ -146,6 +146,6 @@ source Rect. It is primarily:
 
 - preserve the now-implemented `0x30BC0` order: group 0 terrain writes ->
   `0x10120` full viewport copy -> group 1 -> particle raster -> group 2;
-- particle producer/update semantics are now closed; finish remaining entity/player/world call-site choreography and identify native presentation ownership;
+- particle producer/update semantics and immediate legacy presentation geometry are now closed; finish remaining entity/player/world call-site choreography and identify score-bar/UI producers plus final buffer ownership;
 - identify remaining UI/non-sprite special presentation paths;
-- attach the verified 16-bit framebuffer to a native presentation layer.
+- map the verified 16-bit presentation plan to native platform backends after final buffer/swap behavior is frozen.

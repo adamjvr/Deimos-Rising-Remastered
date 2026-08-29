@@ -5,7 +5,7 @@ Status: **binary-confirmed clean subset**.
 This milestone closes the destruction/deletion media helper at PPC `0x16880`
 and reconstructs the persistent rectangle store used by ground-obstacle
 collision (`0x2A6D0`, `0x2A770`, `0x2A830`, `0x2A950`). It deliberately does
-now includes the recovered per-request xRGB1555 terrain-target compositor plus the persistent terrain/background surface and camera lifecycle documented in `TERRAIN_SURFACE_RUNTIME.md`; native presentation ownership remains downstream.
+now includes the recovered per-request xRGB1555 terrain-target compositor plus the persistent terrain/background surface and camera lifecycle documented in `TERRAIN_SURFACE_RUNTIME.md`; the downstream legacy presentation-copy geometry is now documented in `NATIVE_PRESENTATION_RUNTIME.md`.
 
 ## Direct Unit Definition anchors
 
@@ -126,7 +126,7 @@ composition remain downstream.
 
 ## Validation
 
-The repository suite is **37/37 PASS**. The canonical `Game.pak` probe verifies
+The repository suite is **38/38 PASS**. The canonical `Game.pak` probe verifies
 all new compiled fields and the fixed water-impact labels/IDs while retaining
 the established deterministic baseline:
 

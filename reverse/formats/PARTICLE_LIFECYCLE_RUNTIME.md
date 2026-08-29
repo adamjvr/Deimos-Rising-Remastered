@@ -246,7 +246,7 @@ Canonical 1.0.6 has **99 destruction-particle Unit Definitions**.
 
 ## Validation
 
-The repository synthetic suite is now **37/37 PASS in Debug**. New regression
+The repository synthetic suite is now **38/38 PASS in Debug**. New regression
 coverage includes:
 
 - 302-draw startup direction/cursor oracle;
@@ -283,7 +283,5 @@ motion RNG seed           2633739833
 
 The clean particle subsystem is no longer the open frame-composition boundary.
 The next renderer task is to continue outward from the closed `0x30BC0` world
-composition segment and identify the original **native presentation ownership,
-window/display copy/swap timing, and any player/UI overlays that sit outside that
-segment**. Other Phase-1 gaps (special constructor/list-pool path, replay bits,
+composition segment. `NATIVE_PRESENTATION_RUNTIME.md` now closes the immediate QuickDraw copy geometry; remaining work is **score-bar/UI content production, final destination-buffer/swap timing, and any additional overlays outside that segment**. Other Phase-1 gaps (special constructor/list-pool path, replay bits,
 remaining Flee edges) stay independent.

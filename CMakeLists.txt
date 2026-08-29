@@ -28,6 +28,7 @@ add_library(deimos_core STATIC
     src/core/render_orchestration.cpp
     src/core/particle_runtime.cpp
     src/core/world_render_runtime.cpp
+    src/core/presentation_runtime.cpp
     src/core/sprite_resource.cpp
     src/core/audio_resource.cpp
     src/core/game_definitions.cpp
@@ -80,6 +81,7 @@ if(BUILD_TESTING)
         particle_runtime_test
         particle_lifecycle_test
         world_render_runtime_test
+        presentation_runtime_test
         shadow_runtime_test
         sprite_resource_test
         sprite_frame_bitmap_test
