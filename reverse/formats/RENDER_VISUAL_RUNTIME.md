@@ -4,10 +4,11 @@ Status: **deterministic clean boundary reconstructed; legacy pixel backend still
 
 This milestone reconstructs the gameplay-visible state that feeds Deimos
 Rising's sprite renderer without claiming that the original QuickDraw/image
-submission backend has been cloned. The clean core can now carry the same
+submission backend has been cloned. The clean core now carries the same
 visibility, tint, scale, layer, shadow, and terrain-draw facts that the PPC
-engine produced and can emit ordered render intents for a future native
-renderer.
+engine produced, can emit ordered render intents, can construct the source
+16-bit frame surfaces, and can compute the exact shadow request geometry for a
+future native renderer.
 
 ## Recovered sprite base
 
@@ -131,18 +132,21 @@ switch. The earlier research transcription `mowe/moay` was corrected by
 re-reading the PPC literal construction: the actual FourCCs are `plwe/play`.
 Canonical `Game.pak` uses `plwe` on five Unit Definitions.
 
-## Shadow layers
+## Shadow layers and exact transform — `0x13460`
 
 `0x13460` uses a companion layer domain:
 
-- default ground and `grou` -> 2;
-- `grhi` -> 4;
-- default air and the recognized air/player/HUD layers -> 6.
+```text
+default ground / grou -> 2
+grhi                  -> 4
+default air            -> 6
+air/player/HUD layers  -> 6
+terrain submission     -> 0
+```
 
-Shadow submission requires both outer entity `castsShadows_BOOL` eligibility and
-the global/user shadow gate. The complex original shadow coordinate adjustment,
-including `adjustShadowLocForScaling_BOOL` and float-table indices 48..51, is
-still intentionally outside the clean boundary.
+The transform itself is now recovered and lives in `SHADOW_RUNTIME.md`. Canonical `Game[gafl]` positions 48..51 are label-verified as `Shadow_XOffset=-48`, `Shadow_YOffset=104`, `Shadow_GroundXOffset=-6`, and `Shadow_GroundYOffset=8`. Air shadows render at `0.5 * entityScale`; ground shadows render at `entityScale`. The `adjustShadowLocForScaling_BOOL` branch controls whether air offsets scale with the entity or remain on the fixed 0.5 basis.
+
+Ordinary world-space requests apply the bounded horizontal view offset from `0x100A0`; terrain requests instead use the fixed `-32` X shift and the world/background Y origin from `0xFEC0`. Visibility is converted through the original 0–32 transparency mapping and then clamped to a minimum transparency value of 20.
 
 ## Render intent order
 
@@ -187,16 +191,12 @@ plef=0, plui=10, atmo=0, hud=17, none=50, other=0`.
 
 ## Still open
 
-This milestone intentionally does not claim:
+The deterministic visual/resource/request boundary now includes source frame surfaces and exact shadow geometry. Remaining renderer work is:
 
-- exact sprite/frame selection for all direction/animation modes;
-- the deeper frame bitmap/pixel-object construction inside the `0x18D20` loader after atlas rectangles are known;
-- exact color-plate composition and original QuickDraw bitmap allocation;
-- the semantic identity of the single global integer returned by `0x100A0`;
-- the `+0x35` alternate submission backend identity;
-- full shadow coordinate formulas in `0x13460`;
-- terrain raster/pixel mutation behind the `+0x90` sequence path;
-- QuickDraw/native renderer submission internals beneath `0x18A40/0x19570`.
+- exact software clipping/blitting and destination-surface arithmetic;
+- backend identities and submission semantics beneath `0x18A40` / `0x19570`;
+- the remaining `+0x35` alternate submission backend identity;
+- actual terrain/background raster composition behind the `+0x90` sequence path;
+- any deeper platform-specific QuickDraw ownership details that materially affect observable behavior.
 
-Those are now downstream of a stable clean render-request contract rather than
-entangled with gameplay state reconstruction.
+Those tasks are downstream of a stable clean render-request, source-pixel, and shadow-transform contract.

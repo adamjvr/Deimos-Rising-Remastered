@@ -69,7 +69,7 @@ The binary-confirmed collision layer has a dedicated synthetic regression execut
 - scan early exit after self becomes inactive;
 - level-scaled shield base/increment/max behavior, including the no-max-clamp branch when increment is non-positive.
 
-The repository suite is currently **29/29 PASS**. The optional canonical `Game.pak` probe additionally validates all compiled collision/destruction/terrain-media/player-runtime fields and reports 436 collision-enabled states, 135 air / 251 ground Unit Definitions, 8 pickup Unit Definitions (4 coin / 1 mult / 1 exli / 2 shie), 2 Player Definitions, player globals 100/10/1, death-money IDs `calg/cals/casg/cass`, 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units, and fixed water IDs `spti/spsm/spme/spla`, **0** stock
+The repository suite is currently **31/31 PASS**. The optional canonical `Game.pak` probe additionally validates all compiled collision/destruction/terrain-media/player-runtime fields and reports 436 collision-enabled states, 135 air / 251 ground Unit Definitions, 8 pickup Unit Definitions (4 coin / 1 mult / 1 exli / 2 shie), 2 Player Definitions, player globals 100/10/1, death-money IDs `calg/cals/casg/cass`, 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units, and fixed water IDs `spti/spsm/spme/spla`, **0** stock
 `stateUseThisStateOnShieldDepletion_BOOL` states / affected units, plus the other corpus counts recorded in `STATUS.md`. It also verifies that the existing shared constructor and first player-aware tick remain deterministic at RNG seeds `2249411936` and `2633739833` respectively.
 
 ### Player-runtime regression rules
@@ -164,3 +164,20 @@ When `Audio.pak` and `Music.pak` are present beside the canonical `Game.pak`, `d
 - `inmu`: 2,633,792 PCM frames, CRC32 `60d31157`.
 
 The three music checksums were established against an independent FFmpeg decode. The clean QuickTime predictor-continuity implementation then reproduces that PCM sample-for-sample.
+
+### Sprite frame / shadow canonical oracle
+
+The sprite-resource probe now goes beyond atlas rectangles and rebuilds every normal paired frame surface. Canonical Mac 1.0.6 results are:
+
+```text
+paired frame surfaces:            2460
+frames with transparency plane:   2460
+color words:                   3115564
+transparency words:            3115564
+row-skip sentinels:               6341
+sprite-surface FNV64: 0x9f9dcfba05b5089c
+shadow offsets air/ground: -48,104 / -6,8
+```
+
+`tests/sprite_frame_bitmap_test.cpp` binds xRGB1555 construction, transparent-key fallback, mask weights, plane omission, and the row-1000 sentinel. `tests/shadow_runtime_test.cpp` binds air/ground scale and layer selection, fixed-vs-scaled air offsets, horizontal-view shifting, terrain submission, and legacy shadow transparency.
+

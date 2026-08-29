@@ -1,5 +1,6 @@
 #pragma once
 
+#include "deimos/data_tables.hpp"
 #include "deimos/state_runtime.hpp"
 #include "deimos/sprite_resource.hpp"
 #include "deimos/unit_behavior.hpp"
@@ -126,6 +127,48 @@ void apply_legacy_state_visual_targets(
 // request template's zero/default layer code.
 [[nodiscard]] int legacy_draw_layer_code(FourCC draw_layer, bool air_domain);
 [[nodiscard]] int legacy_shadow_layer_code(FourCC draw_layer, bool air_domain);
+
+struct LegacyShadowRuntimeConfig {
+    float air_x_offset = -48.0f;
+    float air_y_offset = 104.0f;
+    float ground_x_offset = -6.0f;
+    float ground_y_offset = 8.0f;
+};
+
+// Fixed Game[gafl] positions read by 0x13460 through 0x20250. The compiler
+// validates labels so a shifted/modded table fails rather than silently
+// changing shadow placement.
+[[nodiscard]] std::optional<LegacyShadowRuntimeConfig> compile_legacy_shadow_runtime_config(
+    const NamedTable<float>& game_floats,
+    std::string* error = nullptr);
+
+struct LegacyShadowTransformContext {
+    // 0x100A0: bounded horizontal view offset (-32..31), applied only to
+    // world-space non-terrain requests. Its higher-level controller remains
+    // outside this pure transform.
+    int horizontal_view_offset = 0;
+    // 0xFEC0: current world/background Y origin, used by terrain submission.
+    int world_y_origin = 0;
+};
+
+struct LegacyShadowRequestGeometry {
+    int x = 0;
+    int y = 0;
+    int numeric_layer = 0;
+    int transparency_0_to_32 = 32;
+    float scale = 0.0f;
+    bool draw_to_terrain = false;
+};
+
+// Exact position/scale/transparency portion of 0x13460. The caller supplies
+// the sprite-base world position because that state belongs to the owning
+// entity/player rather than LegacySpriteVisualRuntime itself.
+[[nodiscard]] LegacyShadowRequestGeometry build_legacy_shadow_request_geometry(
+    const LegacySpriteVisualRuntime& runtime,
+    float world_x,
+    float world_y,
+    const LegacyShadowRuntimeConfig& config,
+    LegacyShadowTransformContext context = {});
 
 // 0x12F20/0x12FA0 request ordering at the clean renderer boundary. Entity
 // castsShadows eligibility is applied here because the outer world renderer

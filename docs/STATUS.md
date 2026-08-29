@@ -77,7 +77,7 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **29/29**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **31/31**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Audio/music resource findings now confirmed
 
@@ -151,7 +151,7 @@ Synthetic repository tests pass **29/29**. Original assets/binaries are used onl
 - Member constructor `0x35DAC..0x35DF0` caches the existence of any such state in live `+0xCD`.
 - On zero shields, `0x14F10` awards score and either calls ordinary destruction (`+0xCD == 0`) or `0x17E70`, which enters the first marked state (`+0xCD != 0`).
 - Stock canonical `Game.pak` has 0 marked shield-depletion states; the executable path is retained through synthetic compatibility regression.
-- Core-edge checkpoint remains covered inside the current **29/29 PASS** suite; canonical constructor/first-tick seeds remain unchanged.
+- Core-edge checkpoint remains covered inside the current **31/31 PASS** suite; canonical constructor/first-tick seeds remain unchanged.
 
 
 ### Visual/render-request findings now binary-confirmed
@@ -227,12 +227,21 @@ Synthetic repository tests pass **29/29**. Original assets/binaries are used onl
 - `0xFEE0` samples the 16-bit Media Mask and recognizes value `31` on the water-impact path. Sample coordinates are `trunc(x)+32`, `trunc(y)+worldYOrigin`.
 - `Objects[gaob]` 6..9 are label-verified water-impact IDs `spti/spsm/spme/spla`; `tiny/smal/med /larg/smra/mera/lara` routing and RNG order are reproduced exactly.
 - Ground-obstacle store `0x2A6D0/0x2A770/0x2A830/0x2A950` is reconstructed as an append-only persistent Rect list with vertical scroll shifting, inclusive edge overlap, and reset. `destructDrawToTerrain_BOOL` appends to this same store.
-- `destructCreateObstacle_BOOL` is distinct: outer cleanup copies `castsShadows_BOOL` into live render state and calls `0x12F20`; the clean core now reconstructs the deterministic visual/render-request boundary reached there, while sprite-resource lookup, exact shadow transforms, backend submission, and terrain pixel mutation remain bounded.
+- `destructCreateObstacle_BOOL` is distinct: outer cleanup copies `castsShadows_BOOL` into live render state and calls `0x12F20`; the clean core now reconstructs the deterministic visual/render-request boundary, exact source frame surfaces, and exact shadow transform reached there. Backend submission and terrain pixel mutation remain bounded.
 - Canonical terrain/media corpus: 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units; fixed water IDs are `spti/spsm/spme/spla`.
+
+### Sprite-frame/shadow findings now binary-confirmed
+
+- `0x1D780` constructs each cropped 16-bit frame surface with xRGB1555 color pixels, a plate-wide transparent color key taken from the third color-plate pixel, and an optional second 16-bit transparency plane.
+- `0x1EEC0` maps alpha red5 into the legacy inverted transparency domain `0=opaque`, `1..31=blend`, `32=transparent`; fully transparent rows use sentinel `1000` in their first word. When no secondary plane is needed the legacy blitter falls back to transparent-key comparison.
+- Canonical 123 paired IA/IC plates produce 2,460 normal frame surfaces, 3,115,564 color words, 3,115,564 transparency words, 6,341 row sentinels, and aggregate surface FNV64 `0x9f9dcfba05b5089c`.
+- `0x13460` shadow geometry is exact: canonical offsets are air `-48,104`, ground `-6,8`; air scale is `0.5*entityScale`, ground scale is `entityScale`; the scaling-adjust flag only alters the air offset basis.
+- `0x100A0` is now functionally bounded as the horizontal view offset used by world-space main/shadow transforms. Terrain submission instead uses the fixed `-32` X shift plus the `0xFEC0` world/background Y origin.
+- `0x10C20` maps visibility into the original 0–32 shadow transparency domain; `0x13460` clamps the request to a minimum transparency of 20.
 
 ### Active reverse-engineering fronts
 
-1. Continue below the recovered sprite-cache/request boundary: reconstruct the frame bitmap/pixel object built inside `0x18D20`, recover exact shadow coordinates in `0x13460`, identify the global integer exposed by `0x100A0` and backend submission below `0x18A40/0x19570`, then reconstruct terrain pixel composition behind live `+0x90`.
+1. Continue below the recovered source-frame/shadow boundary into exact software clipping/blitting and backend submission below `0x18A40/0x19570`, then reconstruct terrain/background pixel composition behind live `+0x90`. The global returned by `0x100A0` is now functionally bounded as the renderer's horizontal view offset.
 2. Bind the recovered player life/respawn/game-over lifecycle spawn/audio/UI facts into full world orchestration and continue into the remaining active-player movement/weapon boundaries.
 3. Wire every remaining non-collision destruction entry site through the same clean teardown orchestration.
 4. Recover the rare special single-member parent-container / intrusive-list semantics around `0x33220` and bind an actual decoded Media Mask provider to the terrain/media runtime.

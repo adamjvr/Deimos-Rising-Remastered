@@ -11,6 +11,7 @@
 #include "deimos/pak_archive.hpp"
 #include "deimos/player_definition.hpp"
 #include "deimos/player_runtime.hpp"
+#include "deimos/render_runtime.hpp"
 #include "deimos/sprite_resource.hpp"
 #include "deimos/terrain_runtime.hpp"
 #include "deimos/unit_definition.hpp"
@@ -20,9 +21,11 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cctype>
 #include <filesystem>
 #include <span>
 #include <iostream>
+#include <map>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -30,6 +33,33 @@
 #include <vector>
 
 namespace {
+std::uint64_t fnv1a64_bytes(std::uint64_t hash, std::span<const std::uint8_t> bytes) {
+    constexpr std::uint64_t prime = 1099511628211ull;
+    for (const auto byte : bytes) {
+        hash ^= byte;
+        hash *= prime;
+    }
+    return hash;
+}
+
+std::uint64_t fnv1a64_u16(std::uint64_t hash, std::uint16_t value) {
+    const std::array<std::uint8_t, 2> bytes{{
+        static_cast<std::uint8_t>(value >> 8u),
+        static_cast<std::uint8_t>(value),
+    }};
+    return fnv1a64_bytes(hash, bytes);
+}
+
+std::uint64_t fnv1a64_u32(std::uint64_t hash, std::uint32_t value) {
+    const std::array<std::uint8_t, 4> bytes{{
+        static_cast<std::uint8_t>(value >> 24u),
+        static_cast<std::uint8_t>(value >> 16u),
+        static_cast<std::uint8_t>(value >> 8u),
+        static_cast<std::uint8_t>(value),
+    }};
+    return fnv1a64_bytes(hash, bytes);
+}
+
 std::uint32_t pcm_crc32_le(std::span<const std::int16_t> samples) {
     std::uint32_t crc = 0xffffffffu;
     const auto update = [&crc](std::uint8_t byte) {
@@ -196,8 +226,10 @@ int main(int argc, char** argv) {
     std::size_t sprite_plate_pairs = 0;
     std::size_t pl1b_frames = 0, exlg_frames = 0, bocr_frames = 0, glow_frames = 0;
     std::pair<int, int> pl1b_frame0{};
-    std::unordered_map<std::string, std::pair<int, int>> sprite_alpha_dimensions;
-    std::unordered_map<std::string, std::pair<int, int>> sprite_color_dimensions;
+    std::map<std::string, std::pair<int, int>> sprite_alpha_dimensions;
+    std::map<std::string, std::pair<int, int>> sprite_color_dimensions;
+    std::map<std::string, std::pair<deimos::FourCC, deimos::LegacyIndexedImage>> sprite_alpha_images;
+    std::map<std::string, std::pair<deimos::FourCC, deimos::LegacyIndexedImage>> sprite_color_images;
     std::size_t weapons = 0, weapon_spawns = 0, players = 0;
     std::vector<std::pair<std::string, deimos::CompiledPlayerRuntimeDefinition>> player_runtime_defs;
     std::size_t unresolved_active_actions = 0, unresolved_inert_actions = 0, unknown_rule_conditions = 0;
@@ -243,9 +275,11 @@ int main(int argc, char** argv) {
                     } else if (tag == "EXLG") exlg_frames = frames->size();
                     else if (tag == "BOCR") bocr_frames = frames->size();
                     else if (tag == "GLOW") glow_frames = frames->size();
+                    sprite_alpha_images[resource_name->display_name] = {resource_name->tag, std::move(*decoded)};
                 } else {
                     ++sprite_color_plates;
                     sprite_color_dimensions[resource_name->display_name] = dimensions;
+                    sprite_color_images[resource_name->display_name] = {resource_name->tag, std::move(*decoded)};
                 }
             }
         }
@@ -574,6 +608,14 @@ int main(int argc, char** argv) {
         std::cerr << "canonical water-impact config: " << error << '\n';
         return 24;
     }
+    const auto shadow_runtime_config = deimos::compile_legacy_shadow_runtime_config(
+        *canonical_game_floats, &error);
+    if (!shadow_runtime_config || shadow_runtime_config->air_x_offset != -48.0f ||
+        shadow_runtime_config->air_y_offset != 104.0f || shadow_runtime_config->ground_x_offset != -6.0f ||
+        shadow_runtime_config->ground_y_offset != 8.0f) {
+        std::cerr << "canonical shadow-runtime config: " << (error.empty() ? "unexpected values" : error) << '\n';
+        return 25;
+    }
     const auto player_runtime_globals = deimos::compile_legacy_player_runtime_globals(
         *canonical_game_floats, &error);
     if (!player_runtime_globals) {
@@ -768,6 +810,13 @@ int main(int argc, char** argv) {
         }
     }
 
+    std::size_t sprite_surface_frames = 0;
+    std::size_t sprite_pair_casefold_matches = 0;
+    std::size_t sprite_transparency_plane_frames = 0;
+    std::size_t sprite_color_words = 0;
+    std::size_t sprite_transparency_words = 0;
+    std::size_t sprite_transparent_row_sentinels = 0;
+    std::uint64_t sprite_surface_fnv64 = 1469598103934665603ull;
     for (const auto& [name, alpha_dimensions] : sprite_alpha_dimensions) {
         const auto color = sprite_color_dimensions.find(name);
         if (color == sprite_color_dimensions.end()) continue; // PDLI is alpha-only in stock Game.pak.
@@ -776,11 +825,64 @@ int main(int argc, char** argv) {
             std::cerr << "sprite alpha/color plate dimensions disagree for " << name << '\n';
             return 22;
         }
+        const auto alpha_image = sprite_alpha_images.find(name);
+        const auto color_image = sprite_color_images.find(name);
+        if (alpha_image == sprite_alpha_images.end() || color_image == sprite_color_images.end()) {
+            std::cerr << "sprite alpha/color plate image missing for " << name << '\n';
+            return 28;
+        }
+        auto alpha_tag = alpha_image->second.first.str();
+        auto color_tag = color_image->second.first.str();
+        std::transform(alpha_tag.begin(), alpha_tag.end(), alpha_tag.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
+        std::transform(color_tag.begin(), color_tag.end(), color_tag.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
+        if (alpha_tag == color_tag) ++sprite_pair_casefold_matches;
+        auto group = deimos::build_legacy_sprite_group(
+            alpha_image->second.first, alpha_image->second.second, color_image->second.second, &error);
+        if (!group) {
+            std::cerr << name << ": legacy sprite-surface construction failed: " << error << '\n';
+            return 29;
+        }
+        const auto tag = group->id.str();
+        sprite_surface_fnv64 = fnv1a64_bytes(
+            sprite_surface_fnv64,
+            std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t*>(tag.data()), tag.size()));
+        sprite_surface_fnv64 = fnv1a64_u32(sprite_surface_fnv64, static_cast<std::uint32_t>(group->frames.size()));
+        sprite_surface_frames += group->frames.size();
+        for (const auto& frame : group->frames) {
+            if (!frame.has_surface()) {
+                std::cerr << name << ": reconstructed frame surface is incomplete\n";
+                return 30;
+            }
+            sprite_surface_fnv64 = fnv1a64_u32(sprite_surface_fnv64, static_cast<std::uint32_t>(frame.width));
+            sprite_surface_fnv64 = fnv1a64_u32(sprite_surface_fnv64, static_cast<std::uint32_t>(frame.height));
+            sprite_surface_fnv64 = fnv1a64_u16(sprite_surface_fnv64, frame.transparent_key);
+            sprite_color_words += frame.color_pixels.size();
+            for (const auto pixel : frame.color_pixels) {
+                sprite_surface_fnv64 = fnv1a64_u16(sprite_surface_fnv64, pixel);
+            }
+            sprite_surface_fnv64 = fnv1a64_u32(
+                sprite_surface_fnv64, static_cast<std::uint32_t>(frame.transparency.size()));
+            if (frame.has_transparency_plane()) ++sprite_transparency_plane_frames;
+            sprite_transparency_words += frame.transparency.size();
+            for (const auto value : frame.transparency) {
+                sprite_surface_fnv64 = fnv1a64_u16(sprite_surface_fnv64, value);
+                sprite_transparent_row_sentinels += value == 1000u;
+            }
+        }
     }
+    constexpr std::uint64_t expected_sprite_surface_fnv64 = 0x9f9dcfba05b5089cull;
     if (sprite_alpha_plates != 124 || sprite_color_plates != 124 || sprite_plate_pairs != 123 ||
-        sprite_frames != 2463 || pl1b_frames != 7 || pl1b_frame0 != std::pair<int,int>{53,43} ||
+        sprite_pair_casefold_matches != 123 || sprite_frames != 2463 || sprite_surface_frames != 2460 ||
+        sprite_transparency_plane_frames != 2460 || sprite_color_words != 3115564 ||
+        sprite_transparency_words != 3115564 || sprite_transparent_row_sentinels != 6341 ||
+        sprite_surface_fnv64 != expected_sprite_surface_fnv64 ||
+        pl1b_frames != 7 || pl1b_frame0 != std::pair<int,int>{53,43} ||
         exlg_frames != 12 || bocr_frames != 3 || glow_frames != 12) {
-        std::cerr << "canonical sprite plate/frame contract changed unexpectedly\n";
+        std::cerr << "canonical sprite plate/frame/surface contract changed unexpectedly\n";
         return 23;
     }
 
@@ -871,9 +973,18 @@ int main(int argc, char** argv) {
               << "    color plates: " << sprite_color_plates << '\n'
               << "    matched alpha/color pairs: " << sprite_plate_pairs << '\n'
               << "    extracted alpha frames: " << sprite_frames << '\n'
+              << "    reconstructed 16-bit frame surfaces: " << sprite_surface_frames << '\n'
+              << "    alpha/color case-fold tag matches: " << sprite_pair_casefold_matches << '\n'
+              << "    frames with transparency plane: " << sprite_transparency_plane_frames << '\n'
+              << "    frame color/transparency words: " << sprite_color_words << '/' << sprite_transparency_words << '\n'
+              << "    transparent-row sentinels: " << sprite_transparent_row_sentinels << '\n'
+              << "    sprite-surface FNV64: 0x" << std::hex << sprite_surface_fnv64 << std::dec << '\n'
               << "    PL1B frames/frame0: " << pl1b_frames << '/' << pl1b_frame0.first << 'x' << pl1b_frame0.second << '\n'
               << "    EXLG/BOCR/GLOW frames: " << exlg_frames << '/' << bocr_frames << '/' << glow_frames << '\n'
               << "  visual/render fields:\n"
+              << "    shadow offsets air/ground: "
+              << shadow_runtime_config->air_x_offset << ',' << shadow_runtime_config->air_y_offset << " / "
+              << shadow_runtime_config->ground_x_offset << ',' << shadow_runtime_config->ground_y_offset << '\n'
               << "    scale-tolerance units: " << unit_scale_tolerance << '\n'
               << "    adjust-shadow-for-scaling units: " << unit_adjust_shadow_scaling << '\n'
               << "    draw-to-terrain states: " << state_draw_to_terrain_visual << '\n'

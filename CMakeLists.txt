@@ -70,7 +70,9 @@ if(BUILD_TESTING)
         destruction_runtime_test
         terrain_runtime_test
         render_runtime_test
+        shadow_runtime_test
         sprite_resource_test
+        sprite_frame_bitmap_test
         audio_resource_test
         player_motion_test
         game_definitions_test)

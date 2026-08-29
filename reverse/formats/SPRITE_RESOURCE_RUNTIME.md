@@ -1,10 +1,10 @@
 # Sprite Resource Cache and Atlas Runtime — Mac 1.0.6
 
-Status: **legacy sprite cache, GIF-index decode, atlas frame extraction, and geometry lookup reconstructed; frame pixel objects/backend blitting remain open**.
+Status: **legacy sprite cache, GIF-index decode, atlas extraction, 16-bit frame surfaces, and geometry lookup reconstructed; backend clipping/blitting remains open**.
 
-This milestone closes the resource side of the previously recovered visual/render-request boundary. The clean core can now decode the original indexed GIF sprite plates, reproduce the Mac atlas-rectangle scanner, publish complete sprite groups into a deterministic cache, resolve frames with the original fallback rules, compute PPC-compatible scaled dimensions, and feed those dimensions back into the `0x12940` live geometry refresh.
+This milestone closes the resource side of the previously recovered visual/render-request boundary. The clean core can now decode the original indexed GIF sprite plates, reproduce the Mac atlas-rectangle scanner, construct the original cropped 16-bit color/transparency frame surfaces, publish complete sprite groups into a deterministic cache, resolve frames with the original fallback rules, compute PPC-compatible scaled dimensions, and feed those dimensions back into the `0x12940` live geometry refresh.
 
-It intentionally stops before claiming that the original frame bitmap object, QuickDraw surface, shadow rasterizer, or backend blitter has been cloned.
+The frame-surface layout and alpha semantics are detailed in `SPRITE_FRAME_BITMAP_RUNTIME.md`. QuickDraw destination clipping, software blitting, renderer queues, and backend submission remain downstream boundaries.
 
 ## Recovered function map
 
@@ -74,7 +74,7 @@ The original plate scanner does not reason about RGB colors. It consumes the dec
 - interlaced row order;
 - first-image compositing into an indexed logical-screen canvas.
 
-Color-table RGB values are deliberately irrelevant to the frame-boundary algorithm.
+Color-table RGB values are deliberately irrelevant to the **atlas marker/trimming algorithm**, but the decoder now preserves them as packed xRGB1555 pixels because the recovered `0x1D780` frame builder consumes the color plate after rectangle extraction.
 
 ## Exact atlas grammar — `0x1F140..0x1F5B0`
 
@@ -123,15 +123,20 @@ The variable sizes are produced by the original cell-local trimming rule, not by
 The canonical `Game.pak` resource corpus currently validates:
 
 ```text
-alpha plates:                 124
-color plates:                 124
-matched alpha/color pairs:    123
-extracted alpha frames:      2463
+alpha plates:                       124
+color plates:                       124
+matched alpha/color pairs:          123
+extracted alpha rectangles:        2463
+paired 16-bit frame surfaces:      2460
+frames with transparency plane:    2460
+color/transparency words: 3115564 / 3115564
+row-skip sentinels:                 6341
+sprite-surface FNV64: 0x9f9dcfba05b5089c
 ```
 
-All 123 alpha/color pairs that both exist have equal plate dimensions. The stock exception is `PDLI` (`Plasma Drone Light`), which has an alpha plate without a matching color plate; the probe records that exception rather than inventing a missing resource.
+All 123 alpha/color pairs that both exist have equal plate dimensions. Stock alpha tags are uppercase while their paired color tags are lowercase, so the probe verifies identity by ASCII case-folding. The stock exception is `PDLI` (`Plasma Drone Light`), which has three alpha rectangles but no matching color plate; those three account for the difference between 2,463 alpha rectangles and 2,460 normal color frame surfaces.
 
-The corpus-wide extraction is important because it exercises the recovered marker/trimming grammar over thousands of frames rather than a hand-selected handful of sprites.
+The corpus-wide extraction and surface hash exercise the recovered marker/trimming grammar, palette conversion, transparent-key selection, transparency weights, and row layout over thousands of frames rather than a hand-selected handful of sprites.
 
 ## `0x12940` geometry integration
 
@@ -148,14 +153,11 @@ The stale width/height behavior for a `none` face looks odd but is present in th
 
 ## Still open
 
-This milestone does **not** yet claim:
+The sprite-resource and source-frame boundaries no longer include bitmap construction or shadow geometry. Remaining downstream work is:
 
-- reconstruction of the frame bitmap/pixel object created inside the deeper `0x18D20` loader path;
-- exact use/composition of the color plate beyond dimensional validation;
-- the original QuickDraw/native bitmap allocation and ownership details;
-- exact shadow-coordinate math in `0x13460`, especially the `adjustShadowLocForScaling_BOOL` branch;
-- semantic identity of the single global integer returned by `0x100A0`;
+- exact clipping and destination-surface arithmetic in the software blitters;
 - backend identities/dispatch beneath `0x18A40`, `0x19570`, and the alternate submission path;
-- actual terrain pixel composition behind the live `+0x90` terrain-submission sequence.
+- actual terrain/background pixel composition behind the live `+0x90` terrain-submission sequence;
+- original QuickDraw allocation/lifetime details only where they produce a gameplay- or renderer-visible contract.
 
-Those remaining tasks are now downstream of an exact sprite-group/frame-resource and gameplay-geometry contract.
+See `SPRITE_FRAME_BITMAP_RUNTIME.md` for the recovered xRGB1555 frame object and transparency plane, and `SHADOW_RUNTIME.md` for the exact `0x13460` shadow transform.

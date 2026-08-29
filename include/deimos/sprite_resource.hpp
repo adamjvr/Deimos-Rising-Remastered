@@ -21,6 +21,11 @@ struct LegacyIndexedImage {
     int height = 0;
     int row_bytes = 0;
     std::vector<std::uint8_t> pixels;
+
+    // QuickDraw-style 16-bit xRGB1555 pixels produced from the GIF palette.
+    // The legacy frame builder consumes this plane after atlas extraction.
+    // Synthetic scanner-only images may leave it empty.
+    std::vector<std::uint16_t> rgb555_pixels;
 };
 
 struct LegacySpriteRect {
@@ -38,12 +43,37 @@ struct LegacySpriteFrameMetadata {
     LegacySpriteRect source_rect{};
     int width = 0;
     int height = 0;
+
+    // 0x1D780 frame-object payload reconstructed from the cropped IC/IA
+    // plates. Color pixels are packed xRGB1555. transparency is empty when
+    // the optional secondary plane is absent; otherwise it contains values
+    // 0..32 (0 = opaque, 32 = transparent), with 1000 in the first slot of
+    // fully transparent rows as the original fast-skip sentinel.
+    std::uint16_t transparent_key = 0;
+    std::vector<std::uint16_t> color_pixels;
+    std::vector<std::uint16_t> transparency;
+
+    [[nodiscard]] bool has_surface() const {
+        return width > 0 && height > 0 &&
+               color_pixels.size() == static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+    }
+    [[nodiscard]] bool has_transparency_plane() const { return !transparency.empty(); }
 };
 
 struct LegacySpriteGroupMetadata {
     FourCC id{};
     std::vector<LegacySpriteFrameMetadata> frames;
 };
+
+// Reconstruct the complete 0x18D20/0x1D780 frame payload from one matched
+// alpha/color plate pair. The alpha plate defines frame rectangles; the color
+// plate supplies xRGB1555 pixels and its pixel at (2,0) is the legacy
+// transparent-key value stored in every frame.
+[[nodiscard]] std::optional<LegacySpriteGroupMetadata> build_legacy_sprite_group(
+    FourCC id,
+    const LegacyIndexedImage& alpha_plate,
+    const LegacyIndexedImage& color_plate,
+    std::string* error = nullptr);
 
 // Minimal GIF87a/89a decoder sufficient for the original im08 plates. It
 // returns decoded palette indices, preserving the exact byte domain consumed

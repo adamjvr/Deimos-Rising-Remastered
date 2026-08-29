@@ -56,11 +56,13 @@ Completed/confirmed:
 - concrete player pickup dispatcher/stat mutations, `0x27100` shield/damage, immediate `0x27E50` death entry, lifecycle switch `0x2A150`, and respawn initializer `0x29CC0` implemented, including strict timers, gameplay-start-gated life consumption, solo/multi entry coordinates, entry invulnerability, and game-over disable;
 - shared 0x94-byte sprite visual base, state-entry visual targets, exact visibility/tint/scale ramps, scale-tolerance RNG, main/shadow layer mapping, `0x12F20` pass ordering, and ordered base/tint/glow/terrain render intents reconstructed as a headless renderer-request boundary;
 - FORM/AIFC + QuickTime IMA4 resource decode reconstructed for the complete canonical `Audio.pak` / `Music.pak` corpus; DR-EVID-005 supplies an independent soundtrack identity oracle;
+- paired sprite frame construction below `0x18D20` reconstructed through `0x1D780/0x1EEC0`: xRGB1555 color planes, transparent-key fallback, legacy 0..32 transparency weights, and row-1000 sentinels; canonical 2,460 surfaces hash to `0x9f9dcfba05b5089c`;
+- exact `0x13460` shadow transform reconstructed, including label-verified `Game[gafl]` offsets -48/104/-6/8, air 0.5 scale, ground scale, `adjustShadowLocForScaling`, 0..32 shadow transparency, horizontal view offset, and terrain-submission coordinates;
 
 Remaining Phase 1 exit criteria:
 
 - recover the rare special single-member parent-container path and remaining original intrusive-list/pool semantics around `0x33220`;
-- integrate the recovered player lifecycle spawn/audio/UI side effects into full world orchestration and continue below the recovered sprite-cache/render-request boundary into frame bitmap construction, exact shadow transforms, backend submission, and terrain pixel mutation;
+- integrate the recovered player lifecycle spawn/audio/UI side effects into full world orchestration and continue below the recovered source-frame/shadow boundary into software clipping/blitting, backend submission, and terrain pixel composition;
 - finish remaining Flee trigger/lifecycle edges and bind them to decoded fields;
 - expand Windows installer and establish Mac↔Windows code/data correspondences;
 - finish replay action-bit mapping including second-player semantics;

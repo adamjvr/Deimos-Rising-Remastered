@@ -539,3 +539,14 @@ A user-supplied `DeimosRising_soundtrack.sit` was inventoried as StuffIt 5 with 
 The clean core gained a dependency-free FORM/AIFC parser plus Apple/QuickTime IMA4 decoder. Canonical packet semantics are 34 bytes/channel -> 64 samples, low nibble first, with the packet predictor's low seven bits recovered by retaining the previous running predictor when the new header is within `0x7f` and the step index is unchanged. This reproduces independent FFmpeg PCM sample-for-sample.
 
 Canonical corpus validation now covers all 96 mono 44.1-kHz Audio.pak resources (3,133,376 decoded frames) plus all three stereo Music.pak resources. `mu03` also exposed an authentic legacy quirk: its declared FORM size is 76 bytes shorter than the valid chunk stream, so the parser now accepts under-declared FORM sizes while still rejecting overrun. The repository suite advances to 29/29 PASS; existing constructor/first-tick RNG oracles remain unchanged.
+
+## 2026-08-28 — 16-bit sprite frame surfaces and exact shadow transform
+
+The renderer-resource boundary was pushed below the atlas/cache layer. PPC `0x1D780` was reconstructed as the 16-bit frame-object builder and `0x1EEC0` as its optional transparency-plane constructor. The paired color plate is packed to xRGB1555 and cropped by the already-recovered atlas rectangle; the transparent color key is the third 16-bit color-plate pixel. The alpha crop contributes an inverted 5-bit transparency weight (`0` opaque, `1..31` blend, `32` transparent), while fully transparent rows carry the downstream blitter's `1000` first-word skip sentinel. The plane is omitted only when the whole frame can use transparent-key fallback.
+
+Canonical replay across all 123 existing alpha/color pairs constructs 2,460 normal frame surfaces containing 3,115,564 color words and 3,115,564 transparency words, with 6,341 row sentinels. The aggregate deterministic surface oracle is FNV64 `0x9f9dcfba05b5089c`. Stock alpha/color FourCC tags differ by case, so the pair identity check is intentionally ASCII case-folded.
+
+PPC `0x13460` was also closed. `Game[gafl]` entries 48..51 are explicitly `Shadow_XOffset=-48`, `Shadow_YOffset=104`, `Shadow_GroundXOffset=-6`, and `Shadow_GroundYOffset=8`. Air shadows use `0.5 * entityScale`; ground shadows use entity scale. `adjustShadowLocForScaling_BOOL` changes only the air-offset basis. The global returned by `0x100A0` is functionally bounded as the horizontal view offset used by world-space rendering; terrain submission instead uses a fixed `-32` X shift and the `0xFEC0` background Y origin. The visibility helper `0x10C20` produces the legacy 0..32 transparency value and `0x13460` clamps it to a minimum of 20.
+
+Two dedicated regressions were added (`sprite_frame_bitmap_test`, `shadow_runtime_test`), advancing the suite to **31/31 PASS** while the canonical constructor/first-tick and audio oracles remain unchanged.
+

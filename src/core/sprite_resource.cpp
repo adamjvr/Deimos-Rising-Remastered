@@ -22,6 +22,30 @@ std::uint16_t le16(std::span<const std::uint8_t> b, std::size_t o) {
            (static_cast<std::uint16_t>(b[o + 1]) << 8u);
 }
 
+std::uint16_t pack_rgb555(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
+    // Classic 16-bit QuickDraw direct pixels use xRGB1555. The GIF importer
+    // truncates each 8-bit palette component to its high five bits.
+    return static_cast<std::uint16_t>(((r >> 3u) << 10u) | ((g >> 3u) << 5u) | (b >> 3u));
+}
+
+std::optional<std::vector<std::uint16_t>> read_palette555(
+    std::span<const std::uint8_t> bytes,
+    std::size_t& pos,
+    std::size_t entries,
+    std::string* error) {
+    if (entries == 0 || entries > 256u || entries * 3u > bytes.size() - pos) {
+        fail(error, "truncated/invalid GIF color table");
+        return std::nullopt;
+    }
+    std::vector<std::uint16_t> palette;
+    palette.reserve(entries);
+    for (std::size_t i = 0; i < entries; ++i) {
+        palette.push_back(pack_rgb555(bytes[pos], bytes[pos + 1u], bytes[pos + 2u]));
+        pos += 3u;
+    }
+    return palette;
+}
+
 bool skip_sub_blocks(std::span<const std::uint8_t> bytes, std::size_t& pos) {
     for (;;) {
         if (pos >= bytes.size()) return false;
@@ -271,17 +295,19 @@ std::optional<LegacyIndexedImage> decode_legacy_gif_indices(
 
     std::size_t pos = 13;
     const auto packed = bytes[10];
+    std::vector<std::uint16_t> global_palette;
     if ((packed & 0x80u) != 0) {
         const std::size_t table_entries = 1u << ((packed & 0x07u) + 1u);
-        const std::size_t table_bytes = table_entries * 3u;
-        if (table_bytes > bytes.size() - pos) {
-            fail(error, "truncated GIF global color table");
-            return std::nullopt;
-        }
-        pos += table_bytes;
+        auto palette = read_palette555(bytes, pos, table_entries, error);
+        if (!palette) return std::nullopt;
+        global_palette = std::move(*palette);
     }
 
-    std::vector<std::uint8_t> canvas(static_cast<std::size_t>(canvas_size), bytes[11]);
+    const auto background_index = bytes[11];
+    const std::uint16_t background_rgb555 =
+        background_index < global_palette.size() ? global_palette[background_index] : 0u;
+    std::vector<std::uint8_t> canvas(static_cast<std::size_t>(canvas_size), background_index);
+    std::vector<std::uint16_t> rgb555_canvas(static_cast<std::size_t>(canvas_size), background_rgb555);
     bool decoded_image = false;
 
     while (pos < bytes.size()) {
@@ -309,11 +335,17 @@ std::optional<LegacyIndexedImage> decode_legacy_gif_indices(
             fail(error, "GIF image descriptor lies outside logical screen");
             return std::nullopt;
         }
+        std::vector<std::uint16_t> local_palette;
         if ((image_packed & 0x80u) != 0) {
             const std::size_t table_entries = 1u << ((image_packed & 0x07u) + 1u);
-            const std::size_t table_bytes = table_entries * 3u;
-            if (table_bytes > bytes.size() - pos) { fail(error, "truncated GIF local color table"); return std::nullopt; }
-            pos += table_bytes;
+            auto palette = read_palette555(bytes, pos, table_entries, error);
+            if (!palette) return std::nullopt;
+            local_palette = std::move(*palette);
+        }
+        const auto& active_palette = local_palette.empty() ? global_palette : local_palette;
+        if (active_palette.empty()) {
+            fail(error, "GIF image has no color table");
+            return std::nullopt;
         }
         if (pos >= bytes.size()) { fail(error, "missing GIF LZW code size"); return std::nullopt; }
         const int minimum_code_size = bytes[pos++];
@@ -337,7 +369,16 @@ std::optional<LegacyIndexedImage> decode_legacy_gif_indices(
             const int dest_y = top + row_order[source_row];
             const auto source = indices->begin() + static_cast<std::ptrdiff_t>(source_row * width);
             auto dest = canvas.begin() + static_cast<std::ptrdiff_t>(dest_y * screen_width + left);
-            std::copy_n(source, width, dest);
+            auto rgb_dest = rgb555_canvas.begin() + static_cast<std::ptrdiff_t>(dest_y * screen_width + left);
+            for (int x = 0; x < width; ++x) {
+                const auto index = source[x];
+                if (index >= active_palette.size()) {
+                    fail(error, "GIF palette index is outside active color table");
+                    return std::nullopt;
+                }
+                dest[x] = index;
+                rgb_dest[x] = active_palette[index];
+            }
         }
         decoded_image = true;
         // The original sprite plates are single-image GIFs. Decode the first
@@ -349,7 +390,8 @@ std::optional<LegacyIndexedImage> decode_legacy_gif_indices(
         fail(error, "GIF contains no image");
         return std::nullopt;
     }
-    return LegacyIndexedImage{screen_width, screen_height, screen_width, std::move(canvas)};
+    return LegacyIndexedImage{
+        screen_width, screen_height, screen_width, std::move(canvas), std::move(rgb555_canvas)};
 }
 
 std::optional<std::vector<LegacySpriteFrameMetadata>> extract_legacy_sprite_frames(
@@ -403,7 +445,11 @@ std::optional<std::vector<LegacySpriteFrameMetadata>> extract_legacy_sprite_fram
                         left + trimmed->width,
                         top + trimmed->height,
                     };
-                    frames.push_back({rect, trimmed->width, trimmed->height});
+                    LegacySpriteFrameMetadata frame;
+                    frame.source_rect = rect;
+                    frame.width = trimmed->width;
+                    frame.height = trimmed->height;
+                    frames.push_back(std::move(frame));
                     found = true;
                     break;
                 }
@@ -427,6 +473,84 @@ std::optional<std::vector<LegacySpriteFrameMetadata>> extract_legacy_sprite_fram
         return std::nullopt;
     }
     return frames;
+}
+
+std::optional<LegacySpriteGroupMetadata> build_legacy_sprite_group(
+    FourCC id,
+    const LegacyIndexedImage& alpha_plate,
+    const LegacyIndexedImage& color_plate,
+    std::string* error) {
+    if (!valid_image(alpha_plate) || !valid_image(color_plate) ||
+        alpha_plate.width != color_plate.width || alpha_plate.height != color_plate.height) {
+        fail(error, "sprite alpha/color plates have incompatible dimensions/storage");
+        return std::nullopt;
+    }
+    const auto alpha_storage = static_cast<std::size_t>(alpha_plate.row_bytes) * alpha_plate.height;
+    const auto color_storage = static_cast<std::size_t>(color_plate.row_bytes) * color_plate.height;
+    if (alpha_plate.rgb555_pixels.size() < alpha_storage ||
+        color_plate.rgb555_pixels.size() < color_storage || color_plate.width < 3) {
+        fail(error, "sprite plate is missing decoded xRGB1555 pixels");
+        return std::nullopt;
+    }
+
+    auto scanned = extract_legacy_sprite_frames(alpha_plate, error);
+    if (!scanned) return std::nullopt;
+
+    // 0x18EB0..0x18EC0 reads the color plate's third 16-bit pixel and passes
+    // it through to 0x1D780 as the frame's transparent color key.
+    const auto transparent_key = color_plate.rgb555_pixels[2];
+    LegacySpriteGroupMetadata group;
+    group.id = id;
+    group.frames.reserve(scanned->size());
+
+    for (auto frame : *scanned) {
+        const auto& r = frame.source_rect;
+        if (r.left < 0 || r.top < 0 || r.right > alpha_plate.width || r.bottom > alpha_plate.height ||
+            r.width() != frame.width || r.height() != frame.height || frame.width <= 0 || frame.height <= 0) {
+            fail(error, "sprite frame rectangle lies outside matched plates");
+            return std::nullopt;
+        }
+
+        const auto pixel_count = static_cast<std::size_t>(frame.width) * frame.height;
+        frame.transparent_key = transparent_key;
+        frame.color_pixels.reserve(pixel_count);
+        frame.transparency.assign(pixel_count, 32u);
+        bool any_nontransparent = false;
+
+        for (int y = 0; y < frame.height; ++y) {
+            bool row_has_nontransparent = false;
+            for (int x = 0; x < frame.width; ++x) {
+                const auto alpha_offset = static_cast<std::size_t>(r.top + y) * alpha_plate.row_bytes +
+                                          static_cast<std::size_t>(r.left + x);
+                const auto color_offset = static_cast<std::size_t>(r.top + y) * color_plate.row_bytes +
+                                          static_cast<std::size_t>(r.left + x);
+                const auto alpha_pixel = alpha_plate.rgb555_pixels[alpha_offset];
+                frame.color_pixels.push_back(color_plate.rgb555_pixels[color_offset]);
+
+                std::uint16_t transparency = 32u;
+                if (alpha_pixel != transparent_key) {
+                    const auto red5 = static_cast<std::uint16_t>((alpha_pixel >> 10u) & 0x1fu);
+                    if (red5 < 31u) {
+                        transparency = red5;
+                        row_has_nontransparent = true;
+                        any_nontransparent = true;
+                    }
+                }
+                frame.transparency[static_cast<std::size_t>(y) * frame.width + x] = transparency;
+            }
+            // 0x1EFE4..0x1EFE8: a fully transparent row stores the 1000
+            // sentinel in its first mask word so the blitters can skip it.
+            if (!row_has_nontransparent) {
+                frame.transparency[static_cast<std::size_t>(y) * frame.width] = 1000u;
+            }
+        }
+
+        // 0x1EFFC..0x1F010 frees the whole plane when no pixel had a value
+        // below 31. The frame then falls back to transparent-key blitting.
+        if (!any_nontransparent) frame.transparency.clear();
+        group.frames.push_back(std::move(frame));
+    }
+    return group;
 }
 
 std::pair<int, int> legacy_scaled_sprite_dimensions(

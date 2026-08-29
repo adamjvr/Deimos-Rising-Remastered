@@ -1,6 +1,7 @@
 #include "deimos/render_runtime.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <stdexcept>
 
 namespace deimos {
@@ -202,6 +203,39 @@ int legacy_draw_layer_code(FourCC draw_layer, bool air_domain) {
     return 0;
 }
 
+namespace {
+bool shadow_uses_air_offsets(FourCC draw_layer, bool air_domain) {
+    if (draw_layer == FourCC{} || draw_layer == fourcc('n', 'o', 'n', 'e')) {
+        draw_layer = fourcc('d', 'e', 'f', 'a');
+    }
+    if (draw_layer == fourcc('d', 'e', 'f', 'a')) return air_domain;
+    if (draw_layer == fourcc('g', 'r', 'o', 'u') || draw_layer == fourcc('g', 'r', 'h', 'i')) return false;
+    if (draw_layer == fourcc('a', 'i', 'l', 'o') ||
+        draw_layer == fourcc('a', 'i', 'h', 'i') ||
+        draw_layer == fourcc('p', 'l', 'w', 'e') ||
+        draw_layer == fourcc('p', 'l', 'a', 'y') ||
+        draw_layer == fourcc('p', 'l', 's', 'h') ||
+        draw_layer == fourcc('p', 'l', 'e', 'f') ||
+        draw_layer == fourcc('p', 'l', 'u', 'i') ||
+        draw_layer == fourcc('a', 't', 'm', 'o') ||
+        draw_layer == fourcc('h', 'u', 'd', ' ')) return true;
+    // 0x13ED0 keeps the offsets prepared from +0x19 for unknown layers.
+    return air_domain;
+}
+
+int legacy_shadow_transparency(float visibility_percent) {
+    // 0x13580 fctiwz -> 0x10C20. 0x10C20 computes
+    // abs((visibility / 100) * 32 - 32), truncates toward zero and caps at 32.
+    const int visibility = static_cast<int>(std::trunc(visibility_percent));
+    const float mapped = std::fabs((static_cast<float>(visibility) / 100.0f) * 32.0f - 32.0f);
+    int transparency = static_cast<int>(std::trunc(mapped));
+    if (transparency > 32) transparency = 32;
+    // 0x135A0..0x135A8 prevents shadows from becoming more opaque than 12/32.
+    if (transparency < 20) transparency = 20;
+    return transparency;
+}
+}
+
 int legacy_shadow_layer_code(FourCC draw_layer, bool air_domain) {
     // 0x135B0..0x13D7C uses the companion shadow layer domain: default
     // ground/air are 2/6, explicit ground-high is 4, and the remaining
@@ -222,6 +256,74 @@ int legacy_shadow_layer_code(FourCC draw_layer, bool air_domain) {
         draw_layer == fourcc('a', 't', 'm', 'o') ||
         draw_layer == fourcc('h', 'u', 'd', ' ')) return 6;
     return 0;
+}
+
+std::optional<LegacyShadowRuntimeConfig> compile_legacy_shadow_runtime_config(
+    const NamedTable<float>& game_floats,
+    std::string* error) {
+    constexpr std::size_t first = 48;
+    constexpr std::array<const char*, 4> labels = {{
+        "Shadow_XOffset", "Shadow_YOffset", "Shadow_GroundXOffset", "Shadow_GroundYOffset"
+    }};
+    if (game_floats.size() < first + labels.size()) {
+        if (error) *error = "Game[gafl] is shorter than the 1.0.6 shadow positional contract";
+        return std::nullopt;
+    }
+    for (std::size_t i = 0; i < labels.size(); ++i) {
+        if (game_floats[first + i].first != labels[i]) {
+            if (error) *error = "unexpected Game[gafl] shadow label at index " + std::to_string(first + i);
+            return std::nullopt;
+        }
+    }
+    LegacyShadowRuntimeConfig out;
+    out.air_x_offset = game_floats[48].second;
+    out.air_y_offset = game_floats[49].second;
+    out.ground_x_offset = game_floats[50].second;
+    out.ground_y_offset = game_floats[51].second;
+    return out;
+}
+
+LegacyShadowRequestGeometry build_legacy_shadow_request_geometry(
+    const LegacySpriteVisualRuntime& runtime,
+    float world_x,
+    float world_y,
+    const LegacyShadowRuntimeConfig& config,
+    LegacyShadowTransformContext context) {
+    LegacyShadowRequestGeometry out;
+    out.numeric_layer = runtime.draw_to_terrain ? 0 : legacy_shadow_layer_code(runtime.draw_layer, runtime.air_domain);
+    out.transparency_0_to_32 = legacy_shadow_transparency(runtime.visibility_percent);
+    out.draw_to_terrain = runtime.draw_to_terrain;
+
+    const bool air_offsets = shadow_uses_air_offsets(runtime.draw_layer, runtime.air_domain);
+    float offset_scale = runtime.scale;
+    int raw_x = 0;
+    int raw_y = 0;
+    if (air_offsets) {
+        out.scale = 0.5f * runtime.scale; // code literal table +0x18 == 0.5f
+        offset_scale = runtime.adjust_shadow_location_for_scaling ? out.scale : 0.5f;
+        raw_x = static_cast<int>(std::trunc(config.air_x_offset));
+        raw_y = static_cast<int>(std::trunc(config.air_y_offset));
+    } else {
+        out.scale = runtime.scale;
+        raw_x = static_cast<int>(std::trunc(config.ground_x_offset));
+        raw_y = static_cast<int>(std::trunc(config.ground_y_offset));
+    }
+    const int x_offset = static_cast<int>(std::trunc(static_cast<float>(raw_x) * offset_scale));
+    const int y_offset = static_cast<int>(std::trunc(static_cast<float>(raw_y) * offset_scale));
+
+    if (runtime.draw_to_terrain) {
+        // 0x13490/0x1387C and companion branches use a fixed 32-pixel X shift
+        // and the current 0xFEC0 world/background Y origin.
+        out.x = static_cast<int>(std::trunc(world_x + static_cast<float>(x_offset) - 32.0f));
+        out.y = static_cast<int>(std::trunc(world_y + static_cast<float>(y_offset) +
+                                            static_cast<float>(context.world_y_origin)));
+    } else {
+        const int view_offset = runtime.world_space ? context.horizontal_view_offset : 0;
+        out.x = static_cast<int>(std::trunc(world_x + static_cast<float>(x_offset) -
+                                            static_cast<float>(view_offset)));
+        out.y = static_cast<int>(std::trunc(world_y + static_cast<float>(y_offset)));
+    }
+    return out;
 }
 
 std::vector<LegacyRenderIntent> build_legacy_render_intents(

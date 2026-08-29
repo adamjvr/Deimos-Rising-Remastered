@@ -48,6 +48,32 @@ int main() {
     assert((*frames)[1].width == 2 && (*frames)[1].height == 2);
     assert(((*frames)[1].source_rect == LegacySpriteRect{9,4,11,6}));
 
+    // Reconstruct the deeper 0x18D20/0x1D780 frame payload. The color key is
+    // color-plate pixel (2,0); the alpha plate's red five bits are stored as
+    // inverted transparency (0 opaque .. 32 transparent), with 1000 as the
+    // all-transparent row sentinel.
+    plate.rgb555_pixels.assign(plate.pixels.size(), 0x7fffu);
+    auto color_plate = plate;
+    color_plate.rgb555_pixels.assign(color_plate.pixels.size(), 0x1234u);
+    color_plate.rgb555_pixels[2] = 0x03a0u;
+    // Frame 0 row 0 remains white/fully transparent. Row 1 is opaque black;
+    // row 2 uses a 15/31 partial-transparency grayscale.
+    for (int x = 3; x < 6; ++x) {
+        plate.rgb555_pixels[4 * 13 + x] = 0x0000u;
+        plate.rgb555_pixels[5 * 13 + x] = static_cast<std::uint16_t>((15u << 10u) | (15u << 5u) | 15u);
+    }
+    auto full_group = build_legacy_sprite_group(id('t','e','s','t'), plate, color_plate, &error);
+    assert(full_group && full_group->frames.size() == 2);
+    const auto& surface = full_group->frames[0];
+    assert(surface.transparent_key == 0x03a0u);
+    assert(surface.color_pixels.size() == 9);
+    assert(surface.has_surface());
+    assert(surface.has_transparency_plane());
+    assert(surface.transparency.size() == 9);
+    assert(surface.transparency[0] == 1000u);
+    assert(surface.transparency[3] == 0u);
+    assert(surface.transparency[6] == 15u);
+
     LegacySpriteCache cache;
     LegacySpriteGroupMetadata group{id('t','e','s','t'), *frames};
     assert(cache.publish(group));
@@ -89,6 +115,8 @@ int main() {
     assert(decoded->width == 1 && decoded->height == 1);
     assert(decoded->pixels.size() == 1);
     assert(decoded->pixels[0] == 0);
+    assert(decoded->rgb555_pixels.size() == 1);
+    assert(decoded->rgb555_pixels[0] == 0x0000u);
 
     return 0;
 }

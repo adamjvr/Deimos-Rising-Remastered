@@ -121,12 +121,12 @@ The clean destruction trace captures the obstacle rect and `castsShadows` fact.
 The deterministic `0x12F20` visual/render-request boundary is now reconstructed:
 visibility gating, shadow/main pass selection, layer mapping, base/tint/glow ordering,
 and the distinct terrain-submission path are represented headlessly. Sprite-resource
-lookup, exact shadow/world transforms, backend submission, and underlying bitmap/terrain
+lookup and exact shadow transforms are now reconstructed; backend submission and underlying bitmap/terrain
 composition remain downstream.
 
 ## Validation
 
-The repository suite is **29/29 PASS**. The canonical `Game.pak` probe verifies
+The repository suite is **31/31 PASS**. The canonical `Game.pak` probe verifies
 all new compiled fields and the fixed water-impact labels/IDs while retaining
 the established deterministic baseline:
 
