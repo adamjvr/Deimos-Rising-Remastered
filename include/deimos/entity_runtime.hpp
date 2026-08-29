@@ -1,5 +1,6 @@
 #pragma once
 
+#include "deimos/particle_runtime.hpp"
 #include "deimos/spawn_runtime.hpp"
 #include "deimos/unit_behavior.hpp"
 #include "deimos/unit_definition.hpp"
@@ -265,6 +266,8 @@ struct EntityRuntime {
     std::int32_t last_on_hit_transition_tick = 0;   // original +0xFC
     std::int32_t last_collision_spawn_tick = 0;     // original +0xD0
     int collision_spawn_count = 0;                  // original +0xD4
+    std::int32_t last_state_particle_tick = 0;       // original +0xF0
+    int state_particle_burst_count = 0;              // original +0xF4
     bool consumed_as_player_pickup = false;          // original +0xCA
     std::int8_t destroyed_by_owner_index = -1;      // original +0xD9
 
@@ -447,6 +450,12 @@ struct EntityTickContext {
     // interpreter to a particular world/container implementation.
     std::function<void(EntityRuntime&)> owner_location_phase;
 
+    // Recovered 0x43340 particle producer bridge. A missing context preserves
+    // bounded headless execution while still advancing the original producer
+    // counters/timestamps. A valid context constructs particles inline and
+    // therefore consumes RNG at the exact legacy call position.
+    LegacyParticleExecutionContext particle_execution{};
+
     SpawnScheduleContext spawn_schedule;
 };
 
@@ -456,6 +465,8 @@ struct EntityTickSpawnEvent {
 };
 
 struct EntityTickResult {
+    std::optional<LegacyParticleSpawnRequest> state_particle_spawn;
+    bool state_particle_executed = false;
     bool timer_action_processed = false;
     bool rule_matched = false;
     bool range_action_processed = false;
@@ -463,7 +474,7 @@ struct EntityTickResult {
 };
 
 // Recovered headless subset of the 1.0.6 per-member update order:
-// timer -> animation/world facts -> first matching rule -> target/Hunt/no-player
+// state-particle producer -> timer -> animation/world facts -> first matching rule -> target/Hunt/no-player
 // phase -> range -> Hold/Cyclic/Flee/convergence -> owner Lock/Link/Orbit ->
 // spawn scheduling. State actions refresh current state immediately, so later
 // phases in the same tick observe the new state.

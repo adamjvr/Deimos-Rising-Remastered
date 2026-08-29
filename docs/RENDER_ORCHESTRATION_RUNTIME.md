@@ -10,7 +10,7 @@ The implementation is in:
 - `src/core/render_orchestration.cpp`
 - `tests/render_orchestration_test.cpp`
 
-It intentionally stops before native window/GPU presentation. The persistent terrain/background surface and camera lifecycle is now closed separately in `TERRAIN_SURFACE_RUNTIME.md`; the remaining renderer boundary is outer frame-loop integration.
+It intentionally stops before native window/GPU presentation. The persistent terrain/background surface and camera lifecycle is closed separately in `TERRAIN_SURFACE_RUNTIME.md`, and `PARTICLE_WORLD_RENDER_RUNTIME.md` now closes the recovered outer world-composition order plus the `0x43BA0` particle raster.
 
 ## Raw request construction
 
@@ -132,7 +132,7 @@ composition.
 - sprite-base `+0x90` one-per-sequence main terrain stamp;
 - end-to-end semantic request -> queue -> compositor mutation.
 
-The complete repository suite is **34/34 PASS** and the external canonical
+The complete repository suite is **37/37 PASS** and the external canonical
 `Game.pak` / `Audio.pak` / `Music.pak` probe remains unchanged, including the
 software-render corpus hash `0x32290b39b091e970` and the historical gameplay
 RNG/count oracle.
@@ -144,8 +144,8 @@ or terrain surface lifetime. Direct PPC disassembly now proves `0x10120` is a
 full 416x480 persistent-terrain viewport copy, while `0x10220` only moves the
 source Rect. It is primarily:
 
-- bind the proven `0x30BC0` order: group 0 terrain writes -> `0x10120` full
-  viewport copy -> group 1 -> `0x43BA0` -> group 2;
-- resolve `0x43BA0` and remaining entity/player/world call-site choreography;
+- preserve the now-implemented `0x30BC0` order: group 0 terrain writes ->
+  `0x10120` full viewport copy -> group 1 -> particle raster -> group 2;
+- particle producer/update semantics are now closed; finish remaining entity/player/world call-site choreography and identify native presentation ownership;
 - identify remaining UI/non-sprite special presentation paths;
 - attach the verified 16-bit framebuffer to a native presentation layer.

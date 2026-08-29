@@ -157,7 +157,7 @@ The sprite-resource and source-frame boundaries no longer include bitmap constru
 
 - exact clipping and destination-surface arithmetic in the software blitters;
 - backend identities/dispatch beneath `0x18A40`, `0x19570`, and the alternate submission path;
-- top-level frame-loop binding around the now-reconstructed persistent terrain/background surface and full-viewport copy;
+- native-presentation ownership after the now-bound persistent-terrain/particle world-composition segment;
 - original QuickDraw allocation/lifetime details only where they produce a gameplay- or renderer-visible contract.
 
 See `SPRITE_FRAME_BITMAP_RUNTIME.md` for the recovered xRGB1555 frame object and transparency plane, and `SHADOW_RUNTIME.md` for the exact `0x13460` shadow transform.

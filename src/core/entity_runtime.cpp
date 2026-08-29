@@ -8,6 +8,13 @@
 namespace deimos {
 namespace {
 
+constexpr FourCC kNoneFourCC{{'n', 'o', 'n', 'e'}};
+constexpr FourCC kGroundFourCC{{'g', 'r', 'n', 'd'}};
+
+bool fourcc_is_none_or_empty(FourCC id) {
+    return id == FourCC{} || id == kNoneFourCC;
+}
+
 int unit_int(const UnitDefinition& unit, const char* key, int fallback) {
     return unit.core_fields.int_value(key).value_or(fallback);
 }
@@ -145,6 +152,11 @@ void enter_entity_state_impl(
         compiled.timer_min == compiled.timer_max ? 0u : random.next15();
     const auto entry = enter_unit_state(
         entity.state, entity.behavior, state_index, current_tick, timer_random);
+
+    // PPC state entry stores zero only to live +0xF4. The previous particle
+    // burst tick at +0xF0 survives state changes and therefore still affects
+    // repeat-delay gating in the newly entered state.
+    entity.state_particle_burst_count = 0;
 
     initialize_entity_state_motion(entity, unit, previous_state_index);
     initialize_state_spawn_runtime(entity, unit, state_index, current_tick, random);
@@ -640,6 +652,10 @@ void initialize_entity_state_machine(
     entity.spawn_runtime_by_state.clear();
     entity.spawn_runtime_by_state.resize(unit.states.size());
     entity.lifecycle = EntityLifecycle::active;
+    // Fresh member construction zeros both live +0xF0 and +0xF4 before the
+    // initial state-entry path (which itself resets only +0xF4).
+    entity.last_state_particle_tick = 0;
+    entity.state_particle_burst_count = 0;
     enter_entity_state(entity, unit, 0, current_tick, random);
 }
 
@@ -778,6 +794,43 @@ EntityTickResult advance_entity_runtime(
     if (entity.state.current_state >= entity.behavior.states.size() ||
         entity.state.current_state >= unit.states.size()) {
         throw std::out_of_range("live entity current state outside Unit Definition");
+    }
+
+    // PPC 0x33A7C..0x33B60 runs the state-particle producer before the timer
+    // and rule phases. The outer member path reaches this block only after its
+    // group-delay gate; callers that model group delay should therefore avoid
+    // invoking this tick until that gate opens.
+    {
+        const auto state_index = entity.state.current_state;
+        const auto& state = entity.behavior.states[state_index];
+        const bool has_particles = !fourcc_is_none_or_empty(state.state_particles);
+        bool due = has_particles;
+        if (due && state.state_particles_repeat) {
+            if (entity.last_state_particle_tick != 0) {
+                const auto repeat_gate = static_cast<std::int32_t>(
+                    static_cast<std::uint32_t>(entity.last_state_particle_tick) +
+                    static_cast<std::uint32_t>(state.state_particle_repeat_delay));
+                due = static_cast<std::int32_t>(context.current_tick) >= repeat_gate;
+            }
+        } else if (due) {
+            due = entity.state_particle_burst_count == 0;
+        }
+        if (due && state.state_particle_max_bursts != 0) {
+            due = entity.state_particle_burst_count < state.state_particle_max_bursts;
+        }
+
+        if (due) {
+            auto request = make_legacy_particle_spawn_request(
+                entity.x, entity.y, state.state_particles, state.state_particle_color,
+                entity.behavior.collision_domain == kGroundFourCC, 0);
+            result.state_particle_spawn = request;
+            result.state_particle_executed = execute_legacy_particle_spawn(
+                context.particle_execution, request, random);
+            // 0x33B48/0x33B50 updates these even if 0x43340 returns immediately
+            // for an unknown preset. This is producer state, not spawn success.
+            ++entity.state_particle_burst_count;
+            entity.last_state_particle_tick = static_cast<std::int32_t>(context.current_tick);
+        }
     }
 
     // Main entity update around PPC 0x33C58: timer is checked before the

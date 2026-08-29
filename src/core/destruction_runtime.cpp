@@ -242,6 +242,11 @@ bool apply_legacy_destruction_effects(
         event.resource_id = entity.behavior.destruction_particles;
         event.color = entity.behavior.destruction_particle_color;
         event.ground_based = is_ground(entity);
+        event.particle_spawn = make_legacy_particle_spawn_request(
+            entity.x, entity.y, entity.behavior.destruction_particles,
+            entity.behavior.destruction_particle_color, event.ground_based, 0);
+        event.particle_executed = execute_legacy_particle_spawn(
+            context.particle_execution, *event.particle_spawn, random);
         trace.consequences.push_back(std::move(event));
     }
 

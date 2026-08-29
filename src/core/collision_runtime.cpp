@@ -11,6 +11,8 @@
 namespace deimos {
 namespace {
 
+constexpr FourCC kGroundDomain{{'g', 'r', 'n', 'd'}};
+
 bool active(const EntityRuntime& entity) {
     return entity.lifecycle == EntityLifecycle::active;
 }
@@ -407,6 +409,16 @@ CollisionDamageResult apply_collision_damage(
     // even if apply_entity_state_action changed target.state.current_state.
     result.collision_glow_due = !state_before.do_not_glow_on_collision;
     result.hit_particles_due = !fourcc_is_none_or_empty(target.behavior.hit_particles);
+    if (result.hit_particles_due) {
+        const bool ground_space = target.behavior.collision_domain == kGroundDomain;
+        result.hit_particle_spawn = make_legacy_particle_spawn_request(
+            target.x, target.y, target.behavior.hit_particles,
+            target.behavior.hit_particle_color, ground_space, 0);
+        if (removal_context) {
+            result.hit_particle_executed = execute_legacy_particle_spawn(
+                removal_context->particle_execution, *result.hit_particle_spawn, random);
+        }
+    }
 
     if (!fourcc_is_none_or_empty(state_before.collision_spawn)) {
         const bool repetition_allows =

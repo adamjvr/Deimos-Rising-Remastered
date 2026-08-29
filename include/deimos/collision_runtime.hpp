@@ -1,6 +1,7 @@
 #pragma once
 
 #include "deimos/entity_world.hpp"
+#include "deimos/particle_runtime.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -74,6 +75,8 @@ struct CollisionDamageResult {
     std::optional<std::size_t> shield_depletion_state_index;
     bool collision_glow_due = false;
     bool hit_particles_due = false;
+    std::optional<LegacyParticleSpawnRequest> hit_particle_spawn;
+    bool hit_particle_executed = false;
     int score_award = 0;
     std::optional<FourCC> collision_spawn_due;
 };

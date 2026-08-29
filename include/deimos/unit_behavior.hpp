@@ -96,7 +96,15 @@ struct CompiledUnitStateBehavior {
     bool invulnerable_on_collision = false;          // state +0x348
     bool collides_with_players = false;              // state +0x34F
     bool do_not_glow_on_collision = false;           // state +0x354
-    bool use_on_shield_depletion = false;              // state +0x356
+    bool use_on_shield_depletion = false;            // state +0x356
+
+    // Particle producer fields consumed inline by PPC 0x33A7C..0x33B60.
+    FourCC state_particles{};                        // state +0x2D0
+    Rgb24 state_particle_color{};                    // state +0x2D4 packed xRGB1555
+    bool state_particles_repeat = false;             // state +0x2D6
+    int state_particle_repeat_delay = 0;             // state +0x2D8
+    int state_particle_max_bursts = 0;               // state +0x2DC
+
     FourCC collision_spawn{};                        // state +0x2E0
     bool collision_repeat_spawns = false;            // state +0x2E4
     int collision_spawn_delay = 0;                   // state +0x2E8
@@ -145,6 +153,8 @@ struct CompiledUnitBehavior {
     float shields_level_increment = 0.0f;            // UnitDef +0x440
     float shields_max = 0.0f;                        // UnitDef +0x444
     FourCC hit_particles{};                          // UnitDef +0x2D8
+    bool hit_particle_circular_burst = false;        // source loader field; canonical data false
+    Rgb24 hit_particle_color{};                      // compiled packed color read at UnitDef +0x17E
     FourCC deletion_spawn{};                         // UnitDef +0x2DC
 
     // Destruction/removal fields consumed by PPC 0x16300 / 0x36120 / 0x36610.

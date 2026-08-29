@@ -115,6 +115,8 @@ CompiledUnitBehavior compile_unit_behavior(const UnitDefinition& unit) {
     out.shields_level_increment = core_float(unit, "shields_LevelIncrement_FLOAT");
     out.shields_max = core_float(unit, "shields_MaxAmount_FLOAT");
     out.hit_particles = core_id(unit, "hitParticles_ID");
+    out.hit_particle_circular_burst = core_bool(unit, "hitParticleDoCircularBurst_BOOL");
+    out.hit_particle_color = core_color(unit, "hitParticlesColor_COLOR");
     out.deletion_spawn = core_id(unit, "deletionSpawn_ID");
     out.destruction_spawn = core_id(unit, "destructSpawn_ID");
     out.destruction_particles = core_id(unit, "destructParticle_ID");
@@ -172,6 +174,11 @@ CompiledUnitBehavior compile_unit_behavior(const UnitDefinition& unit) {
         compiled.do_not_glow_on_collision = field_bool(state, "stateDoNotGlowOnCollision_BOOL");
         compiled.use_on_shield_depletion = field_bool(
             state, "stateUseThisStateOnShieldDepletion_BOOL");
+        compiled.state_particles = field_id(state, "stateParticles_ID");
+        compiled.state_particle_color = field_color(state, "stateParticlesColor_COLOR");
+        compiled.state_particles_repeat = field_bool(state, "stateParticlesRepeat_BOOL");
+        compiled.state_particle_repeat_delay = field_int(state, "stateParticles_RepeatDelay_INT");
+        compiled.state_particle_max_bursts = field_int(state, "stateParticles_MaxNumBursts_INT");
         out.has_shield_depletion_state =
             out.has_shield_depletion_state || compiled.use_on_shield_depletion;
         compiled.collision_spawn = field_id(state, "collision_Spawn_ID");

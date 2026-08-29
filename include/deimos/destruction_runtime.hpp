@@ -2,6 +2,7 @@
 
 #include "deimos/data_tables.hpp"
 #include "deimos/entity_world.hpp"
+#include "deimos/particle_runtime.hpp"
 #include "deimos/terrain_runtime.hpp"
 
 #include <array>
@@ -85,6 +86,8 @@ struct LegacyRemovalConsequence {
     std::uint32_t tick = 0;
     CompiledDestructionSoundBehavior sound{};
     std::optional<SpawnRequestSeed> spawn_request;
+    std::optional<LegacyParticleSpawnRequest> particle_spawn;
+    bool particle_executed = false;
     std::optional<RectI> rectangle;
     bool casts_shadows = false;
 };
@@ -119,6 +122,10 @@ struct LegacyRemovalContext {
     // queried by collidesWithGroundObstacles. Null keeps isolated tests/headless
     // callers from manufacturing terrain state they do not own.
     LegacyGroundObstacleRects* ground_obstacles = nullptr;
+
+    // Optional exact execution bridge for the inline destruction-particle call
+    // to PPC 0x43340. Consequence facts are still emitted when this is absent.
+    LegacyParticleExecutionContext particle_execution{};
 };
 
 // PPC 0x16300. Emits deterministic headless consequence facts in original

@@ -9,6 +9,7 @@
 #include "deimos/legacy_text.hpp"
 #include "deimos/level.hpp"
 #include "deimos/pak_archive.hpp"
+#include "deimos/particle_runtime.hpp"
 #include "deimos/player_definition.hpp"
 #include "deimos/player_runtime.hpp"
 #include "deimos/render_runtime.hpp"
@@ -200,6 +201,7 @@ int main(int argc, char** argv) {
     std::size_t state_collides = 0, state_pass_hits_owner = 0;
     std::size_t state_collision_invulnerable = 0, state_collides_players = 0;
     std::size_t state_no_collision_glow = 0, state_collision_spawns = 0;
+    std::size_t state_particle_effects = 0, state_particle_repeat = 0;
     std::size_t state_shield_depletion = 0, unit_shield_depletion_state = 0;
     std::size_t unit_ground_collision_domain = 0, unit_air_collision_domain = 0;
     std::size_t unit_harmless = 0, unit_player_projectile = 0, unit_player_projectile_hittable = 0;
@@ -217,6 +219,7 @@ int main(int argc, char** argv) {
     std::size_t unit_death_spawn_any_media = 0, unit_media_impact_size = 0;
     std::size_t unit_destruction_spawns = 0, unit_deletion_spawns = 0;
     std::size_t unit_destruction_particles = 0, unit_destruction_notices = 0;
+    std::size_t unit_hit_particles = 0, unit_hit_particle_circular = 0;
     std::size_t unit_destruction_sounds = 0, unit_destruction_coin_rewards = 0;
     std::size_t unit_group_kill_coin_rewards = 0, unit_destroy_children = 0;
     std::size_t unit_delete_children = 0, unit_create_obstacle = 0;
@@ -320,6 +323,9 @@ int main(int argc, char** argv) {
                 behavior.can_be_hit_by_player_projectile != unit->core_fields.bool_value("canBeHitByPlayerProjectile_BOOL").value_or(false) ||
                 behavior.collision_damage != unit->core_fields.float_value("damage_FLOAT").value_or(0.0f) ||
                 behavior.shields_base != unit->core_fields.float_value("shields_BaseAmount_FLOAT").value_or(0.0f) ||
+                !(behavior.hit_particles == unit->core_fields.id_value("hitParticles_ID").value_or(deimos::FourCC{})) ||
+                behavior.hit_particle_circular_burst != unit->core_fields.bool_value("hitParticleDoCircularBurst_BOOL").value_or(false) ||
+                !(behavior.hit_particle_color == unit->core_fields.color_value("hitParticlesColor_COLOR").value_or(deimos::Rgb24{})) ||
                 behavior.casts_shadows != unit->core_fields.bool_value("castsShadows_BOOL").value_or(false) ||
                 behavior.collides_with_ground_obstacles != unit->core_fields.bool_value("collidesWithGroundObstacles_BOOL").value_or(false) ||
                 behavior.death_spawn_on_any_media != unit->core_fields.bool_value("doDeathSpawnOnAnyMedia_BOOL").value_or(false) ||
@@ -372,6 +378,8 @@ int main(int argc, char** argv) {
             const auto present = [](deimos::FourCC value) {
                 return !(value == deimos::FourCC{}) && value.str() != "none" && value.str() != "NULL";
             };
+            unit_hit_particles += present(behavior.hit_particles);
+            unit_hit_particle_circular += behavior.hit_particle_circular_burst;
             unit_casts_shadows += behavior.casts_shadows;
             unit_adjust_shadow_scaling += behavior.adjust_shadow_location_for_scaling;
             unit_scale_tolerance += behavior.initial_scale_tolerance_percent != 0;
@@ -420,6 +428,11 @@ int main(int argc, char** argv) {
                     "stateInvulnerable_ShieldsDoNotDepleteOnCollision_BOOL").value_or(false);
                 const bool expected_players = state.fields.bool_value("stateCollidesWithPlayers_BOOL").value_or(false);
                 const bool expected_no_glow = state.fields.bool_value("stateDoNotGlowOnCollision_BOOL").value_or(false);
+                const auto expected_state_particles = state.fields.id_value("stateParticles_ID").value_or(deimos::FourCC{});
+                const auto expected_state_particle_color = state.fields.color_value("stateParticlesColor_COLOR").value_or(deimos::Rgb24{});
+                const bool expected_state_particle_repeat = state.fields.bool_value("stateParticlesRepeat_BOOL").value_or(false);
+                const int expected_state_particle_delay = state.fields.int_value("stateParticles_RepeatDelay_INT").value_or(0);
+                const int expected_state_particle_max = state.fields.int_value("stateParticles_MaxNumBursts_INT").value_or(0);
                 const auto expected_spawn = state.fields.id_value("collision_Spawn_ID").value_or(deimos::FourCC{});
                 const bool expected_shield_depletion = state.fields.bool_value(
                     "stateUseThisStateOnShieldDepletion_BOOL").value_or(false);
@@ -460,6 +473,11 @@ int main(int argc, char** argv) {
                     compiled_state.invulnerable_on_collision != expected_invulnerable ||
                     compiled_state.collides_with_players != expected_players ||
                     compiled_state.do_not_glow_on_collision != expected_no_glow ||
+                    !(compiled_state.state_particles == expected_state_particles) ||
+                    !(compiled_state.state_particle_color == expected_state_particle_color) ||
+                    compiled_state.state_particles_repeat != expected_state_particle_repeat ||
+                    compiled_state.state_particle_repeat_delay != expected_state_particle_delay ||
+                    compiled_state.state_particle_max_bursts != expected_state_particle_max ||
                     compiled_state.use_on_shield_depletion != expected_shield_depletion ||
                     !(compiled_state.collision_spawn == expected_spawn) ||
                     compiled_state.can_be_destroyed_on_owner_destruction != expected_destroy_with_owner ||
@@ -473,6 +491,8 @@ int main(int argc, char** argv) {
                 state_collision_invulnerable += expected_invulnerable;
                 state_collides_players += expected_players;
                 state_no_collision_glow += expected_no_glow;
+                state_particle_effects += expected_state_particles.str() != "none" && !(expected_state_particles == deimos::FourCC{});
+                state_particle_repeat += expected_state_particle_repeat;
                 state_collision_spawns += expected_spawn.str() != "none" && !(expected_spawn == deimos::FourCC{});
                 state_shield_depletion += expected_shield_depletion;
                 unit_has_shield_depletion = unit_has_shield_depletion || expected_shield_depletion;
@@ -609,6 +629,16 @@ int main(int argc, char** argv) {
     if (!water_impact_config) {
         std::cerr << "canonical water-impact config: " << error << '\n';
         return 24;
+    }
+    const auto particle_tuning = deimos::compile_legacy_particle_tuning(
+        *canonical_game_floats, &error);
+    if (!particle_tuning || particle_tuning->velocity_damping != 0.96f ||
+        particle_tuning->color_variation_adjust != 0.12f ||
+        particle_tuning->fringe_color_adjust != 0.6f ||
+        particle_tuning->blend_rate_short != 3 || particle_tuning->blend_rate_long != 1) {
+        std::cerr << "canonical particle tuning: "
+                  << (error.empty() ? "unexpected values" : error) << '\n';
+        return 32;
     }
     const auto terrain_surface_config = deimos::compile_legacy_terrain_surface_config(
         *canonical_game_floats, &error);
@@ -971,6 +1001,11 @@ int main(int argc, char** argv) {
               << "  text formats: " << text_formats << '\n'
               << "  string lists: " << string_lists << '\n'
               << "  rect lists: " << rect_lists << '\n'
+              << "  particle tuning: damping=" << particle_tuning->velocity_damping
+              << " colorVar=" << particle_tuning->color_variation_adjust
+              << " fringe=" << particle_tuning->fringe_color_adjust
+              << " blendRates=" << particle_tuning->blend_rate_short << "/"
+              << particle_tuning->blend_rate_long << '\n'
               << "  units: " << units << '\n'
               << "  unit states: " << unit_states << '\n'
               << "    Lock-to-owner states: " << state_lock_owner
@@ -990,6 +1025,8 @@ int main(int argc, char** argv) {
               << "    Player-collision states: " << state_collides_players << '\n'
               << "    No-glow-on-collision states: " << state_no_collision_glow << '\n'
               << "    Collision-spawn states: " << state_collision_spawns << '\n'
+              << "    Hit-particle units: " << unit_hit_particles << " (circular flag=" << unit_hit_particle_circular << ")\n"
+              << "    State-particle states: " << state_particle_effects << " (repeat=" << state_particle_repeat << ")\n"
               << "    Shield-depletion states: " << state_shield_depletion << '\n'
               << "    Units with shield-depletion state: " << unit_shield_depletion_state << '\n'
               << "  collision domains: air=" << unit_air_collision_domain

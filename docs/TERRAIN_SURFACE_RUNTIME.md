@@ -183,15 +183,15 @@ the mutation persists and reappears at the expected visible coordinate.
 
 ## Proven top-level ordering around the terrain copy
 
-Direct disassembly of the world renderer around `0x30BC0` now bounds the next
-integration milestone:
+Direct disassembly of the world renderer around `0x30BC0` bounds the exact
+composition order now implemented by `render_legacy_world_frame()`:
 
 ```text
 0x2DEA0(...)
 0x18B20(group 0)       # layers 0..1: one-shot terrain shadow/main writes
 0x10120()              # full persistent-terrain -> visible viewport copy
 0x18B20(group 1)       # layers 2..5
-0x43BA0(...)            # remaining world/player presentation boundary
+0x43BA0(...)            # direct 7x7 particle raster into visible surface
 0x18B20(group 2)       # layers 6..15
 ```
 
@@ -200,10 +200,10 @@ copy: layer 0/1 mutations become part of the persistent terrain raster, then
 the newly updated raster is copied into the visible gameplay surface before
 ordinary sprite layers are composited.
 
-The clean project does **not yet** claim that complete outer frame-loop helper;
-this milestone closes the surface/camera primitives it depends on. Binding the
-three flush phases and the remaining `0x43BA0` call-site choreography is the
-next renderer task.
+The complete recovered outer composition segment is now implemented by
+`render_legacy_world_frame()`: all three queue groups, the full terrain copy,
+and the exact `0x43BA0` particle pass preserve the `0x30BC0` ordering and draw
+latch. Native display/presentation remains a separate platform boundary.
 
 ## Validation
 
@@ -222,17 +222,16 @@ next renderer task.
 - top and bottom clamp behavior from `0x10220`;
 - invalid/small destination rejection in the clean wrapper.
 
-The repository suite is **34/34 PASS in Debug**, and the canonical `Game.pak`
+The repository suite is **37/37 PASS in Debug**, and the canonical `Game.pak`
 probe confirms `416x480x16` while preserving the established gameplay oracles:
 386 groups, 546 constructed live members, 544 active after the first tick, and
 RNG seeds `2249411936` / `2633739833`.
 
 ## Remaining terrain/render boundaries
 
-- bind the proven `0x30BC0` flush/copy ordering into one clean frame
-  orchestration path;
-- resolve the remaining `0x43BA0` world/player presentation call and any
-  non-sprite/UI special paths;
+- particle construction/update and state/hit/destruction producers are now closed; continue outward from the recovered `0x43BA0` raster to native presentation ownership;
+- recover any non-sprite/UI special paths and native-display ownership after
+  the closed `0x30BC0` composition segment;
 - bind a decoded Media Mask provider instead of the current clean callback;
 - attach the verified 16-bit visible gameplay surface to native presentation
   without changing the recovered software-render arithmetic.

@@ -153,6 +153,6 @@ The following are deliberately outside this boundary:
 - exact destination clipping/software-blitter internals;
 - backend dispatch/submission below `0x18A40` / `0x19570`;
 - the remaining alternate renderer submission selector;
-- bind the recovered full-terrain viewport/frame-loop choreography and native presentation after terrain-target composition.
+- preserve the now-bound full-terrain/world-frame choreography while recovering native presentation after terrain-target composition.
 
 Shadow position, scale, layer selection, and transparency are no longer open renderer questions.

@@ -77,7 +77,7 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **34/34**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **37/37**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Software render-backend findings now binary-confirmed
 
@@ -100,7 +100,17 @@ Synthetic repository tests pass **34/34**. Original assets/binaries are used onl
 - `0x10220` changes only source-Rect/scroll state and publishes the applied vertical delta; `0x10000` adds the end latch and one-row `top-64` activation.
 - Normal +1 scrolling preserves the executable's one-pixel end quirk: progress reaches the terrain height with source top still at `1`.
 - `0x10120` copies the **entire 416x480 viewport** from the persistent terrain surface into the visible gameplay surface on each call, using horizontal source left `max(0, horizontalOffset+32)`.
-- Direct `0x30BC0` ordering is now bounded as terrain queue group 0 -> full terrain viewport copy -> group 1 -> `0x43BA0` -> group 2. The clean outer frame-loop binding is the next renderer checkpoint.
+- Direct `0x30BC0` ordering is now implemented as terrain queue group 0 -> full terrain viewport copy -> group 1 -> particle raster `0x43BA0` -> group 2. The caller's draw latch gates only the viewport copy and particle pass; all three queue flushes remain unconditional.
+
+### Particle/world-frame findings now binary-confirmed
+
+- `0x43BA0` is the particle subsystem's direct 16-bit visible-surface rasterizer, not native presentation or a generic post-process.
+- The surrounding executable cluster is bounded as `0x43340` particle construction, `0x438C0` update/prune, `0x43BA0` raster, and `0x44550` clear/destruction.
+- Canonical `Game[gafl]` indices 144..148 are label-verified as `Particle_Gravity=0.96`, `Particle_ColorVariationAdjust=0.12`, `Particle_FringeColorAdjust=0.6`, `Particle_BlendAmountRate_Short=3.0`, and `Particle_BlendAmountRate_Long=1.0`.
+- The raster record uses active byte `+0`, core/fringe xRGB1555 colors `+2/+4`, blend amount `+8`, float X/Y `+0x0C/+0x10`, and velocity X/Y `+0x14/+0x18`; positive system delay `+0x468` skips the whole object.
+- Screen X subtracts `0x100A0`; clipping is the exact float contract `x/y>=0` and `x/y+7<visibleExtent` before truncate-toward-zero conversion.
+- The exact 7x7 radial kernel is reconstructed, including the five-pixel core-color plus, radial `q+22/q+10/q+6/q` transparency bands saturated at 31, and the legacy center discontinuity `q>6 ? q-7 : q`.
+- `render_legacy_world_frame()` closes the recovered `0x30BC0` composition sequence while intentionally stopping before native display ownership.
 
 ### Audio/music resource findings now confirmed
 
@@ -174,7 +184,7 @@ Synthetic repository tests pass **34/34**. Original assets/binaries are used onl
 - Member constructor `0x35DAC..0x35DF0` caches the existence of any such state in live `+0xCD`.
 - On zero shields, `0x14F10` awards score and either calls ordinary destruction (`+0xCD == 0`) or `0x17E70`, which enters the first marked state (`+0xCD != 0`).
 - Stock canonical `Game.pak` has 0 marked shield-depletion states; the executable path is retained through synthetic compatibility regression.
-- Core-edge checkpoint remains covered inside the current **34/34 PASS** suite; canonical constructor/first-tick seeds remain unchanged.
+- Core-edge checkpoint remains covered inside the current **37/37 PASS** suite; canonical constructor/first-tick seeds remain unchanged.
 
 
 ### Visual/render-request findings now binary-confirmed
@@ -250,7 +260,7 @@ Synthetic repository tests pass **34/34**. Original assets/binaries are used onl
 - `0xFEE0` samples the 16-bit Media Mask and recognizes value `31` on the water-impact path. Sample coordinates are `trunc(x)+32`, `trunc(y)+worldYOrigin`.
 - `Objects[gaob]` 6..9 are label-verified water-impact IDs `spti/spsm/spme/spla`; `tiny/smal/med /larg/smra/mera/lara` routing and RNG order are reproduced exactly.
 - Ground-obstacle store `0x2A6D0/0x2A770/0x2A830/0x2A950` is reconstructed as an append-only persistent Rect list with vertical scroll shifting, inclusive edge overlap, and reset. `destructDrawToTerrain_BOOL` appends to this same store.
-- `destructCreateObstacle_BOOL` is distinct: outer cleanup copies `castsShadows_BOOL` into live render state and calls `0x12F20`; the clean core now reconstructs the deterministic visual/render-request boundary, exact source frame surfaces, and exact shadow transform reached there. Software clipping/blending, queue/backend submission, per-request terrain-target pixel composition, persistent terrain surface lifetime, camera scrolling, and full-viewport background copying are now reconstructed; native presentation and final outer frame-loop binding remain bounded.
+- `destructCreateObstacle_BOOL` is distinct: outer cleanup copies `castsShadows_BOOL` into live render state and calls `0x12F20`; the clean core now reconstructs the deterministic visual/render-request boundary, exact source frame surfaces, exact shadow transform, software clipping/blending, queue/backend submission, per-request terrain-target composition, persistent terrain surface lifetime, camera scrolling, full-viewport background copying, exact particle raster, and the outer `0x30BC0` world-composition order. Native presentation remains separate.
 - Canonical terrain/media corpus: 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units; fixed water IDs are `spti/spsm/spme/spla`.
 
 ### Sprite-frame/shadow findings now binary-confirmed
@@ -264,8 +274,17 @@ Synthetic repository tests pass **34/34**. Original assets/binaries are used onl
 
 ### Active reverse-engineering fronts
 
-1. Bind the proven `0x30BC0` order (terrain layers 0..1 -> full 416x480 terrain viewport copy -> layers 2..5 -> `0x43BA0` -> layers 6..15), resolve the remaining world/player presentation boundary, and then attach native display ownership.
+1. Continue beyond the now-closed `0x30BC0` world-composition and complete particle lifecycle to recover native presentation ownership, display-copy/swap timing, and any overlays outside that segment.
 2. Bind the recovered player life/respawn/game-over lifecycle spawn/audio/UI facts into full world orchestration and continue into the remaining active-player movement/weapon boundaries.
 3. Wire every remaining non-collision destruction entry site through the same clean teardown orchestration.
 4. Recover the rare special single-member parent-container / intrusive-list semantics around `0x33220` and bind an actual decoded Media Mask provider to the terrain/media runtime.
 5. Expand Windows evidence and replay/action mapping after the remaining Mac gameplay-core boundaries are stable.
+
+
+## 2026-08-28 — particle lifecycle and gameplay-producer milestone
+
+Direct PPC reconstruction now closes `0x44630/0x431F0/0x43340/0x438C0` and binds all three recovered gameplay particle producers. Startup creates parallel 100-entry unit/varied direction tables and seeds two cursors after 302 RNG draws; the varied table uses 1/.85/.70/.55 factors. `0x43340` accepts `tiny/smal/med /larg` and `tici/smci/meci/laci` as 5/10/20/40-particle presets with 3/5 velocity magnitudes. `0x438C0` is ground-scroll-aware damping/integration plus inclusive -32/+32 X and visible-Y footprint bounds and long-rate fade/prune.
+
+State particles are now proven to run before the timer/rule portion, with live +0xF0 last-burst tick and +0xF4 burst count. State entry resets only +0xF4, preserving the previous timestamp. Collision-hit and destruction producers construct the same 24-byte request and can execute inline through an optional particle context, preserving original shared-RNG placement without forcing global particle state into bounded headless tests.
+
+The canonical probe source-validates all new fields and reports **3 hit-particle units (0 circular flag), 7 state-particle states (4 repeat), and 99 destruction-particle units**. All established hashes/seeds and 386/546/544 gameplay counts remain unchanged. The Debug synthetic suite is now **37/37 PASS**. The next rendering boundary is native presentation outside the closed `0x30BC0` world-composition segment.

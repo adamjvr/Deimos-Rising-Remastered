@@ -29,6 +29,10 @@ deimos::DefinitionField f_string(const char* key, const char* value) {
 deimos::DefinitionField f_id(const char* key, deimos::FourCC value) {
     return {key, value, value.str(), 0};
 }
+deimos::DefinitionField f_color(const char* key, deimos::Rgb24 value) {
+    return {key, value, std::to_string(value.red) + "," +
+        std::to_string(value.green) + "," + std::to_string(value.blue), 0};
+}
 
 struct UnitOptions {
     bool ground = false;
@@ -67,6 +71,8 @@ deimos::UnitDefinition make_unit(const UnitOptions& o) {
     u.core_fields.add(f_float("shields_LevelIncrement_FLOAT", 0.0f));
     u.core_fields.add(f_float("shields_MaxAmount_FLOAT", o.shields));
     u.core_fields.add(f_id("hitParticles_ID", id("tiny")));
+    u.core_fields.add(f_bool("hitParticleDoCircularBurst_BOOL", false));
+    u.core_fields.add(f_color("hitParticlesColor_COLOR", {248, 128, 64}));
     u.core_fields.add(f_int("score_INT", o.score));
     u.core_fields.add(f_id("pickup_Type_ID", o.pickup_type));
     u.core_fields.add(f_int("pickup_Value_INT", o.pickup_value));
@@ -431,12 +437,20 @@ int main() {
     // Canonical Entity_HitDelay=1 is a strict '>' gate. Tick 1 is blocked
     // from an initial last-hit tick of zero; tick 2 applies.
     auto damage_target = make_entity(30, 30, id("enem"), enemy_u);
+    damage_target.x = 12.5f;
+    damage_target.y = 23.75f;
     auto d = deimos::apply_collision_damage(damage_target, enemy_u, 3.0f, 2, 1, rng);
     assert(!d.applied && near(damage_target.shields, 10.0f));
     d = deimos::apply_collision_damage(damage_target, enemy_u, 3.0f, 2, 2, rng);
     assert(d.applied && near(d.shields_before, 10.0f));
     assert(near(d.shields_after, 7.0f) && near(d.absorbed_damage, 3.0f));
     assert(d.collision_glow_due && d.hit_particles_due);
+    assert(d.hit_particle_spawn);
+    assert(d.hit_particle_spawn->x == 12.5f && d.hit_particle_spawn->y == 23.75f);
+    assert(d.hit_particle_spawn->preset == id("tiny"));
+    assert(d.hit_particle_spawn->color == 0x7e08u);
+    assert(!d.hit_particle_spawn->ground_space);
+    assert(!d.hit_particle_executed);
     d = deimos::apply_collision_damage(damage_target, enemy_u, 1.0f, 2, 3, rng);
     assert(!d.applied && near(damage_target.shields, 7.0f));
 

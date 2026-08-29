@@ -611,3 +611,40 @@ The suite is now **34/34 PASS in Debug**. The real canonical `Game.pak` probe
 reports `terrain viewport/depth: 416x480x16` while retaining 386 groups / 546
 constructed members / 544 first-tick active members and RNG seeds `2249411936`
 / `2633739833`.
+
+## 2026-08-28 — Exact particle raster and outer world-frame composition
+
+Direct PPC re-entry around the previously unresolved `0x43BA0` slot corrected an
+important architectural assumption. `0x43BA0` is not presentation: it is the
+particle subsystem's direct xRGB1555 rasterizer. The surrounding executable
+cluster is coherent: `0x43340` constructs particle systems, `0x438C0` updates and
+prunes them, `0x43BA0` draws them, and `0x44550` clears the subsystem. Canonical
+`Game[gafl]` indices 144..148 are label-bound as `Particle_Gravity=0.96`,
+`Particle_ColorVariationAdjust=0.12`, `Particle_FringeColorAdjust=0.6`,
+`Particle_BlendAmountRate_Short=3.0`, and `Particle_BlendAmountRate_Long=1.0`.
+
+The `0x43BA0` unrolled 7x7 kernel was symbolically reconstructed exactly. It
+subtracts the `0x100A0` horizontal view offset, performs strict float clipping
+against `0.0` and `+7.0` before PPC truncation, and blends fringe/core xRGB1555
+colors through radial transparency bands `min(q+22,31)`, `min(q+10,31)`,
+`min(q+6,31)`, and `q`. The five core-color taps form a plus. The center carries
+a genuine legacy discontinuity, using `q>6 ? q-7 : q`; the regression freezes
+that behavior rather than regularizing it.
+
+Direct caller disassembly also closes the outer composition segment at
+`0x30BC0`: `0x18B20(group0)` -> `0x10120` full terrain viewport copy ->
+`0x18B20(group1)` -> `0x43BA0` particles -> `0x18B20(group2)`. The caller's r28
+draw latch gates only the terrain copy and particle pass, not the three queue
+flushes. `LegacyParticle`/`LegacyParticleSystem`, `rasterize_legacy_particles()`,
+and `render_legacy_world_frame()` now encode these facts directly. Dedicated
+particle and world-frame regressions raise the repository suite to **36/36 PASS
+in Debug**. The canonical `Game.pak` probe label-validates particle tuning while
+preserving all prior gameplay/RNG/render hashes and the 416x480x16 terrain
+contract.
+
+
+## 2026-08-28 — Particle construction/update and gameplay producers
+
+Disassembly of `0x44630/0x431F0` proves startup constructs 100 normalized random directions and parallel speed-varied copies (1/.85/.70/.55), then seeds two 0..99 cursors. `0x43340` recognizes exactly eight preset FourCCs (`tiny/smal/med /larg` plus `tici/smci/meci/laci`) for 5/10/20/40 particles and 3/5 velocity magnitude. Unknown IDs return without RNG. `0x438C0` applies the `0xFED0` terrain delta only to ground-space systems, damps both axes by `Particle_Gravity`, integrates, applies x>=-32 / x+7<=width+32 / y>=0 / y+7<=height, and uses the long blend rate for the recovered forward/reverse lifetime branches.
+
+Three direct `0x43340` callers are now bound. `0x33A7C..0x33B60` uses state fields +0x2D0..+0x2DC and live +0xF0/+0xF4; state entry clears only +0xF4. `0x150BC..0x15114` emits non-lethal hit particles from UnitDef hit fields. `0x1636C..0x163C4` emits destruction particles before later destruction consequences. Canonical source validation corrects an earlier temporary-corpus assumption: 7 state-particle states exist and 4 have repeat enabled; 3 hit-particle units exist and all have the source circular Boolean false. Suite: 37/37 Debug PASS; canonical gameplay/render hashes and RNG seeds unchanged.

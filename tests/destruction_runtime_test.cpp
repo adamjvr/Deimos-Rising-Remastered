@@ -139,7 +139,7 @@ int main() {
         e.player_owner_index = 2;
         e.behavior.destruction_draw_to_terrain = true;
         e.behavior.destruction_particles = id("dust");
-        e.behavior.destruction_particle_color = {1, 2, 3};
+        e.behavior.destruction_particle_color = {248, 128, 64};
         e.behavior.destruction_spawn = id("frag");
         e.behavior.destruction_notice = "Destroyed";
         e.behavior.destruction_sound.id = id("kabm");
@@ -171,7 +171,14 @@ int main() {
         assert(trace.consequences.size() == 6);
         assert(is_kind(trace.consequences[0], deimos::LegacyRemovalConsequenceKind::terrain_draw));
         assert(is_kind(trace.consequences[1], deimos::LegacyRemovalConsequenceKind::destruction_particles));
-        assert((trace.consequences[1].color == deimos::Rgb24{1, 2, 3}));
+        assert((trace.consequences[1].color == deimos::Rgb24{248, 128, 64}));
+        assert(trace.consequences[1].particle_spawn);
+        assert(trace.consequences[1].particle_spawn->x == e.x);
+        assert(trace.consequences[1].particle_spawn->y == e.y);
+        assert(trace.consequences[1].particle_spawn->preset == id("dust"));
+        assert(trace.consequences[1].particle_spawn->color == 0x7e08u);
+        assert(trace.consequences[1].particle_spawn->ground_space);
+        assert(!trace.consequences[1].particle_executed);
         assert(is_kind(trace.consequences[2], deimos::LegacyRemovalConsequenceKind::destruction_spawn));
         assert(trace.consequences[2].resource_id == id("frag"));
         assert(trace.consequences[2].spawn_request->parent.handle == e.handle);
