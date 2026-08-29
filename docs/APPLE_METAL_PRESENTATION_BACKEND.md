@@ -115,17 +115,14 @@ portable C++ and that adding the Apple target does not perturb `deimos_core`.
 The complete existing deterministic suite and canonical PAK probes remain the
 reference gate.
 
-The Objective-C++ Metal target itself requires an Apple SDK and therefore must
-be compiled/run on macOS (and later the native iPadOS toolchain) before this
-adapter is considered device-validated.
+The Objective-C++ Metal target has now compiled successfully with both macOS
+and iPadOS Apple toolchains. The next validation layer is the reusable native
+host view plus real drawable/screenshot parity; see `APPLE_METAL_HOST_VIEW.md`.
 
 ## Next Apple step
 
-After the static backend compiles on macOS/iPadOS, the next integration layer
-is a minimal native host view/controller that:
-
-1. owns a `CAMetalLayer`;
-2. obtains the current drawable size;
-3. runs the clean gameplay-frame renderer into the canonical 640x480 surface;
-4. calls `present_modern_frame()` with `AppleMetalPresentationBackend`;
-5. validates nearest-mode screenshots against the CPU reference presenter.
+The static backend has compiled on both Apple targets. `deimos_apple_host` now
+implements the minimal reusable native view layer above it. The next validation
+step is to build that target, insert its native view into macOS/iPadOS app view
+hierarchies, present a canonical frame, and compare nearest-mode captures to the
+CPU reference presenter.

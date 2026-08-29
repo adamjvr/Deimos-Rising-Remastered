@@ -64,6 +64,43 @@ if(APPLE AND DEIMOS_BUILD_APPLE_METAL)
             ${DEIMOS_METAL_FRAMEWORK}
             ${DEIMOS_QUARTZCORE_FRAMEWORK}
             ${DEIMOS_FOUNDATION_FRAMEWORK})
+
+    option(DEIMOS_BUILD_APPLE_HOST "Build the reusable macOS/iPadOS native Metal host view" ON)
+    if(DEIMOS_BUILD_APPLE_HOST)
+        # Reusable AppKit/UIKit host view. This is intentionally separate from the
+    # Metal renderer so applications can own lifecycle/navigation while this
+    # adapter owns only the native view + CAMetalLayer presentation surface.
+        add_library(deimos_apple_host STATIC
+            src/platform/apple/apple_metal_host_view.mm)
+        target_include_directories(deimos_apple_host PUBLIC include)
+        target_compile_features(deimos_apple_host PUBLIC cxx_std_20)
+        target_compile_options(deimos_apple_host PRIVATE -fobjc-arc)
+        target_compile_definitions(deimos_apple_host PUBLIC DEIMOS_HAS_APPLE_HOST_VIEW=1)
+        target_link_libraries(deimos_apple_host
+            PUBLIC deimos_metal_backend
+            PRIVATE ${DEIMOS_QUARTZCORE_FRAMEWORK} ${DEIMOS_FOUNDATION_FRAMEWORK})
+
+        if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+            find_library(DEIMOS_UIKIT_FRAMEWORK UIKit REQUIRED)
+            target_link_libraries(deimos_apple_host PRIVATE ${DEIMOS_UIKIT_FRAMEWORK})
+        else()
+            find_library(DEIMOS_APPKIT_FRAMEWORK AppKit REQUIRED)
+            target_link_libraries(deimos_apple_host PRIVATE ${DEIMOS_APPKIT_FRAMEWORK})
+        endif()
+
+        option(DEIMOS_BUILD_APPLE_SMOKE_APP "Build the native Apple Metal host smoke application" OFF)
+        if(DEIMOS_BUILD_APPLE_SMOKE_APP)
+            add_executable(deimos_apple_host_smoke MACOSX_BUNDLE
+                src/platform/apple/apple_host_smoke_app.mm)
+            target_compile_features(deimos_apple_host_smoke PRIVATE cxx_std_20)
+            target_compile_options(deimos_apple_host_smoke PRIVATE -fobjc-arc)
+            target_link_libraries(deimos_apple_host_smoke PRIVATE deimos_apple_host)
+            set_target_properties(deimos_apple_host_smoke PROPERTIES
+                MACOSX_BUNDLE_BUNDLE_NAME "Deimos Rising Metal Host Smoke"
+                MACOSX_BUNDLE_GUI_IDENTIFIER "com.deimosrising.remastered.hostsmoke"
+                XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "com.deimosrising.remastered.hostsmoke")
+        endif()
+    endif()
 endif()
 
 option(DEIMOS_BUILD_TOOLS "Build reverse-engineering/reference validation tools" ON)
@@ -118,6 +155,7 @@ if(BUILD_TESTING)
         level_select_effect_runtime_test
         modern_presentation_runtime_test
         apple_metal_public_header_test
+        apple_metal_host_view_public_header_test
         shadow_runtime_test
         sprite_resource_test
         sprite_frame_bitmap_test
