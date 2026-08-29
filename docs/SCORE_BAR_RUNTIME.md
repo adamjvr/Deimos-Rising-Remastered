@@ -22,8 +22,7 @@ Primary PPC cluster:
 - `0x327B0` weapon preview;
 - `0x32A70` dirty-region helper.
 
-The clean implementation deliberately models semantic state and dirty regions;
-it does not reproduce QuickDraw/Text rendering internals.
+This document concentrates on semantic state and dirty-region production. The original-pixel execution of those dirty regions is now closed separately in `SCORE_BAR_PIXEL_RUNTIME.md`, using the canonical `scor` TGA and `Interface.pak` `tesm` glyph atlas.
 
 ## Static Game[gafl] contract
 
@@ -224,7 +223,8 @@ Files:
 - `include/deimos/score_bar_runtime.hpp`;
 - `src/core/score_bar_runtime.cpp`;
 - `tests/score_bar_runtime_test.cpp`;
-- score producer additions in `player_runtime.*` / `PlayerRuntimeSlot`.
+- score producer additions in `player_runtime.*` / `PlayerRuntimeSlot`;
+- pixel consumer and original-asset oracle documented in `SCORE_BAR_PIXEL_RUNTIME.md`.
 
 The score-bar compiler rejects shifted/modded tables whose labels no longer
 match the proven 1.0.6 positional contract. Regression coverage freezes the

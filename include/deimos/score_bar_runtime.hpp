@@ -2,12 +2,16 @@
 
 #include "deimos/data_tables.hpp"
 #include "deimos/player_runtime.hpp"
+#include "deimos/render_backend.hpp"
+#include "deimos/sprite_resource.hpp"
 #include "deimos/weapon_definition.hpp"
 
 #include <array>
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <vector>
 
 namespace deimos {
 
@@ -111,5 +115,59 @@ void advance_legacy_score_bar_player(
 [[nodiscard]] int legacy_score_bar_displayed_lives(
     int semantic_lives,
     const LegacyScoreBarConfig& config);
+
+
+// Text-format slots used directly by 0x31D70/0x32050 and the meter COST
+// overlays. The original loader resolves `tesp` -> `tesm`; the latter lives in
+// Interface.pak, not Game.pak.
+struct LegacyScoreBarTextStyles {
+    TextFormatDefinition shield{};             // runtime ordinal 41 / sbsh
+    TextFormatDefinition power{};              // runtime ordinal 42 / sbpm
+    std::array<TextFormatDefinition, 2> score{};      // 43/44 / sbs1,sbs2
+    std::array<TextFormatDefinition, 2> lives{};      // 45/46 / sbl1,sbl2
+    std::array<TextFormatDefinition, 2> last_life{};  // 47/48 / sll1,sll2
+};
+
+// Exact printable-ASCII dispatch reconstructed from 0xE8D0. Space is a
+// layout-only character and returns no frame. Unsupported bytes return null.
+[[nodiscard]] std::optional<int> legacy_small_text_frame_for_char(unsigned char c);
+
+// Upper five bits per RGB24 channel, matching the xRGB1555 words used by the
+// original compositor and text Colorise_RGB fields.
+[[nodiscard]] std::uint16_t legacy_rgb24_to_rgb555(Rgb24 color);
+
+// Build the direct 0x19570 requests produced by the original small-text path.
+// For the score/lives formats used here DrawShadows is false; the function also
+// supports CENTER/LEFT/RIGHT alignment, monospaced metrics and the recovered
+// pre-glyph spacing convention. hidden_content applies the score-bar half-fade
+// toward transparency 32 before requests are emitted.
+[[nodiscard]] std::vector<LegacyRasterRequest> build_legacy_small_text_requests(
+    const LegacySpriteGroupMetadata& small_text_font,
+    const TextFormatDefinition& style,
+    std::string_view text,
+    bool hidden_content = false);
+
+// Exact C formatting used by 0x31D70 and 0x32050.
+[[nodiscard]] std::string format_legacy_score_value(int score); // "%0.7i"
+[[nodiscard]] std::string format_legacy_lives_value(int displayed_lives); // "%i"
+
+struct LegacyScoreBarRenderAssets {
+    const LegacyRasterSurface* base_panel = nullptr; // canonical `scor` 160x480 TGA
+    const LegacySpriteGroupMetadata* small_text_font = nullptr; // canonical `tesm`
+    const LegacySpriteCache* sprites = nullptr;
+};
+
+// Rasterize the six dirty classes for one player exactly into the 576x480
+// source-presentation canvas. The static panel occupies x=416..575; Rects[inre]
+// are local to that 160px panel and are translated by +416 before restore/draw.
+// Dirty flags are inputs only and are not cleared here.
+[[nodiscard]] bool rasterize_legacy_score_bar_player(
+    int player_index,
+    const LegacyScoreBarPlayerState& state,
+    const LegacyScoreBarConfig& config,
+    const LegacyScoreBarTextStyles& styles,
+    const LegacyScoreBarRenderAssets& assets,
+    LegacyRasterSurface& presentation_canvas,
+    std::string* error = nullptr);
 
 } // namespace deimos

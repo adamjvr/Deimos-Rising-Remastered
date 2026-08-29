@@ -1,6 +1,6 @@
 # Status
 
-## 2026-08-28 — terrain surface/runtime milestone
+## 2026-08-29 — score-bar pixel + gameplay-frame orchestration milestone
 
 ### Evidence corpus
 
@@ -77,7 +77,7 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **39/39**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **42/42**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Software render-backend findings now binary-confirmed
 
@@ -184,7 +184,7 @@ Synthetic repository tests pass **39/39**. Original assets/binaries are used onl
 - Member constructor `0x35DAC..0x35DF0` caches the existence of any such state in live `+0xCD`.
 - On zero shields, `0x14F10` awards score and either calls ordinary destruction (`+0xCD == 0`) or `0x17E70`, which enters the first marked state (`+0xCD != 0`).
 - Stock canonical `Game.pak` has 0 marked shield-depletion states; the executable path is retained through synthetic compatibility regression.
-- Core-edge checkpoint remains covered inside the current **39/39 PASS** suite; canonical constructor/first-tick seeds remain unchanged.
+- Core-edge checkpoint remains covered inside the current **41/41 PASS** suite; canonical constructor/first-tick seeds remain unchanged.
 
 
 ### Visual/render-request findings now binary-confirmed
@@ -296,7 +296,7 @@ Direct PPC tracing beyond `0x30BC0` closes the original QuickDraw copy stage. Th
 
 `Game[gafl]` indices 52..60 are now label-verified as 640x480 minimum frame, 416x480 visible game, 16-bit depth, 160x480 score bar, and 32-pixel left/right borders. The identity is exact: **32 + 416 + 160 + 32 = 640**. `0xBEB0` performs two QuickDraw `CopyBits` operations from the source canvas: game `{0,0,480,416}` and score bar `{0,416,480,576}`, placing them into the centered 640x480 frame after the left border. Wider displays also `PaintRect` the two side strips black. Mode 0 instead copies one complete 640x480 frame.
 
-`LegacyPresentationConfig`, plan generation, and a bounded portable xRGB1555 plan executor now freeze those semantics. `0x9E40` was also classified precisely as a `SetGWorld` activation helper, not a score-bar renderer. That upstream producer is now recovered in `SCORE_BAR_RUNTIME.md`; remaining UI work is the element-specific text/fade pixel path. The synthetic suite is **39/39 Debug PASS**; canonical probe reports `native presentation frame: 640x480x16 = 32 + 416 + 160 + 32` with all prior hashes, counts, and RNG seeds unchanged. See `NATIVE_PRESENTATION_RUNTIME.md`.
+`LegacyPresentationConfig`, plan generation, and a bounded portable xRGB1555 plan executor now freeze those semantics. `0x9E40` was also classified precisely as a `SetGWorld` activation helper, not a score-bar renderer. That upstream producer is recovered in `SCORE_BAR_RUNTIME.md`, and the element-specific original-pixel path is now closed in `SCORE_BAR_PIXEL_RUNTIME.md` using canonical `scor` + `Interface.pak` TESM assets. The synthetic suite is **41/41 Debug PASS**; canonical probe reports `native presentation frame: 640x480x16 = 32 + 416 + 160 + 32` with all prior hashes, counts, and RNG seeds unchanged. See `NATIVE_PRESENTATION_RUNTIME.md`.
 
 
 ### Score-bar producer/cache and score findings now binary-confirmed
@@ -307,7 +307,7 @@ Direct PPC tracing beyond `0x30BC0` closes the original QuickDraw copy stage. Th
 - Lives render as `clamp(lives - 1, 0, 9)`, reconciling canonical max semantic lives 10 with the maximum displayed count 9.
 - Player Definition score-bar base/power/shield sprite resources are compiled, and all 5 canonical Weapon Definitions expose validated score-bar preview face/frame descriptors.
 - `0x299F0/0x29A00/0x29A10` now provide concrete clean score production: ordinary awards multiply by the live bonus multiplier, extra-life comparison is strict `newScore > threshold`, only one threshold is consumed per call, and canonical thresholds are initial 10000 / additional 30000 with Game[182] adjustment 10000.
-- Dedicated score-bar regression raises the Debug suite to **39/39 PASS** while canonical renderer hashes and constructor/motion RNG seeds remain unchanged.
+- The semantic score-bar regression is now joined by original-pixel and full gameplay-frame orchestration regressions; the current Debug suite is **41/41 PASS** while canonical renderer hashes and constructor/motion RNG seeds remain unchanged.
 
 
 ## 2026-08-29 — Score-bar producer + final legacy display-commit milestone
@@ -316,4 +316,16 @@ The 160x480 score-bar producer/cache is now modeled directly from `0x30F40..0x32
 
 The final Mac display commit is also closed. `0xC470` calls the sole imported `DSpContext_GetFrontBuffer` only to obtain fullscreen bounds through `0x44B50`; `0xAE20` then creates a matching `NewCWindow`, and `0xBEB0`/`0xBC60` ultimately `CopyBits` into that QuickDraw window port. The PEF imports neither `DSpContext_GetBackBuffer` nor `DSpContext_SwapBuffers`, so there is no hidden post-copy flip to reconstruct. `LegacyPresentationCommit::ImmediateQuickDrawWindowCopyNoSwap` records this historical semantic while leaving modern backends free to use native swapchains.
 
-The Debug synthetic suite remains **39/39 PASS** and the canonical Game.pak probe preserves both renderer hashes, 386/546/544 entity counts, and both established RNG seeds.
+The score-bar pixel + gameplay-frame follow-up raises the Debug synthetic suite to **41/41 PASS**. With canonical `Interface.pak` present, the probe additionally validates 91 TESM frames and score-bar sample FNV64 `0xd2f48984985f54d8`; both established renderer hashes, 386/546/544 entity counts, and both RNG seeds remain unchanged.
+
+
+## 2026-08-29 — Original score-bar pixels + complete visible-frame orchestration
+
+The score-bar pixel consumer is now closed through original assets. Canonical `Scorebar[scor].TGA` decodes as a 160x480 xRGB1555 surface. The small text renderer resolves `tesp` to the 91-frame `TESM/tesm` pair in sibling `Interface.pak`; scores use `%0.7i`, lives use `%i`, normal numeric text is cyan `#94DEE6`, and the final-life zero uses red `#FF0000`. Dirty redraw restores the static panel first, then uses the shared recovered compositor for glyphs, life symbols, weapon previews, and shield/power meter COST masks. Canonical sample score-bar FNV64 is `0xd2f48984985f54d8`.
+
+The outer gameplay loop also resolves the missing orchestration order: `0x5A18 -> 0x7070 -> 0x31AE0` draws the score bar before `0x5AB0 -> 0x30570 -> 0x30BC0` performs world composition and mode-1 presentation. `render_legacy_gameplay_frame()` now binds score-bar pixels, the exact group0/terrain/group1/particles/group2 world pass, 576x480 source composition, and the recovered 640x480 presentation plan in one portable boundary. Current Debug suite: **41/41 PASS**.
+
+
+## 2026-08-29 — Level-select acceptance/failure visual closure
+
+The residual `0x2F7A0..0x2FE40` `COST` path is now classified and implemented as a front-end level-selection effect, not a gameplay HUD layer. `Formats[gate]` runtime ordinals 27/28 are label-verified as `lsca`/`lscf`; canonical acceptance loads green `0x03e0` at blend 16 and failure loads red `0x7c00` at blend 16. `Game[gafl]` 44..47 supply exact scale pulses 0.18→2.0 and 0.25→2.0. The updater fades blend one step toward 32 while scale runs 0→max→0, yielding 24-tick acceptance and 16-tick failure lifetimes before exact reset. The shared `COST` rectangle request is now represented by the clean renderer. Debug suite: **42/42 PASS**. Gameplay visible-frame orchestration remains unchanged and closed.

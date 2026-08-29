@@ -6,8 +6,10 @@
 #include "deimos/entity_world.hpp"
 #include "deimos/film.hpp"
 #include "deimos/game_definitions.hpp"
+#include "deimos/image16_resource.hpp"
 #include "deimos/legacy_text.hpp"
 #include "deimos/level.hpp"
+#include "deimos/level_select_effect_runtime.hpp"
 #include "deimos/pak_archive.hpp"
 #include "deimos/particle_runtime.hpp"
 #include "deimos/player_definition.hpp"
@@ -244,6 +246,9 @@ int main(int argc, char** argv) {
     std::optional<deimos::NamedTable<float>> canonical_game_floats;
     std::optional<deimos::NamedTable<deimos::FourCC>> canonical_game_objects;
     std::optional<deimos::NamedTable<deimos::RectI>> canonical_game_rects;
+    std::map<std::string, deimos::TextFormatDefinition> canonical_scorebar_text_styles;
+    std::map<std::string, deimos::TextFormatDefinition> canonical_level_select_effect_styles;
+    std::optional<deimos::LegacyRasterSurface> canonical_scorebar_panel;
 
     for (const auto& entry : pak->entries()) {
         if (entry.is_directory) continue;
@@ -257,6 +262,14 @@ int main(int argc, char** argv) {
         const auto dot = entry.path.find_last_of('.');
         if (dot == std::string::npos) continue;
         const auto ext = entry.path.substr(dot);
+
+        if (entry.path == "im16/Scorebar[scor].TGA") {
+            canonical_scorebar_panel = deimos::decode_legacy_tga16(*bytes, &error);
+            if (!canonical_scorebar_panel) {
+                std::cerr << entry.path << ": 16-bit TGA decode failed: " << error << '\n';
+                return 37;
+            }
+        }
 
         if (ext == ".gif") {
             const auto resource_name = deimos::parse_resource_name(entry.path);
@@ -623,7 +636,24 @@ int main(int argc, char** argv) {
                 ++float_lists;
             }
             if (ext == ".coli") { ok = bool(deimos::parse_color_list(*doc, &error)); ++color_lists; }
-            if (ext == ".tefo") { ok = bool(deimos::parse_text_format(*doc, &error)); ++text_formats; }
+            if (ext == ".tefo") {
+                auto format = deimos::parse_text_format(*doc, &error);
+                ok = bool(format);
+                if (format) {
+                    const auto resource = deimos::parse_resource_name(entry.path);
+                    if (resource) {
+                        const auto tag = resource->tag.str();
+                        if (tag == "sbsh" || tag == "sbpm" || tag == "sbs1" || tag == "sbs2" ||
+                            tag == "sbl1" || tag == "sbl2" || tag == "sll1" || tag == "sll2") {
+                            canonical_scorebar_text_styles[tag] = *format;
+                        }
+                        if (tag == "lsca" || tag == "lscf") {
+                            canonical_level_select_effect_styles[tag] = *format;
+                        }
+                    }
+                }
+                ++text_formats;
+            }
             if (ext == ".stli") { ok = bool(deimos::parse_string_list(*doc, &error)); ++string_lists; }
             if (ext == ".reli") {
                 auto table = deimos::parse_rect_list(*doc, &error);
@@ -713,6 +743,134 @@ int main(int argc, char** argv) {
                   << (error.empty() ? "unexpected values" : error) << '\n';
         return 36;
     }
+    if (!canonical_scorebar_panel || canonical_scorebar_panel->width != 160 || canonical_scorebar_panel->height != 480) {
+        std::cerr << "canonical score-bar panel is missing or not 160x480\n";
+        return 37;
+    }
+    constexpr std::array<const char*, 8> scorebar_style_tags = {{
+        "sbsh","sbpm","sbs1","sbs2","sbl1","sbl2","sll1","sll2"
+    }};
+    for (const auto* tag : scorebar_style_tags) {
+        if (!canonical_scorebar_text_styles.contains(tag)) {
+            std::cerr << "canonical score-bar text style missing: " << tag << '\n';
+            return 37;
+        }
+    }
+    deimos::LegacyScoreBarTextStyles scorebar_styles;
+    scorebar_styles.shield = canonical_scorebar_text_styles.at("sbsh");
+    scorebar_styles.power = canonical_scorebar_text_styles.at("sbpm");
+    scorebar_styles.score = {{canonical_scorebar_text_styles.at("sbs1"), canonical_scorebar_text_styles.at("sbs2")}};
+    scorebar_styles.lives = {{canonical_scorebar_text_styles.at("sbl1"), canonical_scorebar_text_styles.at("sbl2")}};
+    scorebar_styles.last_life = {{canonical_scorebar_text_styles.at("sll1"), canonical_scorebar_text_styles.at("sll2")}};
+    const auto canonical_cyan = deimos::Rgb24{0x94,0xde,0xe6};
+    const auto canonical_red = deimos::Rgb24{0xff,0x00,0x00};
+    if (scorebar_styles.score[0].x != 494 || scorebar_styles.score[0].y != 83 ||
+        scorebar_styles.score[1].x != 494 || scorebar_styles.score[1].y != 318 ||
+        scorebar_styles.score[0].format_token != "CENT" || !scorebar_styles.score[0].monospaced ||
+        scorebar_styles.score[0].draw_shadows || scorebar_styles.score[0].space_between_chars != 4 ||
+        !scorebar_styles.score[0].colorise || !(scorebar_styles.score[0].colorise_color == canonical_cyan) ||
+        scorebar_styles.lives[0].x != 499 || scorebar_styles.lives[0].y != 50 ||
+        scorebar_styles.lives[1].x != 498 || scorebar_styles.lives[1].y != 285 ||
+        scorebar_styles.lives[0].space_between_chars != 0 ||
+        !(scorebar_styles.last_life[0].colorise_color == canonical_red) ||
+        !(scorebar_styles.last_life[1].colorise_color == canonical_red) ||
+        !scorebar_styles.shield.color_strip || scorebar_styles.shield.color_strip_blend_amount_0_to_32 != 8 ||
+        !(scorebar_styles.shield.color_strip_color == deimos::Rgb24{0,0,0}) ||
+        !scorebar_styles.power.color_strip || scorebar_styles.power.color_strip_blend_amount_0_to_32 != 8) {
+        std::cerr << "canonical score-bar text/meter style contract changed unexpectedly\n";
+        return 37;
+    }
+
+    const auto level_select_effect_config = deimos::compile_legacy_level_select_effect_config(
+        *canonical_game_floats, &error);
+    if (!level_select_effect_config ||
+        level_select_effect_config->acceptance_scaling_rate != 0.18f ||
+        level_select_effect_config->acceptance_max_scale != 2.0f ||
+        level_select_effect_config->failure_scaling_rate != 0.25f ||
+        level_select_effect_config->failure_max_scale != 2.0f ||
+        !canonical_level_select_effect_styles.contains("lsca") ||
+        !canonical_level_select_effect_styles.contains("lscf")) {
+        std::cerr << "canonical level-select effect contract changed unexpectedly: "
+                  << (error.empty() ? "unexpected values/styles" : error) << '\n';
+        return 38;
+    }
+    const auto level_accept_style = deimos::compile_legacy_level_select_effect_style(
+        canonical_level_select_effect_styles.at("lsca"));
+    const auto level_failure_style = deimos::compile_legacy_level_select_effect_style(
+        canonical_level_select_effect_styles.at("lscf"));
+    if (level_accept_style.blend_amount_0_to_32 != 16 ||
+        level_failure_style.blend_amount_0_to_32 != 16 ||
+        level_accept_style.color_rgb555 != 0x03e0 ||
+        level_failure_style.color_rgb555 != 0x7c00) {
+        std::cerr << "canonical level-select acceptance/failure style changed unexpectedly\n";
+        return 38;
+    }
+
+    std::size_t scorebar_font_frames = 0;
+    std::uint64_t scorebar_pixel_fnv64 = 0;
+    const auto interface_pak_path = game_pak_path.parent_path() / "Interface.pak";
+    if (std::filesystem::exists(interface_pak_path)) {
+        auto interface_pak = deimos::PakArchive::open(interface_pak_path, &error);
+        if (!interface_pak) {
+            std::cerr << "Interface.pak: " << error << '\n';
+            return 37;
+        }
+        auto alpha_bytes = interface_pak->read("im08/Text - Small IA[TESM].gif", &error);
+        auto color_bytes = interface_pak->read("im08/Text - Small IC[tesm].gif", &error);
+        if (!alpha_bytes || !color_bytes) {
+            std::cerr << "Interface.pak: canonical TESM plate pair missing\n";
+            return 37;
+        }
+        auto alpha = deimos::decode_legacy_gif_indices(*alpha_bytes, &error);
+        auto color = deimos::decode_legacy_gif_indices(*color_bytes, &error);
+        if (!alpha || !color || alpha->width != 852 || alpha->height != 18 ||
+            color->width != 852 || color->height != 18) {
+            std::cerr << "Interface.pak: canonical TESM plate decode mismatch: " << error << '\n';
+            return 37;
+        }
+        auto font = deimos::build_legacy_sprite_group(deimos::FourCC{{'t','e','s','m'}}, *alpha, *color, &error);
+        if (!font || font->frames.size() != 91) {
+            std::cerr << "Interface.pak: canonical TESM frame extraction mismatch: " << error << '\n';
+            return 37;
+        }
+        scorebar_font_frames = font->frames.size();
+        const std::array<int,10> digit_widths{{5,6,7,7,7,7,6,7,7,7}}; // '1'..'9','0'
+        for (int i=0;i<10;++i) {
+            const int frame_index = i == 9 ? 61 : 52 + i;
+            if (font->frames[frame_index].width != digit_widths[i] || font->frames[frame_index].height != 13) {
+                std::cerr << "Interface.pak: canonical TESM digit metrics changed unexpectedly\n";
+                return 37;
+            }
+        }
+
+        deimos::LegacyRasterSurface canvas(576,480,0);
+        for (int y=0;y<480;++y) for (int x=0;x<160;++x)
+            canvas.pixels[static_cast<std::size_t>(y)*576u + static_cast<std::size_t>(x+416)] =
+                canonical_scorebar_panel->pixels[static_cast<std::size_t>(y)*160u + static_cast<std::size_t>(x)];
+        const auto draw_text = [&](const deimos::TextFormatDefinition& style, const std::string& text) {
+            auto reqs = deimos::build_legacy_small_text_requests(*font, style, text, false);
+            for (auto& q : reqs) {
+                q.clip = canvas.bounds();
+                if (deimos::rasterize_legacy_request(q, canvas) == deimos::LegacyRasterResult::invalid_surface) return false;
+            }
+            return true;
+        };
+        if (!draw_text(scorebar_styles.score[0], deimos::format_legacy_score_value(12345)) ||
+            !draw_text(scorebar_styles.last_life[0], deimos::format_legacy_lives_value(0))) {
+            std::cerr << "canonical score-bar text raster failed\n";
+            return 37;
+        }
+        scorebar_pixel_fnv64 = 1469598103934665603ull;
+        for (int y=0;y<480;++y) for (int x=416;x<576;++x)
+            scorebar_pixel_fnv64 = fnv1a64_u16(scorebar_pixel_fnv64,
+                canvas.pixels[static_cast<std::size_t>(y)*576u + static_cast<std::size_t>(x)]);
+        constexpr std::uint64_t expected_scorebar_pixel_fnv64 = 0xd2f48984985f54d8ull;
+        if (scorebar_pixel_fnv64 != expected_scorebar_pixel_fnv64) {
+            std::cerr << "canonical score-bar base/font pixel oracle changed unexpectedly\n";
+            return 37;
+        }
+    }
+
     const auto shadow_runtime_config = deimos::compile_legacy_shadow_runtime_config(
         *canonical_game_floats, &error);
     if (!shadow_runtime_config || shadow_runtime_config->air_x_offset != -48.0f ||
@@ -1204,6 +1362,17 @@ int main(int argc, char** argv) {
               << " shieldRates=" << score_bar_config->shield_increase_rate << '/' << score_bar_config->shield_decrease_rate
               << " powerRates=" << score_bar_config->power_increase_rate << '/' << score_bar_config->power_decrease_rate
               << " livesDisplay=" << score_bar_config->lives_max_displayed << '\n'
+              << "    score-bar pixels: panel=" << canonical_scorebar_panel->width << "x" << canonical_scorebar_panel->height
+              << " fontFrames=" << scorebar_font_frames
+              << " sampleFNV64=0x" << std::hex << scorebar_pixel_fnv64 << std::dec << '\n'
+              << "    level-select effect: acceptance="
+              << level_select_effect_config->acceptance_scaling_rate << "->"
+              << level_select_effect_config->acceptance_max_scale
+              << " failure=" << level_select_effect_config->failure_scaling_rate << "->"
+              << level_select_effect_config->failure_max_scale
+              << " blend=" << level_accept_style.blend_amount_0_to_32
+              << " colors=0x" << std::hex << level_accept_style.color_rgb555
+              << "/0x" << level_failure_style.color_rgb555 << std::dec << '\n'
               << "  destruction/removal fields:\n"
               << "    destruction spawns: " << unit_destruction_spawns << '\n'
               << "    deletion spawns: " << unit_deletion_spawns << '\n'

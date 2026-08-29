@@ -64,11 +64,13 @@ Completed/confirmed:
 - `0x44630/0x431F0/0x43340/0x438C0` particle lifecycle reconstructed end-to-end: 100+100 startup direction tables/cursors, eight preset families, color variation, ground-scroll tracking, damping/bounds/fade/prune semantics, and exact state/collision-hit/destruction producer binding at original RNG positions;
 - `0x30D8C..0x30DCC` plus `0xBC60/0xBEB0` native QuickDraw copy geometry reconstructed: normal gameplay mode 1, label-verified 640x480x16 frame, 32+416+160+32 layout, exact game/score-bar CopyBits rectangles, and centered side-border behavior; `0xC470/0xC81C` prove DrawSprocket front-buffer use is bounds discovery only, `0xAE20/0xA640` create the destination CWindow, and the PEF has no GetBackBuffer/SwapBuffers import;
 - `0x30F40..0x32A70` score-bar producer/cache cluster reconstructed: Game[gafl] 111..143 and Rects[inre] 0..15 layout contracts, six dirty classes, player/weapon score-bar resources, exact shield +2/-3 and power +2/-4 convergence with proven 0..100 power clamp, `clamp(lives-1,0,9)` life display, and upstream `0x29A10` score/extra-life threshold semantics;
+- `0x31AE0/0x31D70/0x31EA0/0x32050/0x32250/0x32500/0x327B0` score-bar pixel stage reconstructed with canonical 160x480 `scor` TGA, sibling `Interface.pak` TESM/tesm 91-frame font, exact score/life formatting, cyan/red styles, dirty background restoration, meter COST masks, and weapon-preview raster; sample score-bar FNV64 `0xd2f48984985f54d8`;
+- gameplay-loop ordering around `0x5A18` and `0x5AB0` closes normal visible-frame orchestration: score-bar dirty draw precedes `0x30570 -> 0x30BC0`, then the completed 416x480 game plus persistent 160x480 score bar feed mode-1 presentation; clean `render_legacy_gameplay_frame()` binds this order under regression;
 
 Remaining Phase 1 exit criteria:
 
 - recover the rare special single-member parent-container path and remaining original intrusive-list/pool semantics around `0x33220`;
-- integrate the recovered player lifecycle spawn/audio/UI side effects into full world orchestration; world composition, the 160-pixel score-bar producer/cache, QuickDraw presentation geometry, and the no-swap CWindow display commit are now closed, so recover the remaining score-bar pixel/text fade details and audit residual overlay writers;
+- integrate remaining player lifecycle spawn/audio/UI side effects into the now-closed visible-frame orchestrator; score-bar semantic/pixel rendering, world composition, 576x480 source composition, QuickDraw geometry, no-swap display commit, and the adjacent level-selection acceptance/failure `COST` pulse are closed, so the next graphics work is native backend mapping plus any remaining non-gameplay/front-end visual producers;
 - finish remaining Flee trigger/lifecycle edges and bind them to decoded fields;
 - expand Windows installer and establish Mac↔Windows code/data correspondences;
 - finish replay action-bit mapping including second-player semantics;

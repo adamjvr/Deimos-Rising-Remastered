@@ -687,3 +687,21 @@ construction/motion RNG seeds remain unchanged.
 - Confirmed all five canonical weapons expose score-bar preview face/frame descriptors.
 - Mapped PEF DrawSprocket imports: GetFrontBuffer exists; GetBackBuffer and SwapBuffers do not. `0xC81C` is the only GetFrontBuffer call and feeds `0x44B50`, a four-bound extractor only.
 - Traced `0xAE20` -> `0xA640` (`NewCWindow`) and `0xC2A0` -> `0xA980` (`SetGWorld`) -> `0xAC20` (`CopyBits`), proving the final legacy commit is immediate QuickDraw drawing into the CWindow port with no explicit DrawSprocket swap after the presenter.
+
+
+## 2026-08-29 — score-bar pixels and complete visible-frame order
+
+- Recovered original gameplay-loop ordering: `0x5A18 -> 0x7070 -> 0x31AE0` score-bar draw precedes `0x5AB0 -> 0x30570 -> 0x30BC0` world composition/presentation.
+- Located the small score-bar font in sibling `Interface.pak`, not `Game.pak`: `Text - Small IA[TESM].gif` / `IC[tesm].gif`, 852x18 plates, exactly 91 reconstructed frames.
+- Bound score formatting `%0.7i`, life formatting `%i`, canonical cyan color `#94DEE6`, and dedicated red `#FF0000` final-life count.
+- Added clean 16-bit TGA decode for canonical `Scorebar[scor].TGA` (160x480), exact dirty-background restoration, text/sprite/meter pixel paths, and canonical score-bar sample FNV64 `0xd2f48984985f54d8`.
+- Audited the remaining nearby `COST` overlay and identified it as level-selection acceptance/failure scaling (`LevSel_Acceptance_*` / `LevSel_Failure_*`), not a missing gameplay HUD path.
+- Added `render_legacy_gameplay_frame()` to bind score-bar pixels, 0x30BC0 world order, 576x480 source composition, and mode-1 native presentation under one tested clean-core boundary.
+
+
+## 2026-08-29 — level-selection acceptance/failure `COST` pulse
+
+- `Formats[gate].idli` proves runtime ordinal 27=`lsca`, 28=`lscf`, matching the two style fetches in `0x2FE40`.
+- Canonical `lsca` is green `#00ff00`, blend 16; `lscf` is red `#ff0000`, blend 16.
+- `0x2FCC0` selects Game[gafl] 44/45 for acceptance (`0.18`, `2.0`) and 46/47 for failure (`0.25`, `2.0`). Blend rises one unit/tick toward 32 while scale ping-pongs 0→max→0; canonical teardown is 24 ticks versus 16 ticks.
+- `0x2FB88..0x2FC14` submits the result through the already-recovered `COST` solid-rectangle compositor path. This confirms the effect is a front-end level-select pulse and does not reopen the closed normal-gameplay frame chain.
