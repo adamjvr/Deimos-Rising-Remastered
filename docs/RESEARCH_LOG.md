@@ -530,3 +530,12 @@ Negative frame indices are safely rejected rather than reproducing the original
 out-of-bounds legacy indexing. The new sprite-resource regression raises the suite
 to 28/28 PASS; canonical constructor/first-tick counts and RNG seeds remain
 unchanged.
+
+
+### DR-EVID-005 / AIFC-IMA4 audio-resource pass — 2026-08-28
+
+A user-supplied `DeimosRising_soundtrack.sit` was inventoried as StuffIt 5 with ten method-0 MP3 data forks. The Theme Song carries ID3 title `Music 3[mu03]`; decoded comparison independently ties the released Theme/Game-3 material to canonical `Music.pak` `mu03`, while Interface/Advertising contain the canonical `inmu`/`ammu` loop material. Exact track hashes/metadata are recorded as DR-EVID-005; audio bytes remain outside Git.
+
+The clean core gained a dependency-free FORM/AIFC parser plus Apple/QuickTime IMA4 decoder. Canonical packet semantics are 34 bytes/channel -> 64 samples, low nibble first, with the packet predictor's low seven bits recovered by retaining the previous running predictor when the new header is within `0x7f` and the step index is unchanged. This reproduces independent FFmpeg PCM sample-for-sample.
+
+Canonical corpus validation now covers all 96 mono 44.1-kHz Audio.pak resources (3,133,376 decoded frames) plus all three stereo Music.pak resources. `mu03` also exposed an authentic legacy quirk: its declared FORM size is 76 bytes shorter than the valid chunk stream, so the parser now accepts under-declared FORM sizes while still rejecting overrun. The repository suite advances to 29/29 PASS; existing constructor/first-tick RNG oracles remain unchanged.

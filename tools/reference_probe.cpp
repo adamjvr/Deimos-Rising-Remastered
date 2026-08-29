@@ -1,3 +1,4 @@
+#include "deimos/audio_resource.hpp"
 #include "deimos/collision_runtime.hpp"
 #include "deimos/data_tables.hpp"
 #include "deimos/destruction_runtime.hpp"
@@ -16,13 +17,35 @@
 #include "deimos/unit_behavior.hpp"
 #include "deimos/weapon_definition.hpp"
 
+#include <algorithm>
+#include <array>
+#include <cstdint>
 #include <filesystem>
+#include <span>
 #include <iostream>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+namespace {
+std::uint32_t pcm_crc32_le(std::span<const std::int16_t> samples) {
+    std::uint32_t crc = 0xffffffffu;
+    const auto update = [&crc](std::uint8_t byte) {
+        crc ^= byte;
+        for (int bit = 0; bit < 8; ++bit) {
+            crc = (crc >> 1u) ^ (0xedb88320u & (0u - (crc & 1u)));
+        }
+    };
+    for (const auto sample : samples) {
+        const auto value = static_cast<std::uint16_t>(sample);
+        update(static_cast<std::uint8_t>(value));
+        update(static_cast<std::uint8_t>(value >> 8u));
+    }
+    return crc ^ 0xffffffffu;
+}
+}
 
 int main(int argc, char** argv) {
     if (argc != 2) {
@@ -35,6 +58,100 @@ int main(int argc, char** argv) {
     if (!pak) {
         std::cerr << error << '\n';
         return 3;
+    }
+
+    struct MusicOracle {
+        const char* tag;
+        std::uint32_t packet_groups;
+        std::uint64_t decoded_frames;
+        std::uint32_t pcm_crc32_le;
+    };
+    constexpr std::array<MusicOracle, 3> music_oracles = {{
+        {"mu03", 134892u, 8633088u, 0x4f945e4eu},
+        {"ammu",  23966u, 1533824u, 0x9871dd60u},
+        {"inmu",  41153u, 2633792u, 0x60d31157u},
+    }};
+    std::size_t music_resources_validated = 0;
+    std::size_t audio_resources_validated = 0;
+    std::uint64_t audio_frames_validated = 0;
+    const auto game_pak_path = std::filesystem::path(argv[1]);
+    const auto music_pak_path = game_pak_path.parent_path() / "Music.pak";
+    const auto audio_pak_path = game_pak_path.parent_path() / "Audio.pak";
+    if (std::filesystem::exists(audio_pak_path)) {
+        auto audio_pak = deimos::PakArchive::open(audio_pak_path, &error);
+        if (!audio_pak) {
+            std::cerr << "Audio.pak: " << error << '\n';
+            return 28;
+        }
+        for (const auto& entry : audio_pak->entries()) {
+            if (entry.is_directory) continue;
+            const auto name = deimos::parse_resource_name(entry.path);
+            if (!name || name->kind != deimos::ResourceKind::audio) {
+                std::cerr << "Audio.pak: unexpected non-audio resource " << entry.path << '\n';
+                return 29;
+            }
+            auto bytes = audio_pak->read(entry, &error);
+            if (!bytes) {
+                std::cerr << entry.path << ": " << error << '\n';
+                return 30;
+            }
+            const auto pcm = deimos::decode_legacy_ima4_aifc(*bytes, &error);
+            if (!pcm || pcm->channels != 1 || pcm->sample_rate != 44100) {
+                std::cerr << entry.path << ": canonical SFX IMA4 mismatch: " << error << '\n';
+                return 31;
+            }
+            ++audio_resources_validated;
+            audio_frames_validated += pcm->frame_count();
+        }
+        if (audio_resources_validated != 96 || audio_frames_validated != 3133376u) {
+            std::cerr << "Audio.pak: canonical SFX corpus count/frame mismatch\n";
+            return 32;
+        }
+    }
+
+    if (std::filesystem::exists(music_pak_path)) {
+        auto music_pak = deimos::PakArchive::open(music_pak_path, &error);
+        if (!music_pak) {
+            std::cerr << "Music.pak: " << error << '\n';
+            return 22;
+        }
+        for (const auto& entry : music_pak->entries()) {
+            if (entry.is_directory) continue;
+            const auto name = deimos::parse_resource_name(entry.path);
+            if (!name || name->kind != deimos::ResourceKind::audio) continue;
+            const auto tag = name->tag.str();
+            const auto oracle = std::find_if(music_oracles.begin(), music_oracles.end(),
+                [&](const MusicOracle& value) { return tag == value.tag; });
+            if (oracle == music_oracles.end()) {
+                std::cerr << "Music.pak: unexpected audio resource " << entry.path << '\n';
+                return 23;
+            }
+            auto bytes = music_pak->read(entry, &error);
+            if (!bytes) {
+                std::cerr << entry.path << ": " << error << '\n';
+                return 24;
+            }
+            const auto info = deimos::parse_legacy_aifc(*bytes, &error);
+            if (!info || info->channels != 2 || info->sample_size_bits != 16 ||
+                info->sample_rate != 44100.0 || info->compression.str() != "ima4" ||
+                info->packet_groups != oracle->packet_groups ||
+                info->decoded_frame_count() != oracle->decoded_frames) {
+                std::cerr << entry.path << ": canonical AIFC/ima4 metadata mismatch: " << error << '\n';
+                return 25;
+            }
+            const auto pcm = deimos::decode_legacy_ima4_aifc(*bytes, &error);
+            if (!pcm || pcm->channels != 2 || pcm->sample_rate != 44100 ||
+                pcm->frame_count() != oracle->decoded_frames ||
+                pcm_crc32_le(pcm->interleaved_samples) != oracle->pcm_crc32_le) {
+                std::cerr << entry.path << ": canonical IMA4 PCM mismatch: " << error << '\n';
+                return 26;
+            }
+            ++music_resources_validated;
+        }
+        if (music_resources_validated != music_oracles.size()) {
+            std::cerr << "Music.pak: expected exactly three canonical audio resources\n";
+            return 27;
+        }
     }
 
     std::size_t files = 0, levels = 0, objects = 0, films = 0;
@@ -745,6 +862,10 @@ int main(int argc, char** argv) {
               << player_runtime_resources->money_10.str() << ','
               << player_runtime_resources->money_5.str() << ','
               << player_runtime_resources->money_1.str() << '\n'
+              << "  audio/music resources:\n"
+              << "    canonical SFX AIFC/ima4 resources validated: " << audio_resources_validated << '\n'
+              << "    canonical SFX decoded frames: " << audio_frames_validated << '\n'
+              << "    canonical music AIFC/ima4 resources validated: " << music_resources_validated << '\n'
               << "  sprite resource cache/plates:\n"
               << "    alpha plates: " << sprite_alpha_plates << '\n'
               << "    color plates: " << sprite_color_plates << '\n'

@@ -1,0 +1,282 @@
+{
+  "schema": "deimos-rising-evidence-manifest-v1",
+  "evidence_id": "DR-EVID-005",
+  "source_label": "user-supplied DeimosRising_soundtrack.sit",
+  "original_filename": "DeimosRising_soundtrack.sit",
+  "size_bytes": 31157858,
+  "hashes": {
+    "md5": "9c80e6bb893262b50e6b77aa004529bc",
+    "sha1": "a62d40dcbd5cffa5c25c5a882e5468f7adfc63a7",
+    "sha256": "e1f553997de3093a99b01ece0797704056bb636ae51fb258c672379e7cf3b347"
+  },
+  "outer_container": {
+    "format": "StuffIt 5",
+    "catalog_entries": 10,
+    "all_data_forks_compression_method": 0,
+    "all_entries_timestamp_utc": "2004-08-12T18:00:00Z"
+  },
+  "tracks": [
+    {
+      "name": "Deimos Advertising.mp3",
+      "size_bytes": 2140837,
+      "sha256": "2dca8ac152518127d31e241c3a6be347556593fc0afd8a0d0ec9c0ba1100d6ce",
+      "method": 0,
+      "creation_utc": "2004-08-12T18:00:00+00:00",
+      "modification_utc": "2004-08-12T18:00:00+00:00",
+      "archive_offset": 100,
+      "data_offset": 202,
+      "audio": {
+        "codec": "mp3",
+        "sample_rate_hz": 44100,
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bit_rate": 192000,
+        "duration_seconds": 89.198542
+      },
+      "id3_tags": {
+        "artist": "Ben Spees",
+        "album": "Deimos Rising",
+        "genre": "Game",
+        "date": "2001"
+      }
+    },
+    {
+      "name": "Deimos Ambient.mp3",
+      "size_bytes": 1676802,
+      "sha256": "9b2a3b0954a72ee5570d7ce99b414da29f3590f192c8d54c8eff798a3e4eda43",
+      "method": 0,
+      "creation_utc": "2004-08-12T18:00:00+00:00",
+      "modification_utc": "2004-08-12T18:00:00+00:00",
+      "archive_offset": 2141039,
+      "data_offset": 2141137,
+      "audio": {
+        "codec": "mp3",
+        "sample_rate_hz": 44100,
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bit_rate": 192000,
+        "duration_seconds": 69.86375
+      },
+      "id3_tags": {
+        "artist": "Ben Spees",
+        "album": "Deimos Rising",
+        "genre": "Game",
+        "date": "2001"
+      }
+    },
+    {
+      "name": "Deimos Game 1.mp3",
+      "size_bytes": 3901907,
+      "sha256": "99a9ccd79e6a132803245eab753d57de84aa8e96d5b06c663f59f1ab19542f77",
+      "method": 0,
+      "creation_utc": "2004-08-12T18:00:00+00:00",
+      "modification_utc": "2004-08-12T18:00:00+00:00",
+      "archive_offset": 3817939,
+      "data_offset": 3818036,
+      "audio": {
+        "codec": "mp3",
+        "sample_rate_hz": 44100,
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bit_rate": 192000,
+        "duration_seconds": 162.576458
+      },
+      "id3_tags": {
+        "artist": "Ben Spees",
+        "album": "Deimos Rising",
+        "genre": "Game",
+        "date": "2001"
+      }
+    },
+    {
+      "name": "Deimos Game 2.mp3",
+      "size_bytes": 3859306,
+      "sha256": "a87105c9a2fd435a58395694c5fe773038d0e984fc8059e754a274fa307f620f",
+      "method": 0,
+      "creation_utc": "2004-08-12T18:00:00+00:00",
+      "modification_utc": "2004-08-12T18:00:00+00:00",
+      "archive_offset": 7719943,
+      "data_offset": 7720040,
+      "audio": {
+        "codec": "mp3",
+        "sample_rate_hz": 44100,
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bit_rate": 192000,
+        "duration_seconds": 160.801417
+      },
+      "id3_tags": {
+        "artist": "Ben Spees",
+        "album": "Deimos Rising",
+        "genre": "Game",
+        "date": "2001"
+      }
+    },
+    {
+      "name": "Deimos Game 3.mp3",
+      "size_bytes": 4699899,
+      "sha256": "962da3c21f0ef153db79e0e40fcc8799579e5ee7aee0ac509e7a4fcc2e2323a1",
+      "method": 0,
+      "creation_utc": "2004-08-12T18:00:00+00:00",
+      "modification_utc": "2004-08-12T18:00:00+00:00",
+      "archive_offset": 11579346,
+      "data_offset": 11579443,
+      "audio": {
+        "codec": "mp3",
+        "sample_rate_hz": 44100,
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bit_rate": 192000,
+        "duration_seconds": 195.826125
+      },
+      "id3_tags": {
+        "artist": "Ben Spees",
+        "album": "Deimos Rising",
+        "genre": "Game",
+        "date": "2001"
+      }
+    },
+    {
+      "name": "Deimos Game 4.mp3",
+      "size_bytes": 3645497,
+      "sha256": "6001ccae736fe6c1c8cc77774bf83135a6a5348ea2b4ab4103bbb1c82fd0aa1a",
+      "method": 0,
+      "creation_utc": "2004-08-12T18:00:00+00:00",
+      "modification_utc": "2004-08-12T18:00:00+00:00",
+      "archive_offset": 16279342,
+      "data_offset": 16279439,
+      "audio": {
+        "codec": "mp3",
+        "sample_rate_hz": 44100,
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bit_rate": 192000,
+        "duration_seconds": 151.892708
+      },
+      "id3_tags": {
+        "artist": "Ben Spees",
+        "album": "Deimos Rising",
+        "genre": "Game",
+        "date": "2001"
+      }
+    },
+    {
+      "name": "Deimos Game 5.mp3",
+      "size_bytes": 2723870,
+      "sha256": "17815bc1dd56728185b39ec10092566cc318ded1bcde149f2993409a36e7dae1",
+      "method": 0,
+      "creation_utc": "2004-08-12T18:00:00+00:00",
+      "modification_utc": "2004-08-12T18:00:00+00:00",
+      "archive_offset": 19924936,
+      "data_offset": 19925033,
+      "audio": {
+        "codec": "mp3",
+        "sample_rate_hz": 44100,
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bit_rate": 160000,
+        "duration_seconds": 136.18895
+      },
+      "id3_tags": {
+        "artist": "Ben Spees",
+        "album": "Deimos Rising",
+        "comment": "Remix 2",
+        "genre": "Game",
+        "date": "2001"
+      }
+    },
+    {
+      "name": "Deimos Game 6.mp3",
+      "size_bytes": 3005326,
+      "sha256": "563d17ffb3420b5f9506b89ea8471f396c2231bf576e3c45e17ccf476e51e35a",
+      "method": 0,
+      "creation_utc": "2004-08-12T18:00:00+00:00",
+      "modification_utc": "2004-08-12T18:00:00+00:00",
+      "archive_offset": 22648903,
+      "data_offset": 22649000,
+      "audio": {
+        "codec": "mp3",
+        "sample_rate_hz": 44100,
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bit_rate": 192000,
+        "duration_seconds": 125.218917
+      },
+      "id3_tags": {
+        "artist": "Ben Spees",
+        "album": "Deimos Rising",
+        "genre": "Game",
+        "date": "2001"
+      }
+    },
+    {
+      "name": "Deimos Interface.mp3",
+      "size_bytes": 2368341,
+      "sha256": "6345560fce4c30ecbbf0ca574c75cf0e7eb1f33450ecd81fdde7b5324c4dc442",
+      "method": 0,
+      "creation_utc": "2004-08-12T18:00:00+00:00",
+      "modification_utc": "2004-08-12T18:00:00+00:00",
+      "archive_offset": 25654326,
+      "data_offset": 25654426,
+      "audio": {
+        "codec": "mp3",
+        "sample_rate_hz": 44100,
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bit_rate": 192000,
+        "duration_seconds": 98.677875
+      },
+      "id3_tags": {
+        "artist": "Ben Spees",
+        "album": "Deimos Rising",
+        "genre": "Game",
+        "date": "2001"
+      }
+    },
+    {
+      "name": "Deimos Theme Song.mp3",
+      "size_bytes": 3134990,
+      "sha256": "908c8ce0d2fa3348ae5be8d3767712aa5fd3cb77d4b4865df14116d4ceb94038",
+      "method": 0,
+      "creation_utc": "2004-08-12T18:00:00+00:00",
+      "modification_utc": "2004-08-12T18:00:00+00:00",
+      "archive_offset": 28022767,
+      "data_offset": 28022868,
+      "audio": {
+        "codec": "mp3",
+        "sample_rate_hz": 44100,
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bit_rate": 128000,
+        "duration_seconds": 195.805875
+      },
+      "id3_tags": {
+        "title": "Music 3[mu03]",
+        "encoded_by": "iTunes v1.0"
+      }
+    }
+  ],
+  "canonical_correlations": {
+    "Deimos Game 3.mp3": {
+      "canonical_resource": "Music 3[mu03].aif",
+      "observation": "same underlying program material; full-overlap decoded waveform correlation approximately 0.999983"
+    },
+    "Deimos Theme Song.mp3": {
+      "canonical_resource": "Music 3[mu03].aif",
+      "observation": "ID3 title is Music 3[mu03]; separate MP3 encode of the same source, with approximately 24 ms best alignment and near-identical long-term envelope"
+    },
+    "Deimos Interface.mp3": {
+      "canonical_resource": "Interface Music Loop[inmu].IMA",
+      "observation": "contains the canonical inmu loop as a strongly correlated segment"
+    },
+    "Deimos Advertising.mp3": {
+      "canonical_resource": "Ambient Music Loop[ammu].IMA",
+      "observation": "contains the canonical ammu loop as a strongly correlated segment"
+    },
+    "Deimos Ambient.mp3": {
+      "canonical_resource": null,
+      "observation": "does not directly correlate with canonical ammu despite the descriptive filename"
+    }
+  },
+  "classification_rule": "Track bytes are evidence only and remain outside Git/repo milestone ZIPs; hashes, metadata, and cross-corpus observations are retained."
+}

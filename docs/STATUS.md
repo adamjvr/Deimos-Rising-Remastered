@@ -1,6 +1,6 @@
 # Status
 
-## 2026-08-28 — sprite resource/cache runtime milestone
+## 2026-08-28 — audio/music resource runtime milestone
 
 ### Evidence corpus
 
@@ -8,6 +8,7 @@
 - `DR-EVID-002` — Mac 1.0.6 installation fully recovered from StuffIt/HFS layers.
 - `DR-EVID-003` — Windows PE32/NSIS distribution identified; payload expansion/correlation remains active.
 - `DR-EVID-004` — add-ons/update/reference/mod/music corpus; Apple Bundle update and Perfect Demos evidence recovered.
+- `DR-EVID-005` — standalone ten-track soundtrack archive; Theme Song independently binds released music to canonical `mu03`.
 
 Phase 0 remains open only for additional evidence. Active engineering is Phase 1, with the first proven Phase-2 runtime primitives now implemented behind tests.
 
@@ -76,7 +77,17 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **28/28**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **29/29**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+
+### Audio/music resource findings now confirmed
+
+- portable FORM/AIFC parser and Apple/QuickTime `ima4` decoder implemented;
+- 34-byte/channel packets decode 64 samples with low-nibble-first ordering and QuickTime predictor-continuity semantics;
+- decoder matches independent canonical Music.pak PCM decoding sample-for-sample;
+- all 96 canonical Audio.pak effects decode as mono 44.1 kHz/16-bit IMA4 (3,133,376 PCM frames total);
+- all 3 canonical Music.pak resources decode as stereo 44.1 kHz/16-bit IMA4 with fixed PCM checksums;
+- canonical `mu03` under-declares its FORM size by 76 bytes; clean parser preserves QuickTime-compatible tolerance;
+- DR-EVID-005 Theme Song ID3 title is `Music 3[mu03]`, and soundtrack cross-correlation independently binds `mu03`, `inmu`, and `ammu` material.
 
 ### Spawn runtime findings now binary-confirmed
 
@@ -140,7 +151,7 @@ Synthetic repository tests pass **28/28**. Original assets/binaries are used onl
 - Member constructor `0x35DAC..0x35DF0` caches the existence of any such state in live `+0xCD`.
 - On zero shields, `0x14F10` awards score and either calls ordinary destruction (`+0xCD == 0`) or `0x17E70`, which enters the first marked state (`+0xCD != 0`).
 - Stock canonical `Game.pak` has 0 marked shield-depletion states; the executable path is retained through synthetic compatibility regression.
-- Core-edge checkpoint remains covered inside the current **28/28 PASS** suite; canonical constructor/first-tick seeds remain unchanged.
+- Core-edge checkpoint remains covered inside the current **29/29 PASS** suite; canonical constructor/first-tick seeds remain unchanged.
 
 
 ### Visual/render-request findings now binary-confirmed

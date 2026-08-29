@@ -55,6 +55,7 @@ Completed/confirmed:
 - state `+0x356` / live `+0xCD` proven as `stateUseThisStateOnShieldDepletion_BOOL` cache; zero shields route to first marked state through `0x17E70` instead of ordinary destruction;
 - concrete player pickup dispatcher/stat mutations, `0x27100` shield/damage, immediate `0x27E50` death entry, lifecycle switch `0x2A150`, and respawn initializer `0x29CC0` implemented, including strict timers, gameplay-start-gated life consumption, solo/multi entry coordinates, entry invulnerability, and game-over disable;
 - shared 0x94-byte sprite visual base, state-entry visual targets, exact visibility/tint/scale ramps, scale-tolerance RNG, main/shadow layer mapping, `0x12F20` pass ordering, and ordered base/tint/glow/terrain render intents reconstructed as a headless renderer-request boundary;
+- FORM/AIFC + QuickTime IMA4 resource decode reconstructed for the complete canonical `Audio.pak` / `Music.pak` corpus; DR-EVID-005 supplies an independent soundtrack identity oracle;
 
 Remaining Phase 1 exit criteria:
 
@@ -88,6 +89,7 @@ Already implemented from binary-confirmed behavior:
 - ordinary destruction effects and two-stage group/member teardown, including child/owner propagation, reward facts, random-bonus selection, deletion spawns, obstacle/terrain requests, and `SERM` behavior.
 - deterministic visual-state runtime and headless render intents for scale/visibility/tint, sprite face/frame, main/shadow layer selection, colorise/glow ordering, and terrain-submission distinction.
 - exact indexed GIF sprite-plate decode, alpha-atlas frame extraction, loaded sprite-group cache semantics, lazy/high-frame dimension lookup, and `0x12940` scaled geometry refresh.
+- portable AIFC/Apple IMA4 decode for the complete canonical Audio.pak + Music.pak corpus, with PCM-level music oracles and DR-EVID-005 soundtrack correlation.
 
 Exit criteria:
 

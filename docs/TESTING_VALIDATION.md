@@ -69,7 +69,7 @@ The binary-confirmed collision layer has a dedicated synthetic regression execut
 - scan early exit after self becomes inactive;
 - level-scaled shield base/increment/max behavior, including the no-max-clamp branch when increment is non-positive.
 
-The repository suite is currently **28/28 PASS**. The optional canonical `Game.pak` probe additionally validates all compiled collision/destruction/terrain-media/player-runtime fields and reports 436 collision-enabled states, 135 air / 251 ground Unit Definitions, 8 pickup Unit Definitions (4 coin / 1 mult / 1 exli / 2 shie), 2 Player Definitions, player globals 100/10/1, death-money IDs `calg/cals/casg/cass`, 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units, and fixed water IDs `spti/spsm/spme/spla`, **0** stock
+The repository suite is currently **29/29 PASS**. The optional canonical `Game.pak` probe additionally validates all compiled collision/destruction/terrain-media/player-runtime fields and reports 436 collision-enabled states, 135 air / 251 ground Unit Definitions, 8 pickup Unit Definitions (4 coin / 1 mult / 1 exli / 2 shie), 2 Player Definitions, player globals 100/10/1, death-money IDs `calg/cals/casg/cass`, 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units, and fixed water IDs `spti/spsm/spme/spla`, **0** stock
 `stateUseThisStateOnShieldDepletion_BOOL` states / affected units, plus the other corpus counts recorded in `STATUS.md`. It also verifies that the existing shared constructor and first player-aware tick remain deterministic at RNG seeds `2249411936` and `2633739833` respectively.
 
 ### Player-runtime regression rules
@@ -148,3 +148,19 @@ The optional canonical `Game.pak` probe additionally checks every newly compiled
 ## Platform parity
 
 Portable-core tests run identically on macOS, iPadOS host-compatible test targets where practical, Linux, and Windows. Rendering/input/audio adapters may differ, but gameplay/resource semantics must not.
+
+
+## Audio/music corpus validation
+
+`audio_resource_test` binds a synthetic stereo AIFC/IMA4 resource, 80-bit sample-rate parsing, 34-byte packet decoding, and tolerant handling of an under-declared FORM size.
+
+When `Audio.pak` and `Music.pak` are present beside the canonical `Game.pak`, `deimos_reference_probe` additionally verifies:
+
+- 96/96 Audio.pak effects decode as mono 44.1 kHz IMA4;
+- total decoded SFX frames = 3,133,376;
+- all three Music.pak resources decode as stereo 44.1 kHz IMA4;
+- `mu03`: 8,633,088 PCM frames, little-endian s16 CRC32 `4f945e4e`;
+- `ammu`: 1,533,824 PCM frames, CRC32 `9871dd60`;
+- `inmu`: 2,633,792 PCM frames, CRC32 `60d31157`.
+
+The three music checksums were established against an independent FFmpeg decode. The clean QuickTime predictor-continuity implementation then reproduces that PCM sample-for-sample.

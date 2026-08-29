@@ -43,3 +43,19 @@ User-supplied `deimos_addons.sit`.
 Contains official update/reference material, demo recordings, art, music, desktops, and community modifications. The Apple Bundle 1.0.6 updater has been decompressed and its HFS volume extracted separately from the base 1.0.6 game.
 
 See the machine-readable manifests under `evidence/manifests/` for exact extracted hashes and structural details.
+
+
+## DR-EVID-005
+
+User-supplied `DeimosRising_soundtrack.sit`.
+
+- MD5: `9c80e6bb893262b50e6b77aa004529bc`
+- SHA-1: `a62d40dcbd5cffa5c25c5a882e5468f7adfc63a7`
+- SHA-256: `e1f553997de3093a99b01ece0797704056bb636ae51fb258c672379e7cf3b347`
+
+Contains ten stored MP3 soundtrack tracks. Nine filenames overlap the music
+catalog already visible in DR-EVID-004; the tenth is `Deimos Theme Song.mp3`,
+whose ID3 title is `Music 3[mu03]`. Cross-source waveform comparison binds the
+released theme/Game-3 material to canonical `Music.pak` resource `mu03` and
+identifies canonical `inmu`/`ammu` material inside the Interface/Advertising
+tracks. Audio payloads remain evidence-only and outside Git.
