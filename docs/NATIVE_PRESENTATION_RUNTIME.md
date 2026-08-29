@@ -180,6 +180,61 @@ A deeper trace corrects one tempting misclassification: `0x9E40` is only a
 GWorld activation helper. It dereferences the supplied wrapper and calls
 `SetGWorld`; it does not draw score-bar UI.
 
+## DrawSprocket ownership and final commit semantics
+
+The final display path is now closed far enough to eliminate a second tempting
+modern assumption: **the original does not use a DrawSprocket back-buffer swap**.
+
+The PEF imports the following DrawSprocket display functions:
+
+- `DSpContext_GetState`;
+- `DSpContext_SetState`;
+- `DSpProcessEvent`;
+- `DSpGetVersion`;
+- `DSpShutdown` / `DSpStartup`;
+- `DSpSetBlankingColor`;
+- `DSpContext_Release`;
+- `DSpContext_GetFrontBuffer`;
+- `DSpContext_Reserve`;
+- `DSpFindBestContext`.
+
+It imports **neither** `DSpContext_GetBackBuffer` nor
+`DSpContext_SwapBuffers`.
+
+`0xC470` is the DrawSprocket context setup path used by `0xAE20` when the
+fullscreen context is selected. After reserve/state setup, `0xC81C` makes the
+single recovered `DSpContext_GetFrontBuffer` call. The returned GWorld is
+passed to `0x44B50`, whose complete body only reads its QuickDraw bounds
+(shorts at `+0x10..+0x16`) into the caller-supplied rectangle. The returned
+front-buffer pointer is not retained as the `CopyBits` destination.
+
+Back in `0xAE20`, those recovered display bounds are passed to `0xA640`.
+`0xA640` calls the imported `NewCWindow` and stores that window pointer in the
+display manager's GWorld/window wrapper at `+0x04`. `0xC2A0` activates that
+wrapper via `0xA980` -> `SetGWorld`, and `0xAC20` passes its embedded QuickDraw
+port bitmap to `CopyBits`.
+
+Therefore the original 1.0.6 commit chain is:
+
+```text
+DrawSprocket context reserve/activate
+        |
+        +-- GetFrontBuffer once -> discover physical display bounds
+        |
+        +-- NewCWindow matching those bounds
+                |
+                +-- SetGWorld(window port)
+                +-- PaintRect / CopyBits from composed source canvas
+                +-- no GetBackBuffer
+                +-- no SwapBuffers
+```
+
+The observable legacy commit is consequently an **immediate QuickDraw window
+copy with no explicit DrawSprocket flip after `0xBEB0`/`0xBC60`**. This is a
+statement about the original Mac implementation, not a restriction on the
+remaster: a Metal/Vulkan/OpenGL/native backend can and should use its own
+appropriate swapchain/present primitive after mapping the recovered plan.
+
 ## Clean-core implementation
 
 `presentation_runtime.hpp/.cpp` provides:
@@ -187,6 +242,8 @@ GWorld activation helper. It dereferences the supplied wrapper and calls
 - `LegacyPresentationConfig` and label-verified compilation from
   `Game[gafl]` 52..60;
 - `LegacyPresentationMode::{FullFrame,Gameplay}`;
+- `LegacyPresentationCommit::ImmediateQuickDrawWindowCopyNoSwap`, preserving
+  the original commit semantics without constraining modern backends;
 - `plan_legacy_post_world_presentation()` for the recovered Rect/copy/clear
   contract;
 - `execute_legacy_presentation_plan()` as a bounded portable xRGB1555
@@ -230,12 +287,10 @@ Closed by this milestone:
 
 Still intentionally open:
 
-1. identify the routines that populate the source canvas's 416..575 score-bar
-   region and bind those UI producers to decoded gameplay/player state;
-2. follow the destination GWorld / DrawSprocket ownership far enough to recover
-   the final buffer-flip/swap/window timing contract (without cloning obsolete
-   APIs);
-3. determine whether any other overlay paths modify the presentation canvas
-   outside the recovered `0x30BC0` world composition;
-4. implement native macOS/iPadOS/Linux/Windows presentation adapters only after
-   those observable behaviors are frozen.
+1. finish the element-specific score/life text, fade, and sprite pixel path
+   inside the now-recovered 160-pixel score-bar producer;
+2. determine whether any other overlay paths modify the presentation canvas
+   outside the recovered `0x30BC0` world composition and score-bar cluster;
+3. implement native macOS/iPadOS/Linux/Windows presentation adapters using the
+   recovered geometry/order while allowing each modern backend to use its own
+   appropriate present/swap mechanism.

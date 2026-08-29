@@ -41,9 +41,18 @@ struct LegacyPresentationCopy {
     constexpr bool operator==(const LegacyPresentationCopy&) const = default;
 };
 
+// Historical commit mechanism of the original Mac renderer. This describes
+// what the recovered 1.0.6 executable did after composing the source canvas;
+// it does not constrain a modern backend's own swapchain/present API.
+enum class LegacyPresentationCommit : std::uint8_t {
+    None = 0,
+    ImmediateQuickDrawWindowCopyNoSwap = 1
+};
+
 struct LegacyPresentationPlan {
     bool enabled = false;
     std::uint8_t raw_mode = 0;
+    LegacyPresentationCommit legacy_commit = LegacyPresentationCommit::None;
     LegacyRasterRect centered_minimum_frame{};
     std::vector<LegacyRasterRect> clear_rects;
     std::vector<LegacyPresentationCopy> copies;
@@ -62,8 +71,10 @@ struct LegacyPresentationPlan {
     std::string* error = nullptr);
 
 // Portable pixel execution of the recovered CopyBits/PaintRect plan. This is
-// deliberately a clean-core reference path; native platform backends may map
-// the same plan to a texture upload/blit/swap without reproducing QuickDraw.
+// deliberately a clean-core reference path. The legacy executable committed
+// synchronously into its QuickDraw window port and imported no DrawSprocket
+// back-buffer/swap API; modern backends may still use their own native
+// swapchain after executing/mapping this plan.
 [[nodiscard]] bool execute_legacy_presentation_plan(
     const LegacyPresentationPlan& plan,
     const LegacyRasterSurface& source_canvas,

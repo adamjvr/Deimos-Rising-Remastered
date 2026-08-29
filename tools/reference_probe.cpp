@@ -13,6 +13,7 @@
 #include "deimos/player_definition.hpp"
 #include "deimos/player_runtime.hpp"
 #include "deimos/presentation_runtime.hpp"
+#include "deimos/score_bar_runtime.hpp"
 #include "deimos/render_runtime.hpp"
 #include "deimos/render_backend.hpp"
 #include "deimos/sprite_resource.hpp"
@@ -236,12 +237,13 @@ int main(int argc, char** argv) {
     std::map<std::string, std::pair<int, int>> sprite_color_dimensions;
     std::map<std::string, std::pair<deimos::FourCC, deimos::LegacyIndexedImage>> sprite_alpha_images;
     std::map<std::string, std::pair<deimos::FourCC, deimos::LegacyIndexedImage>> sprite_color_images;
-    std::size_t weapons = 0, weapon_spawns = 0, players = 0;
+    std::size_t weapons = 0, weapon_spawns = 0, weapon_scorebar_previews = 0, players = 0;
     std::vector<std::pair<std::string, deimos::CompiledPlayerRuntimeDefinition>> player_runtime_defs;
     std::size_t unresolved_active_actions = 0, unresolved_inert_actions = 0, unknown_rule_conditions = 0;
 
     std::optional<deimos::NamedTable<float>> canonical_game_floats;
     std::optional<deimos::NamedTable<deimos::FourCC>> canonical_game_objects;
+    std::optional<deimos::NamedTable<deimos::RectI>> canonical_game_rects;
 
     for (const auto& entry : pak->entries()) {
         if (entry.is_directory) continue;
@@ -555,6 +557,12 @@ int main(int argc, char** argv) {
         } else if (ext == ".wede") {
             auto weapon = deimos::decode_and_parse_weapon_definition(*bytes, &error);
             if (!weapon) { std::cerr << entry.path << ": " << error << '\n'; return 10; }
+            const auto preview = deimos::compile_legacy_score_bar_weapon_preview(*weapon);
+            if (preview.face == weapon->fields.id_value("scoreBarPreviewFace_ID").value_or(deimos::FourCC{}) &&
+                preview.frame == weapon->fields.int_value("scoreBarPreviewFrame_INT").value_or(0) &&
+                !(preview.face == deimos::FourCC{})) {
+                ++weapon_scorebar_previews;
+            }
             ++weapons;
             weapon_spawns += weapon->spawns.size();
         } else if (ext == ".plde") {
@@ -563,12 +571,20 @@ int main(int argc, char** argv) {
                 std::cerr << entry.path << ": " << error << '\n'; return 11;
             }
             const auto runtime = deimos::compile_player_runtime_definition(*player);
-            if (runtime.default_shield_percentage != player->fields.float_value("defaultShieldPercentage_INT").value_or(100.0f) ||
+            if (!(runtime.score_bar_face == player->fields.id_value("spriteScoreBar_ID").value_or(deimos::FourCC{})) ||
+                runtime.score_bar_frame != player->fields.int_value("spriteScoreBarFrame_INT").value_or(0) ||
+                !(runtime.score_bar_power_face == player->fields.id_value("spriteScoreBarPower_ID").value_or(deimos::FourCC{})) ||
+                runtime.score_bar_power_frame != player->fields.int_value("spriteScoreBarPowerFrame_INT").value_or(0) ||
+                !(runtime.score_bar_shield_face == player->fields.id_value("spriteScoreBarShield_ID").value_or(deimos::FourCC{})) ||
+                runtime.score_bar_shield_frame != player->fields.int_value("spriteScoreBarShieldFrame_INT").value_or(0) ||
+                runtime.default_shield_percentage != player->fields.float_value("defaultShieldPercentage_INT").value_or(100.0f) ||
                 runtime.shield_warning_percentage != player->fields.float_value("shieldWarningPercentage_INT").value_or(15.0f) ||
                 runtime.shield_base_hit_percentage != player->fields.float_value("shieldBaseHitPercentage_INT").value_or(15.0f) ||
                 runtime.shield_hit_delay_ticks != player->fields.int_value("shieldHitDelay_INT").value_or(1) ||
                 runtime.life_max != player->fields.int_value("life_MaxNum_INT").value_or(10) ||
                 runtime.life_initial != player->fields.int_value("life_NumInitial_INT").value_or(3) ||
+                runtime.life_initial_required_score != player->fields.int_value("life_InitialRequiredScore_INT").value_or(10000) ||
+                runtime.life_additional_required_score != player->fields.int_value("life_AdditionalRequiredScore_INT").value_or(30000) ||
                 !(runtime.life_spawn == player->fields.id_value("life_Spawn_ID").value_or(deimos::FourCC{})) ||
                 runtime.game_over_time_ticks != player->fields.int_value("gameOverTime_INT").value_or(20) ||
                 runtime.dying_time_ticks != player->fields.int_value("dyingTime_INT").value_or(80) ||
@@ -609,14 +625,19 @@ int main(int argc, char** argv) {
             if (ext == ".coli") { ok = bool(deimos::parse_color_list(*doc, &error)); ++color_lists; }
             if (ext == ".tefo") { ok = bool(deimos::parse_text_format(*doc, &error)); ++text_formats; }
             if (ext == ".stli") { ok = bool(deimos::parse_string_list(*doc, &error)); ++string_lists; }
-            if (ext == ".reli") { ok = bool(deimos::parse_rect_list(*doc, &error)); ++rect_lists; }
+            if (ext == ".reli") {
+                auto table = deimos::parse_rect_list(*doc, &error);
+                ok = bool(table);
+                if (table && entry.path == "reli/Rects[inre].reli") canonical_game_rects = *table;
+                ++rect_lists;
+            }
             if (!ok) { std::cerr << entry.path << ": " << error << '\n'; return 8; }
         }
     }
 
 
-    if (!canonical_game_floats || !canonical_game_objects) {
-        std::cerr << "canonical Game[gafl]/Objects[gaob] tables not found\n";
+    if (!canonical_game_floats || !canonical_game_objects || !canonical_game_rects) {
+        std::cerr << "canonical Game[gafl]/Objects[gaob]/Rects[inre] tables not found\n";
         return 22;
     }
     const auto random_bonus_config = deimos::compile_legacy_random_bonus_config(
@@ -663,6 +684,34 @@ int main(int argc, char** argv) {
         std::cerr << "canonical native-presentation config: "
                   << (error.empty() ? "unexpected values" : error) << '\n';
         return 33;
+    }
+    const auto player_score_globals = deimos::compile_legacy_player_score_globals(
+        *canonical_game_floats, &error);
+    if (!player_score_globals || player_score_globals->extra_life_score_adjustment != 10000) {
+        std::cerr << "canonical player-score config: "
+                  << (error.empty() ? "unexpected values" : error) << '\n';
+        return 35;
+    }
+    const auto score_bar_config = deimos::compile_legacy_score_bar_config(
+        *canonical_game_floats, *canonical_game_rects, &error);
+    if (!score_bar_config || score_bar_config->score_spacing != 13 ||
+        score_bar_config->lives_symbol_x[0] != 534 || score_bar_config->lives_symbol_y[0] != 41 ||
+        score_bar_config->lives_symbol_x[1] != 534 || score_bar_config->lives_symbol_y[1] != 276 ||
+        score_bar_config->shield_meter_x[0] != 495 || score_bar_config->shield_meter_y[0] != 124 ||
+        score_bar_config->shield_meter_x[1] != 495 || score_bar_config->shield_meter_y[1] != 359 ||
+        score_bar_config->shield_increase_rate != 2.0f || score_bar_config->shield_decrease_rate != 3.0f ||
+        score_bar_config->power_meter_x[0] != 495 || score_bar_config->power_meter_y[0] != 159 ||
+        score_bar_config->power_meter_x[1] != 495 || score_bar_config->power_meter_y[1] != 394 ||
+        score_bar_config->power_increase_rate != 2.0f || score_bar_config->power_decrease_rate != 4.0f ||
+        score_bar_config->weapon_blend_nonselected != 16 ||
+        score_bar_config->weapon_blend_selected != 6 ||
+        score_bar_config->weapon_nonselected_scale != 0.7f ||
+        score_bar_config->lives_max_displayed != 9 ||
+        !(score_bar_config->panel_rects[0][0] == deimos::RectI{25,81,135,95}) ||
+        !(score_bar_config->panel_rects[1][7] == deimos::RectI{31,388,127,403})) {
+        std::cerr << "canonical score-bar config: "
+                  << (error.empty() ? "unexpected values" : error) << '\n';
+        return 36;
     }
     const auto shadow_runtime_config = deimos::compile_legacy_shadow_runtime_config(
         *canonical_game_floats, &error);
@@ -1072,12 +1121,14 @@ int main(int argc, char** argv) {
                   << runtime.entry_invulnerability_time_ticks
                   << " solo=" << runtime.entry_solo_start_x << ',' << runtime.entry_solo_start_y
                   << " multi=" << runtime.entry_multi_start_x << ',' << runtime.entry_multi_start_y
+                  << " scoreLives=" << runtime.life_initial_required_score << '/' << runtime.life_additional_required_score
                   << " entry=" << runtime.entry_spawn.str() << '\n';
     }
     std::cout << "  player runtime globals:\n"
               << "    Player_ImpactDamageToEntities: " << player_runtime_globals->impact_damage_to_entities << '\n'
               << "    Player_DelayBetweenHitSpawns: " << player_runtime_globals->delay_between_hit_spawns << '\n'
               << "    Entity_HitDelay: " << player_runtime_globals->entity_hit_delay_ticks << '\n'
+              << "    Player_ExtraLifeScoreAdjustment: " << player_score_globals->extra_life_score_adjustment << '\n'
               << "    death-money IDs: "
               << player_runtime_resources->money_50.str() << ','
               << player_runtime_resources->money_10.str() << ','
@@ -1149,6 +1200,10 @@ int main(int argc, char** argv) {
               << presentation_config->visible_game_width << " + "
               << presentation_config->score_bar_width << " + "
               << presentation_config->right_border_width << '\n'
+              << "    score-bar contract: spacing=" << score_bar_config->score_spacing
+              << " shieldRates=" << score_bar_config->shield_increase_rate << '/' << score_bar_config->shield_decrease_rate
+              << " powerRates=" << score_bar_config->power_increase_rate << '/' << score_bar_config->power_decrease_rate
+              << " livesDisplay=" << score_bar_config->lives_max_displayed << '\n'
               << "  destruction/removal fields:\n"
               << "    destruction spawns: " << unit_destruction_spawns << '\n'
               << "    deletion spawns: " << unit_deletion_spawns << '\n'
@@ -1195,6 +1250,7 @@ int main(int argc, char** argv) {
               << "  unit rules: " << unit_rules << '\n'
               << "  weapons: " << weapons << '\n'
               << "  weapon spawns: " << weapon_spawns << '\n'
+              << "  weapon score-bar previews: " << weapon_scorebar_previews << '\n'
               << "  players: " << players << '\n'
               << "  active unresolved/no-op state actions: " << unresolved_active_actions << '\n'
               << "  inert unresolved state actions: " << unresolved_inert_actions << '\n'

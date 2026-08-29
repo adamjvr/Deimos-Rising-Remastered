@@ -43,6 +43,7 @@ int main() {
     LegacyPresentationPlan full;
     assert(plan_legacy_post_world_presentation(cfg, 800, 600, true, 0, full, &error));
     assert(full.enabled);
+    assert(full.legacy_commit == LegacyPresentationCommit::ImmediateQuickDrawWindowCopyNoSwap);
     assert((full.centered_minimum_frame == LegacyRasterRect{60, 80, 540, 720}));
     assert(full.clear_rects.empty());
     assert(full.copies.size() == 1);
@@ -54,6 +55,7 @@ int main() {
     LegacyPresentationPlan gameplay640;
     assert(plan_legacy_post_world_presentation(cfg, 640, 480, true, 1, gameplay640, &error));
     assert(gameplay640.enabled);
+    assert(gameplay640.legacy_commit == LegacyPresentationCommit::ImmediateQuickDrawWindowCopyNoSwap);
     assert(gameplay640.clear_rects.empty()); // PPC +0x64 border-paint gate is false at exact minimum width.
     assert(gameplay640.copies.size() == 2);
     assert((gameplay640.copies[0].source == LegacyRasterRect{0, 0, 480, 416}));
@@ -75,11 +77,13 @@ int main() {
     LegacyPresentationPlan disabled;
     assert(plan_legacy_post_world_presentation(cfg, 640, 480, false, 1, disabled, &error));
     assert(!disabled.enabled && disabled.copies.empty());
+    assert(disabled.legacy_commit == LegacyPresentationCommit::None);
 
     // Mode values other than 0/1 fall through 0x30DA0..0x30DCC without a presenter call.
     LegacyPresentationPlan unsupported;
     assert(plan_legacy_post_world_presentation(cfg, 640, 480, true, 2, unsupported, &error));
     assert(!unsupported.enabled && unsupported.copies.empty());
+    assert(unsupported.legacy_commit == LegacyPresentationCommit::None);
 
     // Portable execution freezes the recovered geometry independent of QuickDraw.
     LegacyRasterSurface source(640, 480, 0x1111);

@@ -16,12 +16,21 @@ namespace deimos {
 // entry_InvulnerabilityTime_INT lives at +0x8C, ahead of the entry-position
 // block, while entry_InitialDelay_INT remains at +0xB8.
 struct CompiledPlayerRuntimeDefinition {
+    FourCC score_bar_face{};                        // PlayerDef +0x30
+    int score_bar_frame = 0;                       // +0x34
+    FourCC score_bar_power_face{};                  // +0x38
+    int score_bar_power_frame = 0;                 // +0x3C
+    FourCC score_bar_shield_face{};                 // +0x40
+    int score_bar_shield_frame = 0;                // +0x44
+
     float default_shield_percentage = 100.0f;      // PlayerDef +0x48
     float shield_warning_percentage = 15.0f;      // +0x4C
     float shield_base_hit_percentage = 15.0f;     // +0x50
     int shield_hit_delay_ticks = 1;                // +0x54
     int life_max = 10;                             // +0x60
     int life_initial = 3;                          // +0x64
+    int life_initial_required_score = 10000;       // +0x68
+    int life_additional_required_score = 30000;    // +0x6C
     FourCC life_spawn{};                           // +0x70
 
     int game_over_time_ticks = 20;                 // +0x80
@@ -63,6 +72,14 @@ struct LegacyPlayerRuntimeGlobals {
     const NamedTable<float>& game_floats,
     std::string* error = nullptr);
 
+struct LegacyPlayerScoreGlobals {
+    int extra_life_score_adjustment = 10000; // Game[gafl] 182, fctiwz
+};
+
+[[nodiscard]] std::optional<LegacyPlayerScoreGlobals> compile_legacy_player_score_globals(
+    const NamedTable<float>& game_floats,
+    std::string* error = nullptr);
+
 // Fixed Objects[gaob] slots used by 0x27E50 when a dead player releases held
 // money. Slots are descending denominations in the death routine.
 struct LegacyPlayerRuntimeResources {
@@ -81,6 +98,35 @@ struct LegacyPlayerRuntimeResources {
 void initialize_legacy_player_gameplay(
     PlayerRuntimeSlot& player,
     const CompiledPlayerRuntimeDefinition& definition);
+
+struct LegacyPlayerScoreResult {
+    bool applied = false;
+    bool raw_score_mode = false;
+    int requested_points = 0;
+    int multiplier = 1;
+    int awarded_points = 0;
+    int score_before = 0;
+    int score_after = 0;
+    bool extra_life_threshold_crossed = false;
+    int lives_before = 0;
+    int lives_after = 0;
+    int next_threshold_before = 0;
+    int next_threshold_after = 0;
+    int adjustment_before = 0;
+    int adjustment_after = 0;
+    std::optional<FourCC> life_spawn_due;
+};
+
+// PPC 0x29A10. Normal awards multiply by the live bonus multiplier and use a
+// strict score > threshold extra-life test. `raw_score_mode` preserves the
+// binary's r5!=0 branch: points bypass the multiplier and positive awards
+// reset the adjustment field to score_after + Game[182].
+[[nodiscard]] LegacyPlayerScoreResult apply_legacy_player_score(
+    PlayerRuntimeSlot& player,
+    const CompiledPlayerRuntimeDefinition& definition,
+    const LegacyPlayerScoreGlobals& globals,
+    int points,
+    bool raw_score_mode = false);
 
 struct LegacyPlayerPickupResult {
     bool accepted = true;

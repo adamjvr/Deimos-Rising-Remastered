@@ -35,7 +35,8 @@ The portable C++20 core now contains:
 - a `deimos_reference_probe` executable that validates an original `Game.pak` through the clean implementation.
 - binary-confirmed persistent terrain/background camera runtime: 416x480x16 source-view configuration, 545-row activation prime, exact vertical scroll/clamp/end behavior, and full-viewport copies from the persistent terrain raster;
 - binary-confirmed particle raster and outer world-frame composition: exact 7x7 xRGB1555 particle kernel plus `group0 -> terrain copy -> group1 -> particles -> group2` ordering with the original draw-latch gates;
-- binary-confirmed native presentation geometry: 640x480x16 minimum frame, normal gameplay `32 + 416 + 160 + 32` layout, exact game/score-bar QuickDraw copy rectangles, centered placement, and a portable presentation-plan executor.
+- binary-confirmed native presentation path: 640x480x16 minimum frame, normal gameplay `32 + 416 + 160 + 32` layout, exact game/score-bar QuickDraw copy rectangles, centered placement, and the original immediate CWindow `CopyBits` commit with no DrawSprocket back-buffer/swap import;
+- binary-confirmed score-bar producer/cache runtime: label-verified 160x480 dirty regions and coordinates, exact shield/power smoothing, player/weapon score-bar resources, displayed-life semantics, and upstream score/extra-life threshold production.
 
 The original 1.0.6 `Game.pak` has been loaded directly through this clean code: all 763 files CRC-validate, all 12 levels parse, all 565 level placements reconcile, and all four canonical PAK films parse, and all 386 unit definitions / 5 weapons / 2 player definitions parse and cross-validate. Across all four original PAKs, **871 actual files** pass CRC validation.
 
@@ -50,7 +51,7 @@ ctest --test-dir build --output-on-failure
 ./build/deimos_reference_probe reference/DR-EVID-002/canonical/Paks/Game.pak
 ```
 
-Committed tests use synthetic fixtures only; the current suite passes 38/38. Original assets remain in the ignored local reference workspace.
+Committed tests use synthetic fixtures only; the current suite passes 39/39. Original assets remain in the ignored local reference workspace.
 
 See `docs/STATUS.md`, `docs/ROADMAP.md`, and `reverse/formats/` for current reconstruction details.
 

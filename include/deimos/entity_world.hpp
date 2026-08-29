@@ -50,6 +50,12 @@ struct PlayerRuntimeSlot {
     bool use_solo_entry_position = true;    // original +0xCD; selects Def +0x90/+0x94
     float velocity_x = 0.0f;                // original live +0x10
     float velocity_y = 0.0f;                // original live +0x14
+
+    // Score/life-threshold fields recovered from PPC 0x299F0..0x29A10.
+    // Appended so all historical aggregate initializers remain stable.
+    int score = 0;                          // obfuscated original live +0xB0
+    int next_extra_life_score = 0;          // original live +0x9C
+    int extra_life_score_adjustment = 0;    // original live +0xA0
 };
 
 struct ClosestPlayerResult {

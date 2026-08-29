@@ -133,6 +133,11 @@ bool plan_legacy_post_world_presentation(
     if (!presentation_enabled) return true;
     if (frame_mode > static_cast<std::uint8_t>(LegacyPresentationMode::Gameplay)) return true;
     plan.enabled = true;
+    // PEF 1.0.6 imports DSpContext_GetFrontBuffer only for display-bounds
+    // discovery during setup, then creates a matching CWindow. Both legacy
+    // presenters ultimately call QuickDraw CopyBits into that window port.
+    // There is no DSpContext_GetBackBuffer or DSpContext_SwapBuffers import.
+    plan.legacy_commit = LegacyPresentationCommit::ImmediateQuickDrawWindowCopyNoSwap;
 
     if (frame_mode == static_cast<std::uint8_t>(LegacyPresentationMode::FullFrame)) {
         plan.copies.push_back({

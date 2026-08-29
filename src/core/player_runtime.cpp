@@ -129,6 +129,21 @@ std::optional<LegacyPlayerRuntimeGlobals> compile_legacy_player_runtime_globals(
     };
 }
 
+std::optional<LegacyPlayerScoreGlobals> compile_legacy_player_score_globals(
+    const NamedTable<float>& game_floats,
+    std::string* error) {
+    constexpr std::size_t index = 182;
+    if (game_floats.size() <= index) {
+        if (error) *error = "Game[gafl] is shorter than Player_ExtraLifeScoreAdjustment";
+        return std::nullopt;
+    }
+    if (game_floats[index].first != "Player_ExtraLifeScoreAdjustment") {
+        if (error) *error = "unexpected Game[gafl] player-score label at index 182";
+        return std::nullopt;
+    }
+    return LegacyPlayerScoreGlobals{static_cast<int>(game_floats[index].second)};
+}
+
 std::optional<LegacyPlayerRuntimeResources> compile_legacy_player_runtime_resources(
     const NamedTable<FourCC>& game_objects,
     std::string* error) {
@@ -158,6 +173,12 @@ std::optional<LegacyPlayerRuntimeResources> compile_legacy_player_runtime_resour
 CompiledPlayerRuntimeDefinition compile_player_runtime_definition(
     const PlayerDefinition& definition) {
     CompiledPlayerRuntimeDefinition out;
+    out.score_bar_face = definition.fields.id_value("spriteScoreBar_ID").value_or(FourCC{});
+    out.score_bar_frame = definition.fields.int_value("spriteScoreBarFrame_INT").value_or(0);
+    out.score_bar_power_face = definition.fields.id_value("spriteScoreBarPower_ID").value_or(FourCC{});
+    out.score_bar_power_frame = definition.fields.int_value("spriteScoreBarPowerFrame_INT").value_or(0);
+    out.score_bar_shield_face = definition.fields.id_value("spriteScoreBarShield_ID").value_or(FourCC{});
+    out.score_bar_shield_frame = definition.fields.int_value("spriteScoreBarShieldFrame_INT").value_or(0);
     out.default_shield_percentage =
         definition.fields.float_value("defaultShieldPercentage_INT").value_or(100.0f);
     out.shield_warning_percentage =
@@ -168,6 +189,10 @@ CompiledPlayerRuntimeDefinition compile_player_runtime_definition(
         definition.fields.int_value("shieldHitDelay_INT").value_or(1);
     out.life_max = definition.fields.int_value("life_MaxNum_INT").value_or(10);
     out.life_initial = definition.fields.int_value("life_NumInitial_INT").value_or(3);
+    out.life_initial_required_score =
+        definition.fields.int_value("life_InitialRequiredScore_INT").value_or(10000);
+    out.life_additional_required_score =
+        definition.fields.int_value("life_AdditionalRequiredScore_INT").value_or(30000);
     out.life_spawn = definition.fields.id_value("life_Spawn_ID").value_or(FourCC{});
     out.game_over_time_ticks =
         definition.fields.int_value("gameOverTime_INT").value_or(20);
@@ -212,6 +237,56 @@ void initialize_legacy_player_gameplay(
     player.last_shield_hit_tick = 0;
     player.last_spawn_on_hit_tick = 0;
     player.status_since_tick = 0;
+    player.score = 0;
+    player.next_extra_life_score = definition.life_initial_required_score;
+    player.extra_life_score_adjustment = 0;
+}
+
+LegacyPlayerScoreResult apply_legacy_player_score(
+    PlayerRuntimeSlot& player,
+    const CompiledPlayerRuntimeDefinition& definition,
+    const LegacyPlayerScoreGlobals& globals,
+    int points,
+    bool raw_score_mode) {
+    LegacyPlayerScoreResult out;
+    out.applied = player.enabled;
+    out.raw_score_mode = raw_score_mode;
+    out.requested_points = points;
+    out.multiplier = raw_score_mode ? 1 : player.power_multiplier;
+    out.awarded_points = raw_score_mode ? points : points * player.power_multiplier;
+    out.score_before = player.score;
+    out.score_after = player.score;
+    out.lives_before = player.lives;
+    out.lives_after = player.lives;
+    out.next_threshold_before = player.next_extra_life_score;
+    out.next_threshold_after = player.next_extra_life_score;
+    out.adjustment_before = player.extra_life_score_adjustment;
+    out.adjustment_after = player.extra_life_score_adjustment;
+    if (!player.enabled) return out;
+
+    player.score += out.awarded_points;
+    out.score_after = player.score;
+
+    if (points > 0) {
+        if (raw_score_mode) {
+            player.extra_life_score_adjustment =
+                player.score + globals.extra_life_score_adjustment;
+        } else if (player.score > player.next_extra_life_score) {
+            out.extra_life_threshold_crossed = true;
+            if (player.lives < definition.life_max) {
+                ++player.lives;
+                if (!(definition.life_spawn == FourCC{})) out.life_spawn_due = definition.life_spawn;
+            }
+            player.next_extra_life_score +=
+                definition.life_additional_required_score + player.extra_life_score_adjustment;
+            player.extra_life_score_adjustment += globals.extra_life_score_adjustment;
+        }
+    }
+
+    out.lives_after = player.lives;
+    out.next_threshold_after = player.next_extra_life_score;
+    out.adjustment_after = player.extra_life_score_adjustment;
+    return out;
 }
 
 LegacyPlayerPickupResult apply_legacy_player_pickup(

@@ -28,12 +28,20 @@ int main() {
     // Source-format Player Definition -> exact semantic subset used by
     // PPC 0x27100 / 0x37580.
     const std::string text = R"(#name_STR <Player 1>
+#spriteScoreBar_ID <play>
+#spriteScoreBarFrame_INT <0>
+#spriteScoreBarPower_ID <shme>
+#spriteScoreBarPowerFrame_INT <1>
+#spriteScoreBarShield_ID <shme>
+#spriteScoreBarShieldFrame_INT <0>
 #defaultShieldPercentage_INT <100.000000>
 #shieldWarningPercentage_INT <15.000000>
 #shieldBaseHitPercentage_INT <15.000000>
 #shieldHitDelay_INT <1>
 #life_MaxNum_INT <10>
 #life_NumInitial_INT <3>
+#life_InitialRequiredScore_INT <10000>
+#life_AdditionalRequiredScore_INT <30000>
 #life_Spawn_ID <noel>
 #death_Spawn_ID <plde>
 #active_SpawnOnHit_ID <plsh>
@@ -45,13 +53,14 @@ int main() {
     assert(doc);
     auto parsed = deimos::parse_player_definition_document(*doc, &error);
     assert(parsed);
-    deimos::NamedTable<float> game_floats(168);
+    deimos::NamedTable<float> game_floats(183);
     for (std::size_t i = 0; i < game_floats.size(); ++i) {
         game_floats[i] = {"unused", 0.0f};
     }
     game_floats[161] = {"Player_ImpactDamageToEntities", 100.0f};
     game_floats[162] = {"Player_DelayBetweenHitSpawns", 10.9f};
     game_floats[167] = {"Entity_HitDelay", 1.9f};
+    game_floats[182] = {"Player_ExtraLifeScoreAdjustment", 10000.9f};
     const auto globals = deimos::compile_legacy_player_runtime_globals(game_floats, &error);
     assert(globals);
     assert(nearly(globals->impact_damage_to_entities, 100.0f));
@@ -59,6 +68,12 @@ int main() {
     assert(globals->entity_hit_delay_ticks == 1);
     game_floats[162].first = "wrong";
     assert(!deimos::compile_legacy_player_runtime_globals(game_floats, &error));
+    game_floats[162].first = "Player_DelayBetweenHitSpawns";
+    const auto score_globals = deimos::compile_legacy_player_score_globals(game_floats, &error);
+    assert(score_globals && score_globals->extra_life_score_adjustment == 10000);
+    game_floats[182].first = "wrong";
+    assert(!deimos::compile_legacy_player_score_globals(game_floats, &error));
+    game_floats[182].first = "Player_ExtraLifeScoreAdjustment";
 
     deimos::NamedTable<deimos::FourCC> objects(6);
     objects[0] = {"Player 1", id("pl01")};
@@ -75,6 +90,11 @@ int main() {
     assert(resources->money_1 == id("cass"));
 
     const auto def = deimos::compile_player_runtime_definition(*parsed);
+    assert(def.score_bar_face == id("play") && def.score_bar_frame == 0);
+    assert(def.score_bar_power_face == id("shme") && def.score_bar_power_frame == 1);
+    assert(def.score_bar_shield_face == id("shme") && def.score_bar_shield_frame == 0);
+    assert(def.life_initial_required_score == 10000);
+    assert(def.life_additional_required_score == 30000);
     assert(nearly(def.default_shield_percentage, 100.0f));
     assert(nearly(def.shield_warning_percentage, 15.0f));
     assert(nearly(def.shield_base_hit_percentage, 15.0f));
@@ -94,6 +114,45 @@ int main() {
     assert(player.lives == 3);
     assert(player.money == 0);
     assert(player.power_multiplier == 1);
+    assert(player.score == 0);
+    assert(player.next_extra_life_score == 10000);
+    assert(player.extra_life_score_adjustment == 0);
+
+    // PPC 0x29A10 score awards use the live bonus multiplier. Equality at the
+    // threshold does not award a life; the test is strictly newScore > threshold.
+    auto score_result = deimos::apply_legacy_player_score(player, def, *score_globals, 10000);
+    assert(score_result.score_after == 10000 && player.lives == 3);
+    score_result = deimos::apply_legacy_player_score(player, def, *score_globals, 1);
+    assert(score_result.extra_life_threshold_crossed);
+    assert(player.score == 10001 && player.lives == 4);
+    assert(score_result.life_spawn_due == id("noel"));
+    assert(player.next_extra_life_score == 40000);
+    assert(player.extra_life_score_adjustment == 10000);
+
+    // Only one threshold is consumed per award even when a large score jump
+    // crosses several nominal thresholds. Multiplier 2 doubles the award.
+    player.power_multiplier = 2;
+    score_result = deimos::apply_legacy_player_score(player, def, *score_globals, 50000);
+    assert(score_result.awarded_points == 100000);
+    assert(player.score == 110001 && player.lives == 5);
+    assert(player.next_extra_life_score == 80000); // 40000 + 30000 + prior 10000
+    assert(player.extra_life_score_adjustment == 20000);
+
+    // r5!=0/raw branch bypasses the multiplier and replaces +0xA0 with
+    // score_after + Game[182] for positive awards.
+    score_result = deimos::apply_legacy_player_score(player, def, *score_globals, 9, true);
+    assert(score_result.awarded_points == 9 && player.score == 110010);
+    assert(player.extra_life_score_adjustment == 120010);
+
+    // Disabled players ignore 0x29A10 entirely.
+    player.enabled = false;
+    score_result = deimos::apply_legacy_player_score(player, def, *score_globals, 100);
+    assert(!score_result.applied && player.score == 110010);
+    player.enabled = true;
+
+    // Reset the independent pickup test state.
+    player.score = 0; player.next_extra_life_score = 10000; player.extra_life_score_adjustment = 0;
+    player.lives = 3; player.power_multiplier = 1;
 
     // Coin: value zero skips both the obfuscated money add and the feedback
     // helper; nonzero adds semantic money and requests the feedback call.

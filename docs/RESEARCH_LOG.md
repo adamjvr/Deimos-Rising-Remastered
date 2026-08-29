@@ -657,3 +657,33 @@ Re-entered `0x30BC0` after the closed particle/world compositor. The routine has
 The display manager (`0xAE20..0xB51C`) binds `Game[gafl]` 52..60 to a centered 640x480x16 frame: 32 left border + 416 game + 160 score bar + 32 right border. `0xBC60` performs one 640x480 QuickDraw `CopyBits`; `0xBEB0` copies source game `{0,0,480,416}` and source score bar `{0,416,480,576}` into their centered destinations, with black `PaintRect` side strips when the host display is wider than 640. Imports and helper calls identify `SetGWorld`, `SetRect`, `PaintRect`, `ForeColor`, and `CopyBits`.
 
 A deeper pass classifies `0x9E40` as only a GWorld activation/`SetGWorld` helper, correcting the temporary hypothesis that it might draw UI. The score-bar pixels must already exist before `0xBEB0`, making their producer path a separate next target. Added `LegacyPresentationConfig`, plan/execution helpers, and `presentation_runtime_test`; Debug suite 38/38 PASS and canonical `Game.pak` adds the 640x480x16 layout oracle with prior hashes/seeds unchanged.
+
+## 2026-08-29 — Score-bar producer/cache and score threshold runtime
+
+Traced the 160-pixel score-bar producer cluster immediately following the closed
+`0x30BC0` world/presentation path. `0x30F40/0x31400/0x317E0/0x31AE0` form a
+332-byte-per-player cache with six dirty classes: score, life symbol, life
+count, three weapon previews as one class, shield, and power. `Game[gafl]`
+111..143 and `Rects[inre]` 0..15 now form a label-verified layout/rate contract.
+Shield converges at +2/-3, weapon power at +2/-4 only increasing in active
+status 4; relocated PEF data proves the final power clamp constants are exactly
+0.0 and 100.0. `0x32050` displays `clamp(lives-1,0,9)`.
+
+The upstream score getter/setter pair `0x299F0/0x29A00` and award routine
+`0x29A10` are now represented in `PlayerRuntimeSlot`. Normal awards multiply by
+the live bonus multiplier, use a strict `newScore > threshold` life test, and
+consume at most one threshold per award. Canonical life score fields are
+10000/30000 with `Player_ExtraLifeScoreAdjustment=10000`. Player score-bar
+sprite resources and all five canonical weapon preview descriptors are also
+compiled. Suite raised to 39 tests; canonical sprite/software-render hashes and
+construction/motion RNG seeds remain unchanged.
+
+
+## 2026-08-29 — score-bar and display-commit closure
+
+- Traced `0x30F40..0x32A70` as the gameplay score-bar object/update/draw cluster feeding source canvas x=416..575.
+- Label-verified Game[gafl] 111..143 and Rects[inre] 0..15, including six dirty classes, 2/3 shield rates, 2/4 power rates, 0.7 nonselected weapon scale, and max displayed lives 9.
+- Recovered `0x299F0/0x29A00/0x29A10` score production and extra-life thresholds; canonical PlayerDefs use 10000 initial / 30000 additional and Game[gafl] 182 contributes 10000 adjustment.
+- Confirmed all five canonical weapons expose score-bar preview face/frame descriptors.
+- Mapped PEF DrawSprocket imports: GetFrontBuffer exists; GetBackBuffer and SwapBuffers do not. `0xC81C` is the only GetFrontBuffer call and feeds `0x44B50`, a four-bound extractor only.
+- Traced `0xAE20` -> `0xA640` (`NewCWindow`) and `0xC2A0` -> `0xA980` (`SetGWorld`) -> `0xAC20` (`CopyBits`), proving the final legacy commit is immediate QuickDraw drawing into the CWindow port with no explicit DrawSprocket swap after the presenter.

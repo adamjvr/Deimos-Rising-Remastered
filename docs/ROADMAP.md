@@ -62,12 +62,13 @@ Completed/confirmed:
 - `0x12F20/0x12FA0/0x13460` semantic-to-raw request orchestration is now bound end-to-end, including exact world/HUD transforms, main-terrain +32 X basis, shadow-terrain -32 basis, effect-color packing, frame-cache resolution, immediate/queued routing, +0x90 terrain sequence stamping, and `0x100B0` horizontal-view stepping;
 - `0xFA10/0xFA90/0xFBC0/0x10000/0x10120/0x10220` terrain surface/camera lifecycle reconstructed: label-verified 416x480x16 view, persistent full terrain raster, 545-row activation prime, exact vertical scroll accounting/end latch, and full 416x480 viewport copy (disproving the prior incremental strip-copy hypothesis);
 - `0x44630/0x431F0/0x43340/0x438C0` particle lifecycle reconstructed end-to-end: 100+100 startup direction tables/cursors, eight preset families, color variation, ground-scroll tracking, damping/bounds/fade/prune semantics, and exact state/collision-hit/destruction producer binding at original RNG positions;
-- `0x30D8C..0x30DCC` plus `0xBC60/0xBEB0` native QuickDraw copy geometry reconstructed: normal gameplay mode 1, label-verified 640x480x16 frame, 32+416+160+32 layout, exact game/score-bar CopyBits rectangles, and centered side-border behavior;
+- `0x30D8C..0x30DCC` plus `0xBC60/0xBEB0` native QuickDraw copy geometry reconstructed: normal gameplay mode 1, label-verified 640x480x16 frame, 32+416+160+32 layout, exact game/score-bar CopyBits rectangles, and centered side-border behavior; `0xC470/0xC81C` prove DrawSprocket front-buffer use is bounds discovery only, `0xAE20/0xA640` create the destination CWindow, and the PEF has no GetBackBuffer/SwapBuffers import;
+- `0x30F40..0x32A70` score-bar producer/cache cluster reconstructed: Game[gafl] 111..143 and Rects[inre] 0..15 layout contracts, six dirty classes, player/weapon score-bar resources, exact shield +2/-3 and power +2/-4 convergence with proven 0..100 power clamp, `clamp(lives-1,0,9)` life display, and upstream `0x29A10` score/extra-life threshold semantics;
 
 Remaining Phase 1 exit criteria:
 
 - recover the rare special single-member parent-container path and remaining original intrusive-list/pool semantics around `0x33220`;
-- integrate the recovered player lifecycle spawn/audio/UI side effects into full world orchestration; world composition and the legacy QuickDraw presentation-copy geometry are now closed, so recover the producers that populate the 160-pixel score-bar region and the final destination-buffer/swap timing contract;
+- integrate the recovered player lifecycle spawn/audio/UI side effects into full world orchestration; world composition, the 160-pixel score-bar producer/cache, QuickDraw presentation geometry, and the no-swap CWindow display commit are now closed, so recover the remaining score-bar pixel/text fade details and audit residual overlay writers;
 - finish remaining Flee trigger/lifecycle edges and bind them to decoded fields;
 - expand Windows installer and establish Mac↔Windows code/data correspondences;
 - finish replay action-bit mapping including second-player semantics;
