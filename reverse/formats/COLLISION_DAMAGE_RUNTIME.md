@@ -149,7 +149,7 @@ as a subsystem orchestration boundary.
 
 ## Validation and remaining boundary
 
-Synthetic repository tests are **31/31 PASS**. Canonical Game.pak remains
+Synthetic repository tests are **32/32 PASS**. Canonical Game.pak remains
 stable at 386 groups / 546 constructed members, construction RNG seed
 `2249411936`, 544 active members after the first player-aware tick, and motion
 RNG seed `2633739833`.

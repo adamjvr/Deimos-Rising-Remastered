@@ -1,106 +1,145 @@
-# Mac 1.0.6 terrain/media runtime notes
+# Terrain / media destruction runtime — Mac 1.0.6
 
-Status: **binary-confirmed** for the `0x16880` media decision core,
-`0x2A6D0/0x2A770/0x2A830/0x2A950` obstacle-rectangle list, and the main-tick
-zero-velocity/stationary consequence of a ground-obstacle hit.
+Status: **binary-confirmed clean subset**.
 
-## Relevant entry points
+This milestone closes the destruction/deletion media helper at PPC `0x16880`
+and reconstructs the persistent rectangle store used by ground-obstacle
+collision (`0x2A6D0`, `0x2A770`, `0x2A830`, `0x2A950`). It deliberately does
+now includes the recovered per-request xRGB1555 terrain-target compositor, but does not yet claim complete terrain/background surface lifetime, scrolling/persistence, or native presentation ownership.
 
-| PPC address | Recovered role |
-| ---: | --- |
-| `0x16880` | ground-sensitive destruction/deletion spawn routing and water-impact replacement |
-| `0xFEC0` | supplies the current world/background Y origin used by the sample point |
-| `0xFEE0` | Media Mask sample; true iff the in-bounds 16-bit cell equals `31` |
-| `0x12A00` | build live-member QuickDraw Rect via independent `fctiwz` edge conversion |
-| `0x2A6D0` | append one persistent ground-obstacle/background Rect |
-| `0x2A770` | shift all stored Rect top/bottom values by vertical scroll delta |
-| `0x2A830` | inclusive rectangle overlap query |
-| `0x2A950` | free/clear stored Rect list |
-| `0x12F20` | visual draw wrapper; visibility gate, shadow request, then main request |
+## Direct Unit Definition anchors
 
-## `0x16880` control flow
+Parser-key/destination correlation establishes:
 
-`UnitDef+0x125` (`isGroundBased_BOOL`) is the first branch. Air units return
-allowed. Ground units then test `UnitDef+0x12B`, directly mapped by the parser to
-`doDeathSpawnOnAnyMedia_BOOL`; true also returns allowed.
+| Source key | Compiled UnitDef offset | Runtime use |
+| --- | ---: | --- |
+| `castsShadows_BOOL` | `+0x11E` | copied into the live render state when a destroyed entity becomes an obstacle |
+| `isGroundBased_BOOL` | `+0x125` | selects ground vs air behavior and derived collision domain |
+| `collidesWithGroundObstacles_BOOL` | `+0x128` | gates the persistent obstacle-rectangle query |
+| `doDeathSpawnOnAnyMedia_BOOL` | `+0x12B` | bypasses the media-mask replacement path in `0x16880` |
+| `mediaImpactSize_ID` | `+0x2E4` | chooses the water-impact replacement family |
 
-The remaining path obtains live x/y, applies independent PPC truncation, and
-samples the Media Mask at `(trunc(x)+32, trunc(y)+worldYOrigin)`. A false
-`0xFEE0` result returns allowed. A true result enters a switch on
-`UnitDef+0x2E4` (`mediaImpactSize_ID`) and ultimately returns false, thereby
-suppressing the destruction/deletion spawn requested by the caller.
+Canonical 1.0.6 coverage is 67 shadow-casting units, 4 ground-obstacle
+colliders, 12 units with `doDeathSpawnOnAnyMedia`, and 3 units with a non-`none`
+`mediaImpactSize_ID`.
 
-The switch may construct a replacement water impact itself. Fixed object slots
-are `Objects[gaob]` 6..9:
+## `0x16880`: death/deletion spawn media routing
 
-```text
-6 MediaImpact_Water_Tiny   spti
-7 MediaImpact_Water_Small  spsm
-8 MediaImpact_Water_Medium spme
-9 MediaImpact_Water_Large  spla
-```
+The helper is more than a boolean spawn gate.
 
-Switch IDs:
+1. Non-ground units immediately allow the requested destruction/deletion spawn.
+2. Ground units with `doDeathSpawnOnAnyMedia_BOOL` also allow it without a
+   media-mask lookup.
+3. Otherwise the helper samples at:
+   - `x = trunc(entity.x) + 32`;
+   - `y = trunc(entity.y) + worldYOrigin`.
+4. `0xFEE0` reads the 16-bit Media Mask and returns true only when the sampled
+   cell equals `31`.
+5. A non-water sample allows the caller's requested spawn.
+6. A water sample always suppresses the requested spawn. Depending on
+   `mediaImpactSize_ID`, `0x16880` may itself construct a replacement water
+   impact at the original entity position/ownership chain.
 
-```text
-tiny -> 6
-smal -> 7
-med  -> 8
-larg -> 9
-smra -> rng(0..1): 0->7, 1->6
-mera -> rng(0..2): 0->6, 1->7, 2->8
-lara -> rng(0..1): 0->9, 1->8
-```
+The clean runtime exposes this as `resolve_legacy_removal_media` and records
+whether water was hit, whether the caller's original spawn remains allowed,
+the sampled coordinates, any replacement FourCC, and the exact number of RNG
+draws.
 
-Unknown/none size IDs still suppress the caller's spawn on a water sample but
-emit no replacement. The random branches consume the shared legacy RNG only
-after a water hit.
+### Media size IDs
 
-## `0xFEE0`
+The recovered switch is:
 
-The helper obtains Media Mask dimensions/data, converts the input coordinates
-through the mask element scale, bounds-checks, indexes a 16-bit cell, and
-returns one only for value `31`. The water-impact resource switch immediately
-above provides the semantic evidence for treating that value as the water mask
-class in this path.
+| `mediaImpactSize_ID` | Replacement |
+| --- | --- |
+| `tiny` | Water Tiny |
+| `smal` | Water Small |
+| `med ` | Water Medium |
+| `larg` | Water Large |
+| `smra` | one 0..1 draw: 0 -> Small, 1 -> Tiny |
+| `mera` | one 0..2 draw: Tiny / Small / Medium |
+| `lara` | one 0..1 draw: 0 -> Large, 1 -> Medium |
+| `none`, empty, unknown | no replacement, but the original spawn is still suppressed on water |
 
-## Ground-obstacle rectangle list
+The apparently reversed `smra` and `lara` orders are preserved exactly because
+they are executable behavior and affect both resource choice and RNG sequence.
 
-`0x2A6D0` allocates 16 bytes and copies a QuickDraw Rect
-`{top,left,bottom,right}` into an append-only list. `0x2A830` rejects only strict
-separation:
+Canonical `Game.pak` uses non-`none` media sizes only for:
 
-```text
-input.bottom < obstacle.top
-input.top    > obstacle.bottom
-input.right  < obstacle.left
-input.left   > obstacle.right
-```
+- Tank Tracks (`tatr`) — `smal`;
+- Bomb Crater (`bocr`) — `smra`;
+- Plasma Bomb (`plbo`) — `smra`.
 
-Therefore edge contact counts as collision. `0x2A770` shifts only top/bottom;
-`0x2A950` clears the list.
+## Fixed water-impact resource contract
 
-The main member update checks `UnitDef+0x128`, parser-mapped to
-`collidesWithGroundObstacles_BOOL`, before calling this overlap helper. The hit
-consequence around `0x34544..0x34558` copies a shared `{0,0}` vector into live
-`+0x10/+0x14` and sets live `+0x13C`. Cross-references prove that shared vector
-is the engine's canonical zero vector and that `+0x10/+0x14` are velocity, not
-position. The entity therefore remains at its current x/y, stops moving, and
-becomes stationary. If `destructDrawToTerrain_BOOL` is set, its current Rect is
-then appended to the same obstacle list. The preceding live `+0x19 == 0` gate is proven as the constructor-cached air-domain bit,
-so only ground-domain members enter this obstacle query.
+PPC `0x16880` consumes `Objects[gaob]` positions 6..9. The clean binder verifies
+labels before accepting the table:
 
-`destructDrawToTerrain_BOOL` calls `0x2A6D0` with the entity Rect during
-`0x16300`, tying destruction terrain draw requests to the same later collision
-store.
+| Index | Required label | Canonical ID |
+| ---: | --- | --- |
+| 6 | `MediaImpact_Water_Tiny` | `spti` |
+| 7 | `MediaImpact_Water_Small` | `spsm` |
+| 8 | `MediaImpact_Water_Medium` | `spme` |
+| 9 | `MediaImpact_Water_Large` | `spla` |
 
-## Obstacle conversion
+This surrounding resource contract is what identifies Media Mask value `31` as
+the water path rather than an arbitrary material class.
 
-When `destructCreateObstacle_BOOL` is processed by outer cleanup, the executable
-sets live render/obstacle bytes, copies UnitDef `+0x11E` (`castsShadows_BOOL`),
-and calls `0x12F20`. The clean core now owns the deterministic visual/request
-boundary reached there: visibility, separate shadow/main pass selection, recovered
-layer domains, base/tint/glow request ordering, and the terrain-submission distinction.
-Sprite/frame resource lookup, exact shadow/world transforms, backend submission, and
-pixel/terrain composition remain outside this recovered subset; see
-`RENDER_VISUAL_RUNTIME.md`.
+## Persistent ground-obstacle rectangles
+
+The background/terrain module owns an append-only list of 16-byte QuickDraw
+Rects:
+
+- `0x2A6D0` allocates/appends one rect without merging or de-duplication;
+- `0x2A770` adds the vertical scroll delta to each rect's top and bottom;
+- `0x2A830` reports overlap using inclusive edges (touching counts);
+- `0x2A950` frees/clears the list on teardown/reset.
+
+The main member update checks `collidesWithGroundObstacles_BOOL`, derives the
+entity rect through `0x12A00`, and queries `0x2A830`. The clean core currently
+implements the exact rect conversion, flag gate, list persistence, vertical
+shift, inclusive overlap, and clear semantics. The subsequent consequence is now proven too: the PPC copies the engine's canonical `{0,0}` vector into live velocity `+0x10/+0x14` and sets live `+0x13C` stationary. It does **not** restore or roll back position. The clean helper reproduces this stop/latch and, for draw-to-terrain entities, appends the stopped Rect afterward. The preceding live `+0x19` gate is now proven: member constructor
+`0x35F88..0x35FA0` caches whether derived `UnitDef+0x08` equals `air `. The
+main tick therefore excludes air-domain members before testing
+`collidesWithGroundObstacles_BOOL`. The clean query now enforces that exact
+ground-domain gate.
+
+`destructDrawToTerrain_BOOL` also appends the destroyed ground entity's rect to
+this same list. This proves the list participates in later ground-obstacle
+collision; it should not be described merely as a visual invalidation list.
+
+## `destructCreateObstacle_BOOL`
+
+Outer inactive-member cleanup performs a distinct conversion path:
+
+- live obstacle/render byte is enabled;
+- another live render byte is cleared;
+- UnitDef `castsShadows_BOOL` is copied into the live render state;
+- `0x12F20` rebuilds/refreshes the live render record before normal member
+  teardown continues.
+
+The clean destruction trace captures the obstacle rect and `castsShadows` fact.
+The deterministic `0x12F20` visual/render-request boundary is now reconstructed:
+visibility gating, shadow/main pass selection, layer mapping, base/tint/glow ordering,
+and the distinct terrain-submission path are represented headlessly. Sprite-resource
+lookup and exact shadow transforms are now reconstructed; backend submission and underlying bitmap/terrain
+composition remain downstream.
+
+## Validation
+
+The repository suite is **32/32 PASS**. The canonical `Game.pak` probe verifies
+all new compiled fields and the fixed water-impact labels/IDs while retaining
+the established deterministic baseline:
+
+- 386 groups / 546 live members after construction;
+- construction RNG seed `2249411936`;
+- 544 active after the first player-aware tick;
+- motion RNG seed `2633739833`.
+
+## Remaining terrain-facing boundaries
+
+- bind recovered semantic render intents to raw requests at all original call sites and reconstruct complete terrain/background surface lifetime, scroll/persistence, dirty-region presentation, and native display ownership;
+- bind a decoded Media Mask resource/provider instead of the clean callback
+  boundary;
+- route remaining destruction entry sites through the recovered teardown
+  orchestration; the former `+0xCD -> 0x17E70` "special destruction" item is
+  now proven to be a shield-depletion state transition, not destruction.

@@ -200,13 +200,23 @@ int main() {
     assert(deimos::legacy_shadow_layer_code(id("grhi"), false) == 4);
     assert(deimos::legacy_shadow_layer_code(id("plwe"), false) == 6);
 
+    // 0x10C20 and tint-pass request-domain conversions. Visibility is
+    // integer-truncated before mapping into 0..32 destination weight.
+    assert(deimos::legacy_percent_to_transparency_0_to_32(100.0f) == 0);
+    assert(deimos::legacy_percent_to_transparency_0_to_32(80.9f) == 6);
+    assert(deimos::legacy_percent_to_transparency_0_to_32(0.0f) == 32);
+    assert(deimos::legacy_percent_to_transparency_0_to_32(150.0f) == 16);
+    assert(deimos::legacy_percent_to_transparency_0_to_32(-10.0f) == 32);
+    assert(deimos::legacy_tint_effect_transparency_0_to_32(25.0f, 100.0f) == 24);
+    assert(deimos::legacy_tint_effect_transparency_0_to_32(25.0f, 80.0f) == 25);
+
     // Wrapper order is shadow before main. Normal base, tint, and glow are
     // independently generated; stateDoColorise suppresses only the base pass.
     runtime.visibility_percent = 80.0f;
     runtime.tint_percent = 25.0f;
     runtime.tint_color = {1, 2, 3};
     runtime.collision_glow_active = true;
-    runtime.collision_glow_amount = 17.0f;
+    runtime.collision_glow_amount_0_to_32 = 17;
     runtime.collision_glow_color = {4, 5, 6};
     runtime.do_colorise = false;
     auto intents = deimos::build_legacy_render_intents(runtime);
@@ -215,16 +225,33 @@ int main() {
     assert(intents[1].kind == deimos::LegacyRenderPassKind::base_sprite);
     assert(intents[2].kind == deimos::LegacyRenderPassKind::tint);
     assert(intents[3].kind == deimos::LegacyRenderPassKind::collision_glow);
-    for (const auto& intent : intents) {
-        assert(intent.numeric_layer == 0); // terrain submission bypasses normal layer switch
-        assert(intent.draw_to_terrain);
+    assert(intents[0].effect_amount_0_to_32 == 20); // shadow min-transparency clamp
+    assert(intents[1].effect_amount_0_to_32 == 6);  // 80% visibility
+    assert(intents[2].effect_amount_0_to_32 == 25); // 25% tint at 80% visibility
+    assert(intents[3].effect_amount_0_to_32 == 17); // collision glow is already raw 0..32
+    assert(intents[0].numeric_layer == 0); // 0x13460 shadow terrain submission
+    for (std::size_t i = 1; i < intents.size(); ++i) {
+        assert(intents[i].numeric_layer == 1); // 0x12FA0 main terrain submission
     }
+    for (const auto& intent : intents) assert(intent.draw_to_terrain);
 
 
     runtime.draw_to_terrain = false;
     auto layered = deimos::build_legacy_render_intents(runtime);
     assert(layered[0].numeric_layer == 6); // air shadow
     assert(layered[1].numeric_layer == 7); // air default main
+    runtime.draw_to_terrain = true;
+
+    // +0x90 terrain submission gate is strict and updates only on success.
+    runtime.last_terrain_submit_sequence = 0;
+    assert(!deimos::legacy_terrain_submission_due(runtime, 0));
+    assert(deimos::legacy_terrain_submission_due(runtime, 1));
+    assert(runtime.last_terrain_submit_sequence == 1);
+    assert(!deimos::legacy_terrain_submission_due(runtime, 1));
+    assert(!deimos::legacy_terrain_submission_due(runtime, 0));
+    assert(deimos::legacy_terrain_submission_due(runtime, 2));
+    runtime.draw_to_terrain = false;
+    assert(!deimos::legacy_terrain_submission_due(runtime, 3));
     runtime.draw_to_terrain = true;
 
     runtime.do_colorise = true;

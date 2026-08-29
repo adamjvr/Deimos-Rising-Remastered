@@ -1,6 +1,6 @@
 # Status
 
-## 2026-08-28 — audio/music resource runtime milestone
+## 2026-08-28 — software render backend milestone
 
 ### Evidence corpus
 
@@ -77,7 +77,19 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **31/31**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **32/32**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+
+### Software render-backend findings now binary-confirmed
+
+- `0x18A40/0x19570` request submission and software compositor are reconstructed through a portable xRGB1555 surface API.
+- The original request is 76 bytes; low flags are overall transparency `0x1`, shadow `0x2`, solid tint/glow `0x4`, and terrain target `0x8`.
+- `0x1A450/0x1A650/0x18B20` layer queueing and flush groups are implemented; layers 0/1 are one-shot terrain layers and groups are `0..1`, `2..5`, `6..15`.
+- Normal, overall-transparency, shadow, and solid-color compositors preserve color-key fallback, the 0..32 transparency plane, row-1000 sentinel, right/bottom-exclusive clipping, and exact xRGB1555 integer arithmetic.
+- Scaled paths use PPC-truncated extents, untruncated-float centering, and nearest-neighbor integer-ratio sampling.
+- Shadow partial coverage uses the recovered single-precision law `trunc(base + 0.032f * mask^2)`.
+- Executable diagnostic strings identify the default-enabled `Sprite FX` and `Sprite Alpha Drawing` toggles; FX-off forces scale 1/effect 0, alpha-off falls back to the transparent color key.
+- Main terrain requests use one-shot layer 1 and terrain shadows layer 0; per-request terrain pixel composition is therefore now covered by the same compositor.
+- Canonical stress validation runs 14,760 software-render passes over all 2,460 stock frame surfaces and hashes to `0x32290b39b091e970`.
 
 ### Audio/music resource findings now confirmed
 
@@ -151,7 +163,7 @@ Synthetic repository tests pass **31/31**. Original assets/binaries are used onl
 - Member constructor `0x35DAC..0x35DF0` caches the existence of any such state in live `+0xCD`.
 - On zero shields, `0x14F10` awards score and either calls ordinary destruction (`+0xCD == 0`) or `0x17E70`, which enters the first marked state (`+0xCD != 0`).
 - Stock canonical `Game.pak` has 0 marked shield-depletion states; the executable path is retained through synthetic compatibility regression.
-- Core-edge checkpoint remains covered inside the current **31/31 PASS** suite; canonical constructor/first-tick seeds remain unchanged.
+- Core-edge checkpoint remains covered inside the current **32/32 PASS** suite; canonical constructor/first-tick seeds remain unchanged.
 
 
 ### Visual/render-request findings now binary-confirmed
@@ -227,7 +239,7 @@ Synthetic repository tests pass **31/31**. Original assets/binaries are used onl
 - `0xFEE0` samples the 16-bit Media Mask and recognizes value `31` on the water-impact path. Sample coordinates are `trunc(x)+32`, `trunc(y)+worldYOrigin`.
 - `Objects[gaob]` 6..9 are label-verified water-impact IDs `spti/spsm/spme/spla`; `tiny/smal/med /larg/smra/mera/lara` routing and RNG order are reproduced exactly.
 - Ground-obstacle store `0x2A6D0/0x2A770/0x2A830/0x2A950` is reconstructed as an append-only persistent Rect list with vertical scroll shifting, inclusive edge overlap, and reset. `destructDrawToTerrain_BOOL` appends to this same store.
-- `destructCreateObstacle_BOOL` is distinct: outer cleanup copies `castsShadows_BOOL` into live render state and calls `0x12F20`; the clean core now reconstructs the deterministic visual/render-request boundary, exact source frame surfaces, and exact shadow transform reached there. Backend submission and terrain pixel mutation remain bounded.
+- `destructCreateObstacle_BOOL` is distinct: outer cleanup copies `castsShadows_BOOL` into live render state and calls `0x12F20`; the clean core now reconstructs the deterministic visual/render-request boundary, exact source frame surfaces, and exact shadow transform reached there. Software clipping/blending, queue/backend submission, and per-request terrain-target pixel composition are now reconstructed; full terrain/background surface lifetime and native presentation remain bounded.
 - Canonical terrain/media corpus: 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units; fixed water IDs are `spti/spsm/spme/spla`.
 
 ### Sprite-frame/shadow findings now binary-confirmed
@@ -241,7 +253,7 @@ Synthetic repository tests pass **31/31**. Original assets/binaries are used onl
 
 ### Active reverse-engineering fronts
 
-1. Continue below the recovered source-frame/shadow boundary into exact software clipping/blitting and backend submission below `0x18A40/0x19570`, then reconstruct terrain/background pixel composition behind live `+0x90`. The global returned by `0x100A0` is now functionally bounded as the renderer's horizontal view offset.
+1. Bind semantic world/player render intents to the now-recovered raw 76-byte request contract at every original call site, then reconstruct complete terrain/background surface lifetime, scrolling/persistence, dirty-region presentation, and native display ownership. `0x18A40/0x19570` software clipping/blending and the per-request terrain target are now closed.
 2. Bind the recovered player life/respawn/game-over lifecycle spawn/audio/UI facts into full world orchestration and continue into the remaining active-player movement/weapon boundaries.
 3. Wire every remaining non-collision destruction entry site through the same clean teardown orchestration.
 4. Recover the rare special single-member parent-container / intrusive-list semantics around `0x33220` and bind an actual decoded Media Mask provider to the terrain/media runtime.

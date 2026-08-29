@@ -12,6 +12,7 @@
 #include "deimos/player_definition.hpp"
 #include "deimos/player_runtime.hpp"
 #include "deimos/render_runtime.hpp"
+#include "deimos/render_backend.hpp"
 #include "deimos/sprite_resource.hpp"
 #include "deimos/terrain_runtime.hpp"
 #include "deimos/unit_definition.hpp"
@@ -21,6 +22,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cmath>
 #include <cctype>
 #include <filesystem>
 #include <span>
@@ -817,6 +819,8 @@ int main(int argc, char** argv) {
     std::size_t sprite_transparency_words = 0;
     std::size_t sprite_transparent_row_sentinels = 0;
     std::uint64_t sprite_surface_fnv64 = 1469598103934665603ull;
+    std::uint64_t sprite_render_fnv64 = 1469598103934665603ull;
+    std::size_t sprite_render_passes = 0;
     for (const auto& [name, alpha_dimensions] : sprite_alpha_dimensions) {
         const auto color = sprite_color_dimensions.find(name);
         if (color == sprite_color_dimensions.end()) continue; // PDLI is alpha-only in stock Game.pak.
@@ -872,17 +876,71 @@ int main(int argc, char** argv) {
                 sprite_surface_fnv64 = fnv1a64_u16(sprite_surface_fnv64, value);
                 sprite_transparent_row_sentinels += value == 1000u;
             }
+
+            // Stress the recovered software compositor against every canonical
+            // frame surface. This is a clean-runtime regression oracle over
+            // original source pixels/masks, not a claim that the hash itself
+            // existed in the Mac executable.
+            const auto hash_render = [&](std::uint32_t mode_tag, std::uint32_t flags,
+                                         int amount, float scale, std::uint16_t effect_color,
+                                         bool alpha_drawing) {
+                const int scaled_w = std::max(1, static_cast<int>(std::ceil(static_cast<float>(frame.width) * scale)));
+                const int scaled_h = std::max(1, static_cast<int>(std::ceil(static_cast<float>(frame.height) * scale)));
+                deimos::LegacyRasterSurface surface(scaled_w + 8, scaled_h + 8);
+                for (int y = 0; y < surface.height; ++y) {
+                    for (int x = 0; x < surface.width; ++x) {
+                        const int r = (x * 3 + y * 5 + static_cast<int>(mode_tag)) & 31;
+                        const int g = (x * 7 + y * 2 + static_cast<int>(mode_tag * 3u)) & 31;
+                        const int b = (x + y * 11 + static_cast<int>(mode_tag * 5u)) & 31;
+                        surface.pixels[static_cast<std::size_t>(y) * static_cast<std::size_t>(surface.width) +
+                                       static_cast<std::size_t>(x)] =
+                            static_cast<std::uint16_t>((r << 10) | (g << 5) | b);
+                    }
+                }
+                deimos::LegacyRasterRequest request;
+                request.frame = &frame;
+                request.center_x = surface.width / 2;
+                request.center_y = surface.height / 2;
+                request.sprite_face = group->id;
+                request.sprite_frame = 0;
+                request.flags = flags;
+                request.scale = scale;
+                request.effect_amount_0_to_32 = amount;
+                request.clip = surface.bounds();
+                request.immediate = true;
+                request.effect_color = effect_color;
+                const auto result = deimos::rasterize_legacy_request(
+                    request, surface, deimos::LegacyRasterConfig{alpha_drawing, true});
+                sprite_render_fnv64 = fnv1a64_u32(sprite_render_fnv64, mode_tag);
+                sprite_render_fnv64 = fnv1a64_u32(sprite_render_fnv64, static_cast<std::uint32_t>(result));
+                sprite_render_fnv64 = fnv1a64_u32(sprite_render_fnv64, static_cast<std::uint32_t>(surface.width));
+                sprite_render_fnv64 = fnv1a64_u32(sprite_render_fnv64, static_cast<std::uint32_t>(surface.height));
+                for (const auto pixel : surface.pixels) {
+                    sprite_render_fnv64 = fnv1a64_u16(sprite_render_fnv64, pixel);
+                }
+                ++sprite_render_passes;
+            };
+            hash_render(0, 0, 0, 1.0f, 0, true);
+            hash_render(1, deimos::kLegacyRenderOverallTransparency, 7, 1.0f, 0, true);
+            hash_render(2, deimos::kLegacyRenderShadow, 20, 1.0f, 0, true);
+            hash_render(3, deimos::kLegacyRenderSolidColor, 9, 1.0f, 0x5294u, true);
+            hash_render(4, 0, 0, 1.5f, 0, true);
+            hash_render(5, 0, 0, 1.0f, 0, false);
         }
     }
     constexpr std::uint64_t expected_sprite_surface_fnv64 = 0x9f9dcfba05b5089cull;
+    constexpr std::size_t expected_sprite_render_passes = 14760;
+    constexpr std::uint64_t expected_sprite_render_fnv64 = 0x32290b39b091e970ull;
     if (sprite_alpha_plates != 124 || sprite_color_plates != 124 || sprite_plate_pairs != 123 ||
         sprite_pair_casefold_matches != 123 || sprite_frames != 2463 || sprite_surface_frames != 2460 ||
         sprite_transparency_plane_frames != 2460 || sprite_color_words != 3115564 ||
         sprite_transparency_words != 3115564 || sprite_transparent_row_sentinels != 6341 ||
         sprite_surface_fnv64 != expected_sprite_surface_fnv64 ||
+        sprite_render_passes != expected_sprite_render_passes ||
+        sprite_render_fnv64 != expected_sprite_render_fnv64 ||
         pl1b_frames != 7 || pl1b_frame0 != std::pair<int,int>{53,43} ||
         exlg_frames != 12 || bocr_frames != 3 || glow_frames != 12) {
-        std::cerr << "canonical sprite plate/frame/surface contract changed unexpectedly\n";
+        std::cerr << "canonical sprite plate/frame/surface/software-render contract changed unexpectedly\n";
         return 23;
     }
 
@@ -979,6 +1037,8 @@ int main(int argc, char** argv) {
               << "    frame color/transparency words: " << sprite_color_words << '/' << sprite_transparency_words << '\n'
               << "    transparent-row sentinels: " << sprite_transparent_row_sentinels << '\n'
               << "    sprite-surface FNV64: 0x" << std::hex << sprite_surface_fnv64 << std::dec << '\n'
+              << "    canonical software-render passes: " << sprite_render_passes << '\n'
+              << "    canonical software-render FNV64: 0x" << std::hex << sprite_render_fnv64 << std::dec << '\n'
               << "    PL1B frames/frame0: " << pl1b_frames << '/' << pl1b_frame0.first << 'x' << pl1b_frame0.second << '\n'
               << "    EXLG/BOCR/GLOW frames: " << exlg_frames << '/' << bocr_frames << '/' << glow_frames << '\n'
               << "  visual/render fields:\n"

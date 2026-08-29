@@ -167,9 +167,7 @@ sprite". It suppresses the normal base submission; tint and glow remain
 independent effect requests.
 
 `stateDrawToTerrain_BOOL` bypasses the ordinary main-layer switch and enters a
-separate terrain submission/sequence path involving live `+0x90`. The clean
-render intent preserves that distinction but does not fabricate a stable layer
-number or claim that pixel compositing is complete.
+separate terrain submission/sequence path involving live `+0x90`. The clean render intent preserves that distinction; subsequent backend reconstruction proves main terrain submissions use one-shot layer 1 and terrain shadows use one-shot layer 0.
 
 ## Canonical corpus
 
@@ -189,14 +187,8 @@ Raw draw-layer distribution is:
 `defa=156, grou=17, grhi=68, ailo=10, aihi=51, plwe=5, play=0, plsh=2,
 plef=0, plui=10, atmo=0, hud=17, none=50, other=0`.
 
-## Still open
+## Downstream boundary
 
-The deterministic visual/resource/request boundary now includes source frame surfaces and exact shadow geometry. Remaining renderer work is:
+`RENDER_BACKEND_RUNTIME.md` now closes the software clipping/blitting, scaled sampling, request queue, `0x18A40/0x19570` submission, and per-request terrain-target compositor below this semantic intent layer. The former live `+0x35` mystery is the request's direct/immediate selector, not a separate rendering backend.
 
-- exact software clipping/blitting and destination-surface arithmetic;
-- backend identities and submission semantics beneath `0x18A40` / `0x19570`;
-- the remaining `+0x35` alternate submission backend identity;
-- actual terrain/background raster composition behind the `+0x90` sequence path;
-- any deeper platform-specific QuickDraw ownership details that materially affect observable behavior.
-
-Those tasks are downstream of a stable clean render-request, source-pixel, and shadow-transform contract.
+Remaining work is orchestration/platform ownership: construct every raw request from world/player state at the original call sites, reconstruct full terrain/background surface lifetime and scrolling/persistence, and replace the legacy display/presentation ownership without changing the proven compositor arithmetic.

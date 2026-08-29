@@ -38,7 +38,11 @@ LegacyRenderIntent base_intent(
     intent.numeric_layer = kind == LegacyRenderPassKind::shadow
         ? legacy_shadow_layer_code(runtime.draw_layer, runtime.air_domain)
         : legacy_draw_layer_code(runtime.draw_layer, runtime.air_domain);
-    if (runtime.draw_to_terrain) intent.numeric_layer = 0;
+    if (runtime.draw_to_terrain) {
+        // 0x12FA0 main terrain submissions are queued on one-shot layer 1;
+        // 0x13460 shadow terrain submissions use companion one-shot layer 0.
+        intent.numeric_layer = (kind == LegacyRenderPassKind::shadow) ? 0 : 1;
+    }
     intent.scale = runtime.scale;
     intent.visibility_percent = runtime.visibility_percent;
     intent.draw_to_terrain = runtime.draw_to_terrain;
@@ -49,6 +53,32 @@ LegacyRenderIntent base_intent(
 
 float legacy_percent_to_scale(int percent) {
     return static_cast<float>(percent) / 100.0f;
+}
+
+int legacy_percent_to_transparency_0_to_32(float percent) {
+    // 0x13580 and the main-sprite visibility path fctiwz before 0x10C20.
+    const int truncated_percent = static_cast<int>(std::trunc(percent));
+    const float mapped = std::fabs(
+        (static_cast<float>(truncated_percent) / 100.0f) * 32.0f - 32.0f);
+    int transparency = static_cast<int>(std::trunc(mapped));
+    if (transparency > 32) transparency = 32;
+    return transparency;
+}
+
+int legacy_tint_effect_transparency_0_to_32(
+    float tint_percent,
+    float visibility_percent) {
+    const int visibility_transparency =
+        legacy_percent_to_transparency_0_to_32(visibility_percent);
+    const float tint_fraction = tint_percent / 100.0f;
+    const float raw_tint_coverage = 32.0f * tint_fraction;
+    const float visible_fraction =
+        1.0f - (static_cast<float>(visibility_transparency) / 32.0f);
+    const float effective_coverage = raw_tint_coverage * visible_fraction;
+    const float mapped = std::fabs(effective_coverage - 32.0f);
+    int transparency = static_cast<int>(std::trunc(mapped));
+    if (transparency > 32) transparency = 32;
+    return transparency;
 }
 
 LegacySpriteVisualRuntime initialise_legacy_sprite_visual(
@@ -224,12 +254,7 @@ bool shadow_uses_air_offsets(FourCC draw_layer, bool air_domain) {
 }
 
 int legacy_shadow_transparency(float visibility_percent) {
-    // 0x13580 fctiwz -> 0x10C20. 0x10C20 computes
-    // abs((visibility / 100) * 32 - 32), truncates toward zero and caps at 32.
-    const int visibility = static_cast<int>(std::trunc(visibility_percent));
-    const float mapped = std::fabs((static_cast<float>(visibility) / 100.0f) * 32.0f - 32.0f);
-    int transparency = static_cast<int>(std::trunc(mapped));
-    if (transparency > 32) transparency = 32;
+    int transparency = legacy_percent_to_transparency_0_to_32(visibility_percent);
     // 0x135A0..0x135A8 prevents shadows from becoming more opaque than 12/32.
     if (transparency < 20) transparency = 20;
     return transparency;
@@ -337,6 +362,7 @@ std::vector<LegacyRenderIntent> build_legacy_render_intents(
     // 0x13460. Preserve that two-level eligibility without modeling pixels.
     if (selection.shadow && selection.global_shadows_enabled && runtime.casts_shadows) {
         auto intent = base_intent(runtime, LegacyRenderPassKind::shadow);
+        intent.effect_amount_0_to_32 = legacy_shadow_transparency(runtime.visibility_percent);
         out.push_back(intent);
     }
 
@@ -345,21 +371,35 @@ std::vector<LegacyRenderIntent> build_legacy_render_intents(
     // 0x12FA0 suppresses the ordinary base submission when stateDoColorise is
     // set, then independently emits tint and collision-glow effect passes.
     if (!runtime.do_colorise) {
-        out.push_back(base_intent(runtime, LegacyRenderPassKind::base_sprite));
+        auto intent = base_intent(runtime, LegacyRenderPassKind::base_sprite);
+        intent.effect_amount_0_to_32 =
+            legacy_percent_to_transparency_0_to_32(runtime.visibility_percent);
+        out.push_back(intent);
     }
     if (runtime.tint_percent > 0.0f) {
         auto intent = base_intent(runtime, LegacyRenderPassKind::tint);
-        intent.effect_amount = runtime.tint_percent;
+        intent.effect_amount_0_to_32 = legacy_tint_effect_transparency_0_to_32(
+            runtime.tint_percent, runtime.visibility_percent);
         intent.effect_color = runtime.tint_color;
         out.push_back(intent);
     }
     if (runtime.collision_glow_active) {
         auto intent = base_intent(runtime, LegacyRenderPassKind::collision_glow);
-        intent.effect_amount = runtime.collision_glow_amount;
+        intent.effect_amount_0_to_32 = runtime.collision_glow_amount_0_to_32;
         intent.effect_color = runtime.collision_glow_color;
         out.push_back(intent);
     }
     return out;
+}
+
+
+bool legacy_terrain_submission_due(
+    LegacySpriteVisualRuntime& runtime,
+    std::uint32_t current_sequence) {
+    if (!runtime.draw_to_terrain) return false;
+    if (current_sequence <= runtime.last_terrain_submit_sequence) return false;
+    runtime.last_terrain_submit_sequence = current_sequence;
+    return true;
 }
 
 } // namespace deimos

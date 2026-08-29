@@ -6,6 +6,7 @@
 #include "deimos/unit_behavior.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace deimos {
@@ -48,8 +49,14 @@ struct LegacySpriteVisualRuntime {
     // 0x12F20 uses temporary main/shadow gates while the world renderer runs
     // separate sorted passes. They are modeled as call-time selection below,
     // not persistent entity properties.
+    // Sprite-base +0x90: last global sequence/render tick stamped to terrain.
+    // Reset to zero by 0x126E0..0x1273C.
+    std::uint32_t last_terrain_submit_sequence = 0;
+
     bool collision_glow_active = false;
-    float collision_glow_amount = 0.0f;
+    // Live +0x78 is already in the renderer's legacy 0..32 transparency
+    // domain; it is not a percentage.
+    int collision_glow_amount_0_to_32 = 0;
     Rgb24 collision_glow_color{};
 };
 
@@ -83,13 +90,27 @@ struct LegacyRenderIntent {
     int numeric_layer = 0;
     float scale = 0.0f;
     float visibility_percent = 0.0f;
-    float effect_amount = 0.0f;
+    // Raw +0x1C request-domain amount consumed by the software compositor.
+    int effect_amount_0_to_32 = 0;
     Rgb24 effect_color{};
     bool draw_to_terrain = false;
     bool world_space = true;
 };
 
 [[nodiscard]] float legacy_percent_to_scale(int percent);
+
+// 0x10C20 percentage -> old renderer transparency conversion. The caller
+// supplies the live percentage-domain float; the PPC path first fctiwz
+// truncates it to an integer percentage, then computes
+// abs((percent / 100) * 32 - 32), truncating and capping at 32.
+[[nodiscard]] int legacy_percent_to_transparency_0_to_32(float percent);
+
+// 0x13320..0x13380 tint-pass amount. Tint coverage is first reduced by the
+// current visibility transparency already present in the base request, then
+// converted back to the old 0..32 destination-weight domain.
+[[nodiscard]] int legacy_tint_effect_transparency_0_to_32(
+    float tint_percent,
+    float visibility_percent);
 
 // 0x146F0 initial visual reset: initial unit visibility/scale are current
 // values, state values become required targets/deltas, and initial scale
@@ -176,5 +197,12 @@ struct LegacyShadowRequestGeometry {
 [[nodiscard]] std::vector<LegacyRenderIntent> build_legacy_render_intents(
     const LegacySpriteVisualRuntime& runtime,
     LegacyRenderPassSelection selection = {});
+
+// 0x13264..0x132A4 terrain-stamp gate. A draw-to-terrain sprite may submit to
+// the terrain target only when the current global sequence/render tick is
+// strictly greater than sprite-base +0x90; a successful gate updates +0x90.
+[[nodiscard]] bool legacy_terrain_submission_due(
+    LegacySpriteVisualRuntime& runtime,
+    std::uint32_t current_sequence);
 
 } // namespace deimos

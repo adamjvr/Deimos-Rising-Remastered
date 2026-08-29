@@ -8,7 +8,7 @@ Maintain hashes, forks, provenance, build relationships, and separation of offic
 
 ## Phase 1 — Binary, resource, serialization, and behavior-contract reconstruction
 
-**Current active phase; transition/construction/gameplay cores plus the deterministic visual-state/render-request boundary are now substantially recovered.**
+**Current active phase; transition/construction/gameplay cores plus the sprite software-render backend are now substantially recovered.**
 
 Completed/confirmed:
 
@@ -58,11 +58,12 @@ Completed/confirmed:
 - FORM/AIFC + QuickTime IMA4 resource decode reconstructed for the complete canonical `Audio.pak` / `Music.pak` corpus; DR-EVID-005 supplies an independent soundtrack identity oracle;
 - paired sprite frame construction below `0x18D20` reconstructed through `0x1D780/0x1EEC0`: xRGB1555 color planes, transparent-key fallback, legacy 0..32 transparency weights, and row-1000 sentinels; canonical 2,460 surfaces hash to `0x9f9dcfba05b5089c`;
 - exact `0x13460` shadow transform reconstructed, including label-verified `Game[gafl]` offsets -48/104/-6/8, air 0.5 scale, ground scale, `adjustShadowLocForScaling`, 0..32 shadow transparency, horizontal view offset, and terrain-submission coordinates;
+- `0x18A40/0x19570` software backend reconstructed: 76-byte request contract, layer queue/flush groups, normal/overall/shadow/solid xRGB1555 compositors, clipping, scaled nearest-neighbor sampling, Sprite FX/Alpha toggles, and layer-0/1 terrain-target composition; canonical 14,760-pass render oracle hashes to `0x32290b39b091e970`;
 
 Remaining Phase 1 exit criteria:
 
 - recover the rare special single-member parent-container path and remaining original intrusive-list/pool semantics around `0x33220`;
-- integrate the recovered player lifecycle spawn/audio/UI side effects into full world orchestration and continue below the recovered source-frame/shadow boundary into software clipping/blitting, backend submission, and terrain pixel composition;
+- integrate the recovered player lifecycle spawn/audio/UI side effects into full world orchestration; bind semantic render intents to exact raw requests at all call sites; reconstruct complete terrain/background surface lifetime/scroll/persistence and native presentation ownership;
 - finish remaining Flee trigger/lifecycle edges and bind them to decoded fields;
 - expand Windows installer and establish Mac↔Windows code/data correspondences;
 - finish replay action-bit mapping including second-player semantics;
@@ -95,7 +96,7 @@ Already implemented from binary-confirmed behavior:
 
 Exit criteria:
 
-- bind recovered player lifecycle spawn/audio/UI facts into full world orchestration, finish remaining destruction entry-site orchestration, and complete frame-pixel construction plus renderer/backend/terrain-raster work below the recovered sprite-cache/request boundary;
+- bind recovered player lifecycle spawn/audio/UI facts into full world orchestration, finish remaining destruction entry-site orchestration, bind semantic render intents to the recovered raw compositor, and complete terrain/background lifetime plus native display presentation;
 - integrate world/entity construction, then reconstruct movement, weapons, projectiles, collision, damage, scoring, power-ups, camera/scrolling, two-player behavior, menus/preferences, timing, and audio triggers;
 - feed v10005 recordings into the clean simulation as deterministic regression oracles;
 - retain original assets as the canonical content tier.
