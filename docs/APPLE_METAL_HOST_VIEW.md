@@ -117,13 +117,7 @@ those declarations from being moved back inside `namespace deimos` even on CI
 hosts that do not compile Objective-C++. The public-header regression continues
 to prove that no Apple types or dependencies leak into `deimos_core`.
 
-The next Apple validation gate is therefore:
-
-1. compile corrected `deimos_apple_host` on macOS and iPadOS;
-2. build/run `deimos_apple_host_smoke`;
-3. present the deterministic 640x480 diagnostic frame in a real native view;
-4. capture nearest-mode output and compare it against the CPU reference
-   presenter for the same physical drawable size.
+The corrected host now compiles and the macOS smoke app has been visually validated in a real resizable `NSView -> CAMetalLayer -> Metal` window. The diagnostic capture shows correct 32+416+160+32 region placement, aspect-fit letterboxing, sharp nearest sampling, and Retina mapping. The remaining Apple validation is the same host path on iPadOS plus the external-original-data frame described in `ORIGINAL_GAME_FRAME_PREVIEW.md`.
 
 ## Native smoke application
 
@@ -141,7 +135,4 @@ presentation layout. It uses aspect-fit + nearest sampling and redraws after
 native resize/backing-scale changes. White guide lines on each canonical region
 boundary make orientation, crop, scaling, and Retina mistakes obvious.
 
-This app is intentionally a presentation smoke test rather than a game shell.
-It contains no original game assets and no gameplay simulation. Once this path
-is visually validated, the same `AppleMetalHostView::present()` call becomes
-the destination for the real `render_legacy_gameplay_frame()` output.
+This app remains an integration host rather than the final game shell. It embeds no original assets by default. When user-owned `Game.pak` + `Interface.pak` are discoverable (or locally staged into the generated bundle), it now runs a persistent 30 Hz `OriginalGameFramePreview` session: recovered terrain scroll + score-bar convergence -> gameplay-frame render -> Metal presentation. If those files are unavailable, it falls back to the original static diagnostic surface. See `ORIGINAL_GAME_FRAME_PREVIEW.md` and `APPLE_LIVE_FRAME_LOOP.md`.

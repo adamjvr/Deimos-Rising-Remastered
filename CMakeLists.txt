@@ -34,6 +34,8 @@ add_library(deimos_core STATIC
     src/core/gameplay_frame_runtime.cpp
     src/core/level_select_effect_runtime.cpp
     src/core/modern_presentation_runtime.cpp
+    src/core/frame_timing_runtime.cpp
+    src/core/original_game_frame_preview.cpp
     src/core/sprite_resource.cpp
     src/core/audio_resource.cpp
     src/core/game_definitions.cpp
@@ -99,6 +101,24 @@ if(APPLE AND DEIMOS_BUILD_APPLE_METAL)
                 MACOSX_BUNDLE_BUNDLE_NAME "Deimos Rising Metal Host Smoke"
                 MACOSX_BUNDLE_GUI_IDENTIFIER "com.deimosrising.remastered.hostsmoke"
                 XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "com.deimosrising.remastered.hostsmoke")
+
+            # Optional local-only original-data staging for visual integration
+            # tests. These files are copied by the generated Apple build into
+            # the smoke app bundle; they are never copied into the source tree.
+            set(DEIMOS_ORIGINAL_PAK_DIR "" CACHE PATH
+                "Local directory containing user-owned Game.pak and Interface.pak for the Apple smoke app")
+            if(DEIMOS_ORIGINAL_PAK_DIR)
+                foreach(DEIMOS_SMOKE_PAK IN ITEMS Game.pak Interface.pak)
+                    set(DEIMOS_SMOKE_PAK_PATH "${DEIMOS_ORIGINAL_PAK_DIR}/${DEIMOS_SMOKE_PAK}")
+                    if(NOT EXISTS "${DEIMOS_SMOKE_PAK_PATH}")
+                        message(FATAL_ERROR
+                            "DEIMOS_ORIGINAL_PAK_DIR is missing ${DEIMOS_SMOKE_PAK_PATH}")
+                    endif()
+                    target_sources(deimos_apple_host_smoke PRIVATE "${DEIMOS_SMOKE_PAK_PATH}")
+                    set_source_files_properties("${DEIMOS_SMOKE_PAK_PATH}" PROPERTIES
+                        MACOSX_PACKAGE_LOCATION "Resources/Paks")
+                endforeach()
+            endif()
         endif()
     endif()
 endif()
@@ -107,6 +127,8 @@ option(DEIMOS_BUILD_TOOLS "Build reverse-engineering/reference validation tools"
 if(DEIMOS_BUILD_TOOLS)
     add_executable(deimos_reference_probe tools/reference_probe.cpp)
     target_link_libraries(deimos_reference_probe PRIVATE deimos_core)
+    add_executable(deimos_original_frame_probe tools/original_frame_probe.cpp)
+    target_link_libraries(deimos_original_frame_probe PRIVATE deimos_core)
 endif()
 
 if(MSVC)
@@ -154,8 +176,10 @@ if(BUILD_TESTING)
         gameplay_frame_runtime_test
         level_select_effect_runtime_test
         modern_presentation_runtime_test
+        frame_timing_runtime_test
         apple_metal_public_header_test
         apple_metal_host_view_public_header_test
+        original_game_frame_preview_test
         shadow_runtime_test
         sprite_resource_test
         sprite_frame_bitmap_test

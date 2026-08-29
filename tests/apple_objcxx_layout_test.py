@@ -25,3 +25,16 @@ for token in ('@interface', '@implementation'):
             f'apple_metal_host_view.mm: {token} must remain at Objective-C++ file-global scope, '
             f'not inside namespace deimos')
 print('Apple Objective-C++ declaration layout PASS')
+
+# The smoke app may use C++ helpers in an anonymous namespace, but every
+# Objective-C declaration must appear after that namespace has closed.
+smoke = root / 'src/platform/apple/apple_host_smoke_app.mm'
+smoke_text = smoke.read_text(encoding='utf-8')
+close_pos = smoke_text.find('} // namespace')
+interface_pos = smoke_text.find('@interface')
+implementation_pos = smoke_text.find('@implementation')
+if close_pos < 0 or interface_pos < 0 or implementation_pos < 0:
+    raise SystemExit('apple_host_smoke_app.mm: missing namespace close or Objective-C declarations')
+if interface_pos < close_pos or implementation_pos < close_pos:
+    raise SystemExit(
+        'apple_host_smoke_app.mm: Objective-C declarations must remain outside the C++ namespace')

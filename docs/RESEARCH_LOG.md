@@ -705,3 +705,10 @@ construction/motion RNG seeds remain unchanged.
 - Canonical `lsca` is green `#00ff00`, blend 16; `lscf` is red `#ff0000`, blend 16.
 - `0x2FCC0` selects Game[gafl] 44/45 for acceptance (`0.18`, `2.0`) and 46/47 for failure (`0.25`, `2.0`). Blend rises one unit/tick toward 32 while scale ping-pongs 0→max→0; canonical teardown is 24 ticks versus 16 ticks.
 - `0x2FB88..0x2FC14` submits the result through the already-recovered `COST` solid-rectangle compositor path. This confirms the effect is a front-end level-select pulse and does not reopen the closed normal-gameplay frame chain.
+
+## 2026-08-29 — original-data live frame oracle
+
+- User-validated native macOS Metal screenshot closes the complete original-data frame path for `Kepler Massif [le01]` / Player 1.
+- Complete canonical display FNV64: initial `0x9e8a7ec73b79b254`; after one recovered terrain/HUD tick `0x44dede08075273f2`; after 30 ticks `0x51d4a7eec9b0beef`.
+- `Game[gafl]` first labeled value is `FPS_MaxRate=30`; the Apple live integration cadence now consumes this source value.
+- Persistent frame state now includes terrain camera/source view, score-bar cache, game/source/display surfaces and tick/render counters.
