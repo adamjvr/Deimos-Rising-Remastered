@@ -249,10 +249,12 @@ appropriate swapchain/present primitive after mapping the recovered plan.
 - `execute_legacy_presentation_plan()` as a bounded portable xRGB1555
   reference implementation.
 
-The clean implementation intentionally rejects host surfaces smaller than the
-recovered 640x480 minimum rather than reproducing undefined legacy platform
-behavior. Modern platform backends can map the same plan to texture upload,
-GPU blit, viewport placement, or swapchain presentation.
+The clean legacy implementation intentionally rejects host surfaces smaller than
+the recovered 640x480 minimum rather than reproducing undefined legacy platform
+behavior. `modern_presentation_runtime` now provides the next boundary: the exact
+640x480 xRGB1555 result is converted after raster completion to RGBA8888 and
+submitted through a backend-neutral host interface. See
+`MODERN_PRESENTATION_RUNTIME.md`.
 
 ## Regression contract
 
@@ -275,22 +277,24 @@ native presentation frame: 640x480x16 = 32 + 416 + 160 + 32
 
 All established renderer, gameplay, and RNG oracles remain unchanged.
 
-## Boundary now closed / next evidence targets
+## Boundary now closed / next platform targets
 
-Closed by this milestone:
+Closed by the presentation milestones:
 
 - the post-`0x30BC0` mode dispatch;
 - normal-game mode identity;
 - minimum frame dimensions and score-bar packing;
 - exact `CopyBits`/border Rect geometry;
-- portable presentation-plan execution.
+- original score-bar pixel production;
+- final no-swap QuickDraw commit semantics;
+- a backend-neutral 640x480 xRGB1555 -> RGBA8888 host seam with tested
+  letterbox/scaling geometry.
 
-Still intentionally open:
+Next platform targets:
 
-1. finish the element-specific score/life text, fade, and sprite pixel path
-   inside the now-recovered 160-pixel score-bar producer;
-2. determine whether any other overlay paths modify the presentation canvas
-   outside the recovered `0x30BC0` world composition and score-bar cluster;
-3. implement native macOS/iPadOS/Linux/Windows presentation adapters using the
-   recovered geometry/order while allowing each modern backend to use its own
-   appropriate present/swap mechanism.
+1. implement a Metal `ModernPresentationBackend` for macOS/iPadOS;
+2. implement a Vulkan backend for Linux;
+3. establish screenshot parity against the dependency-free nearest reference
+   presenter before moving additional rendering work to the GPU;
+4. keep any remaining non-gameplay/front-end producers above the same canonical
+   frame boundary rather than bypassing it.

@@ -15,6 +15,7 @@
 #include "deimos/player_definition.hpp"
 #include "deimos/player_runtime.hpp"
 #include "deimos/presentation_runtime.hpp"
+#include "deimos/modern_presentation_runtime.hpp"
 #include "deimos/score_bar_runtime.hpp"
 #include "deimos/render_runtime.hpp"
 #include "deimos/render_backend.hpp"
@@ -743,6 +744,17 @@ int main(int argc, char** argv) {
                   << (error.empty() ? "unexpected values" : error) << '\n';
         return 36;
     }
+
+    deimos::ModernViewport modern_1080p_viewport;
+    if (!deimos::plan_modern_viewport(
+            presentation_config->min_screen_width, presentation_config->min_screen_height,
+            {1920, 1080}, deimos::ModernScalingMode::AspectFit,
+            modern_1080p_viewport, &error) ||
+        modern_1080p_viewport != deimos::ModernViewport{240, 0, 1440, 1080}) {
+        std::cerr << "modern presentation bridge viewport contract changed unexpectedly: "
+                  << (error.empty() ? "unexpected viewport" : error) << '\n';
+        return 39;
+    }
     if (!canonical_scorebar_panel || canonical_scorebar_panel->width != 160 || canonical_scorebar_panel->height != 480) {
         std::cerr << "canonical score-bar panel is missing or not 160x480\n";
         return 37;
@@ -1358,6 +1370,11 @@ int main(int argc, char** argv) {
               << presentation_config->visible_game_width << " + "
               << presentation_config->score_bar_width << " + "
               << presentation_config->right_border_width << '\n'
+              << "    modern bridge: RGBA8888 rowBytes="
+              << (presentation_config->min_screen_width * 4)
+              << " 1080pAspectFit="
+              << modern_1080p_viewport.x << ',' << modern_1080p_viewport.y << ' ' 
+              << modern_1080p_viewport.width << 'x' << modern_1080p_viewport.height << '\n'
               << "    score-bar contract: spacing=" << score_bar_config->score_spacing
               << " shieldRates=" << score_bar_config->shield_increase_rate << '/' << score_bar_config->shield_decrease_rate
               << " powerRates=" << score_bar_config->power_increase_rate << '/' << score_bar_config->power_decrease_rate

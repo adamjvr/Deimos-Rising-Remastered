@@ -33,6 +33,7 @@ add_library(deimos_core STATIC
     src/core/image16_resource.cpp
     src/core/gameplay_frame_runtime.cpp
     src/core/level_select_effect_runtime.cpp
+    src/core/modern_presentation_runtime.cpp
     src/core/sprite_resource.cpp
     src/core/audio_resource.cpp
     src/core/game_definitions.cpp
@@ -90,6 +91,7 @@ if(BUILD_TESTING)
         score_bar_pixel_runtime_test
         gameplay_frame_runtime_test
         level_select_effect_runtime_test
+        modern_presentation_runtime_test
         shadow_runtime_test
         sprite_resource_test
         sprite_frame_bitmap_test

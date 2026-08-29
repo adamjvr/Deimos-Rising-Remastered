@@ -77,7 +77,7 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **42/42**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **43/43**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Software render-backend findings now binary-confirmed
 
@@ -274,7 +274,7 @@ Synthetic repository tests pass **42/42**. Original assets/binaries are used onl
 
 ### Active reverse-engineering fronts
 
-1. Finish the element-specific score/life fade/text pixel path inside the now-recovered 160-pixel score-bar producer, then audit any remaining overlay writers outside the world/score-bar composition path.
+1. Implement concrete Metal (macOS/iPadOS) and Vulkan (Linux) adapters behind the new modern presentation backend, with screenshot parity against the nearest CPU oracle.
 2. Bind the recovered player life/respawn/game-over lifecycle spawn/audio/UI facts into full world orchestration and continue into the remaining active-player movement/weapon boundaries.
 3. Wire every remaining non-collision destruction entry site through the same clean teardown orchestration.
 4. Recover the rare special single-member parent-container / intrusive-list semantics around `0x33220` and bind an actual decoded Media Mask provider to the terrain/media runtime.
@@ -329,3 +329,10 @@ The outer gameplay loop also resolves the missing orchestration order: `0x5A18 -
 ## 2026-08-29 — Level-select acceptance/failure visual closure
 
 The residual `0x2F7A0..0x2FE40` `COST` path is now classified and implemented as a front-end level-selection effect, not a gameplay HUD layer. `Formats[gate]` runtime ordinals 27/28 are label-verified as `lsca`/`lscf`; canonical acceptance loads green `0x03e0` at blend 16 and failure loads red `0x7c00` at blend 16. `Game[gafl]` 44..47 supply exact scale pulses 0.18→2.0 and 0.25→2.0. The updater fades blend one step toward 32 while scale runs 0→max→0, yielding 24-tick acceptance and 16-tick failure lifetimes before exact reset. The shared `COST` rectangle request is now represented by the clean renderer. Debug suite: **42/42 PASS**. Gameplay visible-frame orchestration remains unchanged and closed.
+
+
+## 2026-08-29 — Modern host-presentation seam
+
+The clean renderer now has its first post-canonical host boundary. `modern_presentation_runtime` requires the exact recovered 640x480 legacy display frame, expands xRGB1555 to tightly packed RGBA8888 only after deterministic raster completion, and calculates aspect-fit, integer-fit, or explicit stretch viewports in physical drawable pixels. A `ModernPresentationBackend` interface isolates future Metal/Vulkan/D3D code from simulation and legacy raster state.
+
+A dependency-free nearest-neighbour reference presenter supplies byte-level letterbox/scaling parity without becoming the shipping renderer; it intentionally rejects linear filtering as a deterministic oracle because sampler details differ by graphics API. The reference probe now locks the canonical bridge at `rowBytes=2560` and 1920x1080 aspect-fit viewport `240,0 1440x1080`. Synthetic Debug suite: **43/43 PASS**.
