@@ -41,6 +41,31 @@ add_library(deimos_core STATIC
 target_include_directories(deimos_core PUBLIC include)
 target_compile_features(deimos_core PUBLIC cxx_std_20)
 
+# Native Apple presenter is intentionally a separate target so deimos_core
+# stays platform-independent and deterministic. The adapter is available for
+# both macOS and iPadOS toolchains when building on Apple platforms.
+option(DEIMOS_BUILD_APPLE_METAL "Build the macOS/iPadOS Metal presentation backend" ON)
+if(APPLE AND DEIMOS_BUILD_APPLE_METAL)
+    enable_language(OBJCXX)
+
+    add_library(deimos_metal_backend STATIC
+        src/platform/apple/apple_metal_presentation_backend.mm)
+    target_include_directories(deimos_metal_backend PUBLIC include)
+    target_compile_features(deimos_metal_backend PUBLIC cxx_std_20)
+    target_compile_options(deimos_metal_backend PRIVATE -fobjc-arc)
+    target_compile_definitions(deimos_metal_backend PUBLIC DEIMOS_HAS_APPLE_METAL_BACKEND=1)
+
+    find_library(DEIMOS_METAL_FRAMEWORK Metal REQUIRED)
+    find_library(DEIMOS_QUARTZCORE_FRAMEWORK QuartzCore REQUIRED)
+    find_library(DEIMOS_FOUNDATION_FRAMEWORK Foundation REQUIRED)
+    target_link_libraries(deimos_metal_backend
+        PUBLIC deimos_core
+        PRIVATE
+            ${DEIMOS_METAL_FRAMEWORK}
+            ${DEIMOS_QUARTZCORE_FRAMEWORK}
+            ${DEIMOS_FOUNDATION_FRAMEWORK})
+endif()
+
 option(DEIMOS_BUILD_TOOLS "Build reverse-engineering/reference validation tools" ON)
 if(DEIMOS_BUILD_TOOLS)
     add_executable(deimos_reference_probe tools/reference_probe.cpp)
@@ -92,6 +117,7 @@ if(BUILD_TESTING)
         gameplay_frame_runtime_test
         level_select_effect_runtime_test
         modern_presentation_runtime_test
+        apple_metal_public_header_test
         shadow_runtime_test
         sprite_resource_test
         sprite_frame_bitmap_test

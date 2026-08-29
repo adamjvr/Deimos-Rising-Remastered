@@ -41,6 +41,7 @@ The portable C++20 core now contains:
 - complete portable normal-gameplay frame orchestration: recovered `score-bar draw -> world composition -> 576x480 source composition -> mode-1 presentation` order with independent world/presentation gates;
 - binary-confirmed level-selection acceptance/failure pulse runtime: `lsca`/`lscf` color+blend styles, 0.18/0.25 scale rates, 2.0 maxima, exact fade/ping-pong lifecycle, and shared `COST` rectangle request generation;
 - first modern host-presentation seam: canonical 640x480 xRGB1555 frames convert only after deterministic raster completion to RGBA8888, with aspect-fit/integer-fit/stretch viewport planning, a platform-backend interface, and a dependency-free nearest-neighbour CPU parity oracle.
+- first native adapter: Apple-only `deimos_metal_backend` for macOS/iPadOS, using a host-owned `CAMetalLayer`, one RGBA8 upload texture, the backend-neutral viewport, selectable nearest/linear sampling, and one drawable commit while keeping `deimos_core` free of Apple APIs.
 
 The original 1.0.6 `Game.pak` has been loaded directly through this clean code: all 763 files CRC-validate, all 12 levels parse, all 565 level placements reconcile, and all four canonical PAK films parse, and all 386 unit definitions / 5 weapons / 2 player definitions parse and cross-validate. Across all four original PAKs, **871 actual files** pass CRC validation.
 
@@ -55,7 +56,7 @@ ctest --test-dir build --output-on-failure
 ./build/deimos_reference_probe reference/DR-EVID-002/canonical/Paks/Game.pak
 ```
 
-Committed tests use synthetic fixtures only; the current suite passes 43/43. Original assets remain in the ignored local reference workspace.
+Committed tests use synthetic fixtures only; the current suite passes 44/44. Original assets remain in the ignored local reference workspace.
 
 See `docs/STATUS.md`, `docs/ROADMAP.md`, and `reverse/formats/` for current reconstruction details.
 

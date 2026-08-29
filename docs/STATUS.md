@@ -1,6 +1,6 @@
 # Status
 
-## 2026-08-29 — score-bar pixel + gameplay-frame orchestration milestone
+## 2026-08-29 — Apple Metal presentation-adapter milestone
 
 ### Evidence corpus
 
@@ -77,7 +77,15 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **43/43**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **44/44**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+
+### Modern/native presentation status
+
+- The deterministic host seam remains the exact canonical 640x480 xRGB1555 frame converted to immutable RGBA8888 after all recovered raster work completes.
+- `deimos_metal_backend` is now a separate Apple-only CMake target; `deimos_core` remains free of Objective-C++, Metal, QuartzCore, and native window dependencies.
+- `AppleMetalPresentationBackend` accepts a host-owned `CAMetalLayer`, validates drawable-size parity, uploads one RGBA8 texture, clears letterbox regions, applies the precomputed `ModernViewport`, selects nearest/linear sampling, draws one textured quad, and commits one `CAMetalDrawable`.
+- The backend does not recalculate scaling and cannot mutate canonical renderer state. Resizes require rebuilding the bridge packet against the new physical drawable size.
+- Linux builds prove the Apple source/target does not perturb portable-core compilation. Native Objective-C++ compile/run validation remains required on macOS/iPadOS.
 
 ### Software render-backend findings now binary-confirmed
 
@@ -274,7 +282,7 @@ Synthetic repository tests pass **43/43**. Original assets/binaries are used onl
 
 ### Active reverse-engineering fronts
 
-1. Implement concrete Metal (macOS/iPadOS) and Vulkan (Linux) adapters behind the new modern presentation backend, with screenshot parity against the nearest CPU oracle.
+1. Compile/integrate the implemented Metal adapter in native macOS/iPadOS hosts, then implement the Vulkan adapter on Linux; validate both against the nearest CPU screenshot oracle.
 2. Bind the recovered player life/respawn/game-over lifecycle spawn/audio/UI facts into full world orchestration and continue into the remaining active-player movement/weapon boundaries.
 3. Wire every remaining non-collision destruction entry site through the same clean teardown orchestration.
 4. Recover the rare special single-member parent-container / intrusive-list semantics around `0x33220` and bind an actual decoded Media Mask provider to the terrain/media runtime.
@@ -335,4 +343,4 @@ The residual `0x2F7A0..0x2FE40` `COST` path is now classified and implemented as
 
 The clean renderer now has its first post-canonical host boundary. `modern_presentation_runtime` requires the exact recovered 640x480 legacy display frame, expands xRGB1555 to tightly packed RGBA8888 only after deterministic raster completion, and calculates aspect-fit, integer-fit, or explicit stretch viewports in physical drawable pixels. A `ModernPresentationBackend` interface isolates future Metal/Vulkan/D3D code from simulation and legacy raster state.
 
-A dependency-free nearest-neighbour reference presenter supplies byte-level letterbox/scaling parity without becoming the shipping renderer; it intentionally rejects linear filtering as a deterministic oracle because sampler details differ by graphics API. The reference probe now locks the canonical bridge at `rowBytes=2560` and 1920x1080 aspect-fit viewport `240,0 1440x1080`. Synthetic Debug suite: **43/43 PASS**.
+A dependency-free nearest-neighbour reference presenter supplies byte-level letterbox/scaling parity without becoming the shipping renderer; it intentionally rejects linear filtering as a deterministic oracle because sampler details differ by graphics API. The reference probe now locks the canonical bridge at `rowBytes=2560` and 1920x1080 aspect-fit viewport `240,0 1440x1080`. Synthetic Debug suite: **44/44 PASS**.

@@ -70,7 +70,7 @@ Completed/confirmed:
 Remaining Phase 1 exit criteria:
 
 - recover the rare special single-member parent-container path and remaining original intrusive-list/pool semantics around `0x33220`;
-- integrate remaining player lifecycle spawn/audio/UI side effects into the now-closed visible-frame orchestrator; score-bar semantic/pixel rendering, world composition, 576x480 source composition, QuickDraw geometry, no-swap display commit, and the adjacent level-selection acceptance/failure `COST` pulse are closed; the backend-neutral modern presentation seam is now operational, so the next graphics work is concrete Metal/Vulkan adapters plus any remaining non-gameplay/front-end visual producers;
+- integrate remaining player lifecycle spawn/audio/UI side effects into the now-closed visible-frame orchestrator; score-bar semantic/pixel rendering, world composition, 576x480 source composition, QuickDraw geometry, no-swap display commit, and the adjacent level-selection acceptance/failure `COST` pulse are closed; the backend-neutral modern presentation seam is operational and the Apple Metal adapter is implemented as a separate native target; next graphics work is macOS/iPadOS host/device validation, Vulkan on Linux, and any remaining non-gameplay/front-end visual producers;
 - finish remaining Flee trigger/lifecycle edges and bind them to decoded fields;
 - expand Windows installer and establish Mac↔Windows code/data correspondences;
 - finish replay action-bit mapping including second-player semantics;
@@ -103,7 +103,7 @@ Already implemented from binary-confirmed behavior:
 
 Exit criteria:
 
-- bind recovered player lifecycle spawn/audio/UI facts into full world orchestration and finish remaining destruction orchestration; map the completed modern presentation packet to native Metal/Vulkan/D3D swapchains without changing the canonical xRGB1555 frame;
+- bind recovered player lifecycle spawn/audio/UI facts into full world orchestration and finish remaining destruction orchestration; validate the implemented Apple Metal adapter in native macOS/iPadOS hosts and map the same completed modern presentation packet to Vulkan/D3D swapchains without changing the canonical xRGB1555 frame;
 - integrate world/entity construction, then reconstruct movement, weapons, projectiles, collision, damage, scoring, power-ups, camera/scrolling, two-player behavior, menus/preferences, timing, and audio triggers;
 - feed v10005 recordings into the clean simulation as deterministic regression oracles;
 - retain original assets as the canonical content tier.

@@ -214,15 +214,24 @@ against the recovered 640x480 presentation configuration and reports:
 modern bridge: RGBA8888 rowBytes=2560 1080pAspectFit=240,0 1440x1080
 ```
 
+## Native adapter status
+
+The first adapter now exists as the Apple-only `deimos_metal_backend` target.
+It implements the interface using a host-owned `CAMetalLayer`, one RGBA8 upload
+texture, one viewport-controlled textured quad, and `presentDrawable`. See
+`APPLE_METAL_PRESENTATION_BACKEND.md`.
+
+This does not change the core contract: Metal receives the same immutable
+`ModernPresentationFrame` that the CPU oracle receives. The adapter still
+requires macOS/iPadOS SDK compilation and device/window integration validation.
+
 ## Next platform work
 
-The next native step should implement the interface without changing the clean
-core:
-
-1. **Metal backend** for macOS/iPadOS;
-2. **Vulkan backend** for Linux;
-3. Vulkan or D3D backend for Windows;
-4. cross-backend screenshot/hash tests against the nearest CPU reference
+1. compile and screenshot-validate the Metal adapter on macOS/iPadOS;
+2. add the minimal Apple host view/controller around `CAMetalLayer`;
+3. implement a **Vulkan backend** for Linux;
+4. add Vulkan or D3D for Windows;
+5. add cross-backend screenshot/hash tests against the nearest CPU reference
    presenter.
 
 The software xRGB1555 renderer remains available permanently as the canonical
