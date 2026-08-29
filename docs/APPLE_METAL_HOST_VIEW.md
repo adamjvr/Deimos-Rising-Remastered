@@ -105,16 +105,23 @@ application and presented on the main UI thread for this initial integration.
 
 ## Validation
 
-The prior `deimos_metal_backend` milestone was compiled successfully with both
-macOS and iPadOS Apple toolchains before this host-view layer was added.
-Portable Linux validation proves that the host public header introduces no
-Apple types or dependencies into `deimos_core`.
+The prior `deimos_metal_backend` milestone compiled successfully with both
+macOS and iPadOS Apple toolchains before this host-view layer was added. The
+first macOS host compile then caught an Objective-C++ scoping defect: the
+private `@interface`/`@implementation` declarations had been placed inside a
+C++ namespace. They now remain at true file-global Objective-C++ scope, while
+all C++ helpers and `AppleMetalHostView` implementation stay inside `deimos`.
+
+Portable validation also includes `apple_objcxx_layout_test`, which prevents
+those declarations from being moved back inside `namespace deimos` even on CI
+hosts that do not compile Objective-C++. The public-header regression continues
+to prove that no Apple types or dependencies leak into `deimos_core`.
 
 The next Apple validation gate is therefore:
 
-1. compile `deimos_apple_host` on macOS and iPadOS;
-2. insert `native_view_handle()` into a real native view hierarchy;
-3. present a canonical 640x480 frame;
+1. compile corrected `deimos_apple_host` on macOS and iPadOS;
+2. build/run `deimos_apple_host_smoke`;
+3. present the deterministic 640x480 diagnostic frame in a real native view;
 4. capture nearest-mode output and compare it against the CPU reference
    presenter for the same physical drawable size.
 

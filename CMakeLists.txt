@@ -172,5 +172,8 @@ if(BUILD_TESTING)
         add_test(
             NAME pef_probe_test
             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/pef_probe_test.py)
+        add_test(
+            NAME apple_objcxx_layout_test
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/apple_objcxx_layout_test.py)
     endif()
 endif()

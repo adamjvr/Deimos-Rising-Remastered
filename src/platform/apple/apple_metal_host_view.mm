@@ -17,8 +17,37 @@
 #include <string>
 #include <utility>
 
+#if TARGET_OS_IPHONE
+
+@interface DeimosMetalHostNativeView : UIView
+@end
+
+@implementation DeimosMetalHostNativeView
++ (Class)layerClass {
+    return [CAMetalLayer class];
+}
+@end
+
+#else
+
+@interface DeimosMetalHostNativeView : NSView
+@end
+
+@implementation DeimosMetalHostNativeView
+- (CALayer*)makeBackingLayer {
+    return [CAMetalLayer layer];
+}
+- (BOOL)isFlipped {
+    return YES;
+}
+@end
+
+#endif
+
 namespace deimos {
 namespace {
+
+using NativeView = DeimosMetalHostNativeView;
 
 bool fail(std::string* error, const char* message) {
     if (error) *error = message;
@@ -33,17 +62,6 @@ bool require_main_thread(std::string* error) {
 }
 
 #if TARGET_OS_IPHONE
-
-@interface DeimosMetalHostNativeView : UIView
-@end
-
-@implementation DeimosMetalHostNativeView
-+ (Class)layerClass {
-    return [CAMetalLayer class];
-}
-@end
-
-using NativeView = DeimosMetalHostNativeView;
 
 CAMetalLayer* metal_layer_for_view(NativeView* view) {
     return (CAMetalLayer*)view.layer;
@@ -65,20 +83,6 @@ void configure_native_view(NativeView* view) {
 }
 
 #else
-
-@interface DeimosMetalHostNativeView : NSView
-@end
-
-@implementation DeimosMetalHostNativeView
-- (CALayer*)makeBackingLayer {
-    return [CAMetalLayer layer];
-}
-- (BOOL)isFlipped {
-    return YES;
-}
-@end
-
-using NativeView = DeimosMetalHostNativeView;
 
 CAMetalLayer* metal_layer_for_view(NativeView* view) {
     return (CAMetalLayer*)view.layer;
