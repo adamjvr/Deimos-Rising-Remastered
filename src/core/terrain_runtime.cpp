@@ -2,6 +2,7 @@
 
 #include "deimos/collision_runtime.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <string_view>
@@ -27,6 +28,193 @@ void step_legacy_horizontal_view(LegacyHorizontalViewRuntime& view, bool positiv
         return;
     }
     view.direction = 1;
+}
+
+
+std::optional<LegacyTerrainSurfaceConfig> compile_legacy_terrain_surface_config(
+    const NamedTable<float>& game_floats,
+    std::string* error) {
+    constexpr std::size_t kFirst = 54;
+    constexpr std::array<std::string_view, 3> labels = {
+        "VisibleGameWidth", "VisibleGameHeight", "ReqDisplayDepth"
+    };
+    if (game_floats.size() < kFirst + labels.size()) {
+        if (error) *error = "Game[gafl] is shorter than the 1.0.6 terrain-surface positional contract";
+        return std::nullopt;
+    }
+    for (std::size_t i = 0; i < labels.size(); ++i) {
+        if (game_floats[kFirst + i].first != labels[i]) {
+            if (error) {
+                *error = "unexpected Game[gafl] terrain-surface label at index " +
+                    std::to_string(kFirst + i);
+            }
+            return std::nullopt;
+        }
+    }
+
+    const auto trunc_i = [](float value) { return static_cast<int>(std::trunc(value)); };
+    LegacyTerrainSurfaceConfig out;
+    out.visible_width = trunc_i(game_floats[54].second);
+    out.visible_height = trunc_i(game_floats[55].second);
+    out.display_depth = trunc_i(game_floats[56].second);
+    if (out.visible_width <= 0 || out.visible_height <= 0) {
+        if (error) *error = "terrain visible dimensions must be positive";
+        return std::nullopt;
+    }
+    if (out.display_depth != 16) {
+        if (error) *error = "clean terrain compositor currently requires the legacy 16-bit display depth";
+        return std::nullopt;
+    }
+    return out;
+}
+
+bool initialize_legacy_terrain_surface_runtime(
+    LegacyTerrainSurfaceRuntime& runtime,
+    const LegacyRasterSurface& persistent_terrain,
+    const LegacyTerrainSurfaceConfig& config,
+    std::string* error) {
+    if (!persistent_terrain.valid()) {
+        if (error) *error = "persistent terrain surface is invalid";
+        return false;
+    }
+    if (config.visible_width <= 0 || config.visible_height <= 0 || config.display_depth != 16) {
+        if (error) *error = "invalid legacy terrain-surface configuration";
+        return false;
+    }
+    if (persistent_terrain.height < config.visible_height) {
+        if (error) *error = "persistent terrain is shorter than VisibleGameHeight";
+        return false;
+    }
+    if (persistent_terrain.width < config.horizontal_source_bias + config.visible_width) {
+        if (error) *error = "persistent terrain is narrower than the initial +32 gameplay source view";
+        return false;
+    }
+
+    runtime.config = config;
+    runtime.full_bounds = persistent_terrain.bounds();
+    runtime.source_view.top = runtime.full_bounds.bottom - config.visible_height;
+    runtime.source_view.left = config.horizontal_source_bias;
+    if (runtime.source_view.left < 0) runtime.source_view.left = 0;
+    runtime.source_view.bottom = runtime.source_view.top + config.visible_height;
+    runtime.source_view.right = runtime.source_view.left + config.visible_width;
+    runtime.requested_vertical_delta = 1;
+    runtime.applied_vertical_delta = 0;
+    runtime.vertical_progress = config.visible_height + 1;
+    runtime.reached_end = false;
+    runtime.row_updates_suppressed = false;
+    return true;
+}
+
+void prime_legacy_terrain_rows(
+    const LegacyTerrainSurfaceRuntime& runtime,
+    const LegacyTerrainRowUpdate& row_update) {
+    if (runtime.row_updates_suppressed || !row_update) return;
+
+    // 0xFA48 computes top-65, then loops i < bottom-(top-65), invoking
+    // 0x33090(bottom-i). This includes both bottom and top-64.
+    const int count = runtime.source_view.bottom -
+        (runtime.source_view.top - (runtime.config.row_activation_margin + 1));
+    for (int i = 0; i < count; ++i) {
+        row_update(runtime.source_view.bottom - i);
+    }
+}
+
+void step_legacy_vertical_terrain_view(
+    LegacyTerrainSurfaceRuntime& runtime,
+    const LegacyRasterSurface& persistent_terrain) {
+    const int delta = runtime.requested_vertical_delta;
+    if (delta == 0) {
+        runtime.applied_vertical_delta = 0;
+        return;
+    }
+
+    const int old_top = runtime.source_view.top;
+    runtime.source_view.top -= delta;
+    runtime.vertical_progress += delta;
+    runtime.vertical_progress = std::clamp(
+        runtime.vertical_progress, 0, runtime.full_bounds.bottom);
+    runtime.source_view.bottom -= delta;
+
+    // 0x102A4 uses <= 0, not < 0.
+    if (runtime.source_view.top <= 0) {
+        runtime.source_view.top = 0;
+        runtime.source_view.bottom = runtime.config.visible_height;
+    }
+
+    // 0x102D4 fetches the persistent background surface bounds dynamically.
+    // It only tests/clamps the lower edge here; the top-edge case above is
+    // independent and intentionally preserves the original ordering.
+    const auto terrain_bounds = persistent_terrain.bounds();
+    if (runtime.source_view.bottom > terrain_bounds.bottom) {
+        runtime.source_view.bottom = terrain_bounds.bottom;
+        runtime.source_view.top = terrain_bounds.bottom - runtime.config.visible_height;
+    }
+
+    runtime.applied_vertical_delta = old_top - runtime.source_view.top;
+}
+
+bool tick_legacy_terrain_scroll(
+    LegacyTerrainSurfaceRuntime& runtime,
+    const LegacyRasterSurface& persistent_terrain,
+    const LegacyTerrainRowUpdate& row_update) {
+    step_legacy_vertical_terrain_view(runtime, persistent_terrain);
+
+    if (runtime.requested_vertical_delta == 0) {
+        return runtime.reached_end;
+    }
+
+    if (runtime.vertical_progress >= runtime.full_bounds.bottom) {
+        runtime.vertical_progress = runtime.full_bounds.bottom;
+        runtime.reached_end = true;
+        runtime.requested_vertical_delta = 0;
+        return true;
+    }
+
+    if (!runtime.row_updates_suppressed && row_update) {
+        row_update(runtime.source_view.top - runtime.config.row_activation_margin);
+    }
+    return false;
+}
+
+bool copy_legacy_terrain_viewport(
+    const LegacyTerrainSurfaceRuntime& runtime,
+    const LegacyHorizontalViewRuntime& horizontal,
+    const LegacyRasterSurface& persistent_terrain,
+    LegacyRasterSurface& visible_surface,
+    std::string* error) {
+    if (!persistent_terrain.valid() || !visible_surface.valid()) {
+        if (error) *error = "invalid terrain or visible raster surface";
+        return false;
+    }
+
+    auto source = runtime.source_view;
+    source.left = horizontal.offset + runtime.config.horizontal_source_bias;
+    if (source.left < 0) source.left = 0;
+    source.right = source.left + runtime.config.visible_width;
+    const LegacyRasterRect destination{
+        0, 0, runtime.config.visible_height, runtime.config.visible_width};
+
+    if (source.top < 0 || source.left < 0 || source.bottom > persistent_terrain.height ||
+        source.right > persistent_terrain.width || source.empty()) {
+        if (error) *error = "legacy terrain source viewport falls outside the persistent surface";
+        return false;
+    }
+    if (destination.bottom > visible_surface.height || destination.right > visible_surface.width) {
+        if (error) *error = "visible surface is smaller than the legacy gameplay viewport";
+        return false;
+    }
+
+    for (int row = 0; row < runtime.config.visible_height; ++row) {
+        const auto src_index = static_cast<std::size_t>(source.top + row) *
+            static_cast<std::size_t>(persistent_terrain.width) + static_cast<std::size_t>(source.left);
+        const auto dst_index = static_cast<std::size_t>(row) *
+            static_cast<std::size_t>(visible_surface.width);
+        std::copy_n(
+            persistent_terrain.pixels.begin() + static_cast<std::ptrdiff_t>(src_index),
+            runtime.config.visible_width,
+            visible_surface.pixels.begin() + static_cast<std::ptrdiff_t>(dst_index));
+    }
+    return true;
 }
 
 namespace {

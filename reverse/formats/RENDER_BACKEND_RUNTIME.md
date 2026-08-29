@@ -203,10 +203,11 @@ The compositor arithmetic itself is identical; the request chooses a separate
 terrain/background xRGB1555 destination surface.
 
 Sprite-base `+0x90` remains the strict global-sequence submission gate upstream
-of this backend. The clean implementation now covers the per-request terrain
-pixel composition; ownership, scrolling/persistence, dirty-region presentation,
-and final display of the complete background surface remain separate world/
-platform orchestration work.
+of this backend. The clean implementation now covers per-request terrain pixel
+composition plus, in `TERRAIN_SURFACE_RUNTIME.md`, the persistent background
+surface, vertical source-view scrolling, and the full 416x480 viewport copy.
+Only outer frame-loop binding and final native display ownership remain separate
+world/platform orchestration work.
 
 ## Special `COST` path
 
@@ -242,9 +243,8 @@ reconstructed, and `RENDER_ORCHESTRATION_RUNTIME.md` closes the recovered
 entity/player semantic-to-raw request bridge. Remaining work is primarily
 background/platform ownership:
 
-- reconstruct complete terrain/background surface lifetime, vertical
-  scroll/strip-copy persistence, dirty-region flow, and presentation rather
-  than just per-request rasterization;
+- bind the proven top-level group-0 -> full terrain viewport copy -> group-1 ->
+  world/player -> group-2 ordering around the existing compositor;
 - recover any remaining non-sprite/UI presentation special cases;
 - replace legacy QuickDraw display ownership with a native presentation layer
   without changing the proven software-render arithmetic.

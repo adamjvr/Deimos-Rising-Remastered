@@ -33,6 +33,7 @@ The portable C++20 core now contains:
 - cross-resource reference validation;
 - a PEF packed-data/import/relocation probe that resolves the original main transition vector and TOC;
 - a `deimos_reference_probe` executable that validates an original `Game.pak` through the clean implementation.
+- binary-confirmed persistent terrain/background camera runtime: 416x480x16 source-view configuration, 545-row activation prime, exact vertical scroll/clamp/end behavior, and full-viewport copies from the persistent terrain raster.
 
 The original 1.0.6 `Game.pak` has been loaded directly through this clean code: all 763 files CRC-validate, all 12 levels parse, all 565 level placements reconcile, and all four canonical PAK films parse, and all 386 unit definitions / 5 weapons / 2 player definitions parse and cross-validate. Across all four original PAKs, **871 actual files** pass CRC validation.
 
@@ -47,7 +48,7 @@ ctest --test-dir build --output-on-failure
 ./build/deimos_reference_probe reference/DR-EVID-002/canonical/Paks/Game.pak
 ```
 
-Committed tests use synthetic fixtures only; the current suite passes 20/20. Original assets remain in the ignored local reference workspace.
+Committed tests use synthetic fixtures only; the current suite passes 34/34. Original assets remain in the ignored local reference workspace.
 
 See `docs/STATUS.md`, `docs/ROADMAP.md`, and `reverse/formats/` for current reconstruction details.
 
@@ -58,7 +59,3 @@ binary-confirmed owner-location state layer. Canonical 1.0.6 contains 156
 Lock-to-owner states, 10 Link-to-owner states, and 8 Orbit-owner states. The
 world-aware entity tick executes those modes in the recovered post-range,
 pre-spawn-scheduler slot. See `reverse/formats/ENTITY_WORLD_RUNTIME.md`.
-
-## Current player-target/motion milestone
-
-The portable world now includes the recovered two-slot player target table and the PPC `0x15280` player-aware motion dispatcher. Hunt, Hold, Cyclic, Flee, velocity convergence, and Delete/Destruct-on-no-player behavior are integrated before the existing Lock/Link/Orbit and spawn-scheduler phases. The canonical shared-world first-tick regression is 546 ticked -> 544 active, with only `Ground Obstacle[grob]` and `Tank - Pulse Track Flag[tptf]` removed by zero-delay timer actions. See `reverse/formats/PLAYER_TARGET_MOTION_RUNTIME.md`.

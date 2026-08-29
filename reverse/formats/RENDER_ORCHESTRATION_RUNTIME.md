@@ -10,8 +10,7 @@ The implementation is in:
 - `src/core/render_orchestration.cpp`
 - `tests/render_orchestration_test.cpp`
 
-It intentionally stops before native window/GPU presentation and before the
-complete persistent terrain/background surface lifecycle.
+It intentionally stops before native window/GPU presentation. The persistent terrain/background surface and camera lifecycle is now closed separately in `TERRAIN_SURFACE_RUNTIME.md`; the remaining renderer boundary is outer frame-loop integration.
 
 ## Raw request construction
 
@@ -133,19 +132,20 @@ composition.
 - sprite-base `+0x90` one-per-sequence main terrain stamp;
 - end-to-end semantic request -> queue -> compositor mutation.
 
-The complete repository suite is **33/33 PASS** and the external canonical
+The complete repository suite is **34/34 PASS** and the external canonical
 `Game.pak` / `Audio.pak` / `Music.pak` probe remains unchanged, including the
 software-render corpus hash `0x32290b39b091e970` and the historical gameplay
 RNG/count oracle.
 
 ## Remaining renderer work
 
-The remaining renderer frontier is no longer request construction or pixel
-math. It is primarily:
+The remaining renderer frontier is no longer request construction, pixel math,
+or terrain surface lifetime. Direct PPC disassembly now proves `0x10120` is a
+full 416x480 persistent-terrain viewport copy, while `0x10220` only moves the
+source Rect. It is primarily:
 
-- recover the complete terrain/background surface allocation, vertical scroll,
-  strip-copy, persistence and dirty-region lifecycle around `0x10120/0x10220`;
-- bind all entity/player/world call-site choreography to the clean renderer at
-  the top-level frame loop;
+- bind the proven `0x30BC0` order: group 0 terrain writes -> `0x10120` full
+  viewport copy -> group 1 -> `0x43BA0` -> group 2;
+- resolve `0x43BA0` and remaining entity/player/world call-site choreography;
 - identify remaining UI/non-sprite special presentation paths;
 - attach the verified 16-bit framebuffer to a native presentation layer.

@@ -69,7 +69,7 @@ The binary-confirmed collision layer has a dedicated synthetic regression execut
 - scan early exit after self becomes inactive;
 - level-scaled shield base/increment/max behavior, including the no-max-clamp branch when increment is non-positive.
 
-The repository suite is currently **33/33 PASS**. The optional canonical `Game.pak` probe additionally validates all compiled collision/destruction/terrain-media/player-runtime fields and reports 436 collision-enabled states, 135 air / 251 ground Unit Definitions, 8 pickup Unit Definitions (4 coin / 1 mult / 1 exli / 2 shie), 2 Player Definitions, player globals 100/10/1, death-money IDs `calg/cals/casg/cass`, 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units, and fixed water IDs `spti/spsm/spme/spla`, **0** stock
+The repository suite is currently **34/34 PASS**. The optional canonical `Game.pak` probe additionally validates all compiled collision/destruction/terrain-media/player-runtime fields and reports 436 collision-enabled states, 135 air / 251 ground Unit Definitions, 8 pickup Unit Definitions (4 coin / 1 mult / 1 exli / 2 shie), 2 Player Definitions, player globals 100/10/1, death-money IDs `calg/cals/casg/cass`, 67 shadow casters, 4 ground-obstacle colliders, 12 any-media death spawners, 3 non-`none` media-impact units, and fixed water IDs `spti/spsm/spme/spla`, **0** stock
 `stateUseThisStateOnShieldDepletion_BOOL` states / affected units, plus the other corpus counts recorded in `STATUS.md`. It also verifies that the existing shared constructor and first player-aware tick remain deterministic at RNG seeds `2249411936` and `2633739833` respectively.
 
 ### Player-runtime regression rules
@@ -183,3 +183,10 @@ shadow offsets air/ground: -48,104 / -6,8
 
 `tests/render_orchestration_test.cpp` binds the recovered semantic-to-raw request bridge end-to-end: cached-frame resolution, shadow/base/tint/glow ordering, exact world/HUD coordinates, distinct main-terrain `+32` and terrain-shadow `-32` X bases, layer/flag/effect packing, immediate-vs-queued submission, terrain sequence stamping, compositor handoff, and the `0x100B0` horizontal-view step/clamp/direction-latch behavior.
 
+
+
+### Terrain surface/camera regression rules
+
+`terrain_surface_runtime_test` executes the recovered `0xFA10/0xFA90/0x10000/0x10120/0x10220` contracts with assertions enabled and covers the label-verified 416x480x16 configuration, bottom-most +32 source crop, all 545 initial row callbacks, row suppression, persistent terrain mutation lifetime, full-viewport copies across horizontal offsets -32/0/+31, exact vertical applied-delta accounting, top-64 row activation, zero-delta behavior, top/bottom clamps, and the executable's normal source-top==1 end-scroll quirk.
+
+The canonical `Game.pak` probe now independently verifies `terrain viewport/depth: 416x480x16` without changing the shared constructor/first-tick oracles (`386 / 546 / 544`, seeds `2249411936 / 2633739833`).

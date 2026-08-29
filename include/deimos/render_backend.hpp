@@ -16,6 +16,7 @@ struct LegacyRasterRect {
     int bottom = 0;
     int right = 0;
 
+    constexpr bool operator==(const LegacyRasterRect&) const = default;
     [[nodiscard]] bool empty() const { return right <= left || bottom <= top; }
 };
 

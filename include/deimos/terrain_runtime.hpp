@@ -2,6 +2,7 @@
 
 #include "deimos/data_tables.hpp"
 #include "deimos/entity_runtime.hpp"
+#include "deimos/render_backend.hpp"
 
 #include <array>
 #include <cstddef>
@@ -23,6 +24,83 @@ struct LegacyHorizontalViewRuntime {
 };
 
 void step_legacy_horizontal_view(LegacyHorizontalViewRuntime& view, bool positive_direction);
+
+// Game[gafl] indices 54..56 consumed by PPC 0xFA90/0xFBC0/0x10120/0x10220.
+// The +32 horizontal source bias and 64-pixel ahead-of-camera row margin are
+// executable literals rather than data-table values.
+struct LegacyTerrainSurfaceConfig {
+    int visible_width = 0;
+    int visible_height = 0;
+    int display_depth = 0;
+    int horizontal_source_bias = 32;
+    int row_activation_margin = 64;
+};
+
+[[nodiscard]] std::optional<LegacyTerrainSurfaceConfig> compile_legacy_terrain_surface_config(
+    const NamedTable<float>& game_floats,
+    std::string* error = nullptr);
+
+// Camera/source-rectangle state owned by the classic terrain module. The
+// persistent terrain pixels themselves live in the caller-supplied full-size
+// LegacyRasterSurface; this state survives across frames while layer 0/1
+// requests mutate that same surface.
+struct LegacyTerrainSurfaceRuntime {
+    LegacyTerrainSurfaceConfig config{};
+    LegacyRasterRect full_bounds{};
+    LegacyRasterRect source_view{};
+    int requested_vertical_delta = 1;
+    int applied_vertical_delta = 0;
+    int vertical_progress = 0;
+    bool reached_end = false;
+    bool row_updates_suppressed = false;
+};
+
+// Clean initialization counterpart of 0xFA90 after 0xFBC0 has loaded/copied
+// the full background into its persistent 16-bit surface. The initial view is
+// the bottom-most visible-height crop with the fixed +32 source-X bias, and
+// vertical_progress starts at visible_height+1 (481 in canonical 1.0.6).
+[[nodiscard]] bool initialize_legacy_terrain_surface_runtime(
+    LegacyTerrainSurfaceRuntime& runtime,
+    const LegacyRasterSurface& persistent_terrain,
+    const LegacyTerrainSurfaceConfig& config,
+    std::string* error = nullptr);
+
+// PPC 0xFA10 pre-activates every world row from source bottom through 64 pixels
+// above source top (inclusive): canonical 480-high gameplay therefore emits
+// exactly 545 callbacks. Suppressed mode performs no callbacks.
+using LegacyTerrainRowUpdate = std::function<void(int world_y)>;
+void prime_legacy_terrain_rows(
+    const LegacyTerrainSurfaceRuntime& runtime,
+    const LegacyTerrainRowUpdate& row_update);
+
+// PPC 0x10220 updates only the source rectangle and scroll accounting; it does
+// not copy bitmap strips. requested_vertical_delta is subtracted from top and
+// bottom, progress is clamped to full_bounds, and applied_vertical_delta is
+// oldTop-finalTop after source-surface clamping.
+void step_legacy_vertical_terrain_view(
+    LegacyTerrainSurfaceRuntime& runtime,
+    const LegacyRasterSurface& persistent_terrain);
+
+// PPC 0x10000 wraps 0x10220, performs the original end latch, and (unless
+// suppressed) activates the row exactly 64 pixels above the new source top.
+// Returns the legacy "reached end" boolean for this tick.
+[[nodiscard]] bool tick_legacy_terrain_scroll(
+    LegacyTerrainSurfaceRuntime& runtime,
+    const LegacyRasterSurface& persistent_terrain,
+    const LegacyTerrainRowUpdate& row_update = {});
+
+// PPC 0x10120 is a full viewport CopyBits-style copy, not an incremental strip
+// update. It clones source_view, replaces X with max(horizontal.offset+32,0),
+// sets right=left+VisibleGameWidth, and copies that entire rectangle to a
+// {0,0,VisibleGameHeight,VisibleGameWidth} destination. This is the core pixel
+// persistence boundary: terrain stamps remain in persistent_terrain and are
+// re-exposed whenever the moving source view reaches them.
+[[nodiscard]] bool copy_legacy_terrain_viewport(
+    const LegacyTerrainSurfaceRuntime& runtime,
+    const LegacyHorizontalViewRuntime& horizontal,
+    const LegacyRasterSurface& persistent_terrain,
+    LegacyRasterSurface& visible_surface,
+    std::string* error = nullptr);
 
 // Persistent rectangle list owned by the classic background/terrain module.
 // PPC 0x2A6D0 appends one QuickDraw-style Rect, 0x2A770 shifts every rect by

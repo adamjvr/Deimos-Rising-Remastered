@@ -71,6 +71,7 @@ if(BUILD_TESTING)
         core_edge_runtime_test
         destruction_runtime_test
         terrain_runtime_test
+        terrain_surface_runtime_test
         render_runtime_test
         render_backend_test
         render_orchestration_test

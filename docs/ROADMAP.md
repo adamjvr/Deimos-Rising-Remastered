@@ -60,11 +60,12 @@ Completed/confirmed:
 - exact `0x13460` shadow transform reconstructed, including label-verified `Game[gafl]` offsets -48/104/-6/8, air 0.5 scale, ground scale, `adjustShadowLocForScaling`, 0..32 shadow transparency, horizontal view offset, and terrain-submission coordinates;
 - `0x18A40/0x19570` software backend reconstructed: 76-byte request contract, layer queue/flush groups, normal/overall/shadow/solid xRGB1555 compositors, clipping, scaled nearest-neighbor sampling, Sprite FX/Alpha toggles, and layer-0/1 terrain-target composition; canonical 14,760-pass render oracle hashes to `0x32290b39b091e970`;
 - `0x12F20/0x12FA0/0x13460` semantic-to-raw request orchestration is now bound end-to-end, including exact world/HUD transforms, main-terrain +32 X basis, shadow-terrain -32 basis, effect-color packing, frame-cache resolution, immediate/queued routing, +0x90 terrain sequence stamping, and `0x100B0` horizontal-view stepping;
+- `0xFA10/0xFA90/0xFBC0/0x10000/0x10120/0x10220` terrain surface/camera lifecycle reconstructed: label-verified 416x480x16 view, persistent full terrain raster, 545-row activation prime, exact vertical scroll accounting/end latch, and full 416x480 viewport copy (disproving the prior incremental strip-copy hypothesis);
 
 Remaining Phase 1 exit criteria:
 
 - recover the rare special single-member parent-container path and remaining original intrusive-list/pool semantics around `0x33220`;
-- integrate the recovered player lifecycle spawn/audio/UI side effects into full world orchestration; reconstruct complete terrain/background surface lifetime/scroll/persistence and native presentation ownership;
+- integrate the recovered player lifecycle spawn/audio/UI side effects into full world orchestration; bind the proven `0x30BC0` terrain-flush/full-viewport-copy/world-layer ordering, resolve `0x43BA0`, and establish native presentation ownership;
 - finish remaining Flee trigger/lifecycle edges and bind them to decoded fields;
 - expand Windows installer and establish Mac↔Windows code/data correspondences;
 - finish replay action-bit mapping including second-player semantics;
@@ -97,7 +98,7 @@ Already implemented from binary-confirmed behavior:
 
 Exit criteria:
 
-- bind recovered player lifecycle spawn/audio/UI facts into full world orchestration, finish remaining destruction entry-site orchestration, and complete terrain/background lifetime plus native display presentation;
+- bind recovered player lifecycle spawn/audio/UI facts into full world orchestration, finish remaining destruction entry-site orchestration, bind the recovered terrain/frame-loop choreography, and add native display presentation;
 - integrate world/entity construction, then reconstruct movement, weapons, projectiles, collision, damage, scoring, power-ups, camera/scrolling, two-player behavior, menus/preferences, timing, and audio triggers;
 - feed v10005 recordings into the clean simulation as deterministic regression oracles;
 - retain original assets as the canonical content tier.

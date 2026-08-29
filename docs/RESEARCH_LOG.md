@@ -566,3 +566,48 @@ A new `render_backend_test` advances the repository suite to **32/32 PASS**. The
 The recovered visual/runtime and software-backend layers are now connected end-to-end. `0x12FA0` copies frame identity, clip, scale and the sprite-base `+0x35` immediate selector into the 76-byte request; ordinary world-space X is `trunc(worldX)-0x100A0`, HUD/non-world-space bypasses the view offset, and tint/glow RGB24 is packed to xRGB1555 before submission. Main terrain stamps were corrected from an earlier collapsed description: `0x12FA0` uses `trunc(worldX)+32` and `trunc(worldY)+0xFEC0`, layer 1 and flag 0x8, while `0x13460` terrain shadows remain a distinct layer-0 path using the recovered shadow transform and its -32 terrain basis. Sprite-base `+0x90` gates the persistent main-terrain stamp by strictly newer render sequence.
 
 `0x100B0` is the exact controller for the integer returned by `0x100A0`: each call clears the direction latch, applies +/-1, clamps to [-32,31], and records -1/+1 only when the movement did not saturate at a hard edge. A new `render_orchestration_test` advances the repository suite to **33/33 PASS** and exercises semantic state -> raw request -> queue -> software compositor end-to-end. The external canonical resource/gameplay probe remains unchanged.
+
+## 2026-08-28 — Persistent terrain surface, vertical camera runtime, and full-viewport copy
+
+Re-entered the recovered Mac 1.0.6 PPC application directly around `0xFA10`,
+`0xFA90`, `0xFBC0`, `0x10000`, `0x10120`, and `0x10220` to close the terrain
+surface ambiguity left by the render-orchestration checkpoint. `0xFBC0` loads
+the level `im16`, validates its dimensions, allocates/resizes the long-lived
+background raster at `ReqDisplayDepth`, copies the image into it, and disposes
+the temporary source. Canonical `Game[gafl]` 54/55/56 are label-verified as
+`VisibleGameWidth=416`, `VisibleGameHeight=480`, and `ReqDisplayDepth=16`.
+
+`0xFA90` initializes the source Rect to the bottom-most 416x480 crop with a
+literal +32 source-X bias and seeds vertical progress to 481. `0xFA10` then
+invokes `0x33090` 545 times, from the source bottom through source top-64. This
+resolves the old "strip" ambiguity: those calls activate simulation/world rows;
+they do not copy background pixels.
+
+`0x10220` is a pure source-Rect/scroll-accounting step. It subtracts requested
+vertical delta from top/bottom, adjusts/clamps progress, clamps the view to the
+persistent surface, and publishes `oldTop-finalTop` as the applied delta exposed
+by `0xFED0`. `0x10000` adds the end latch and one new `sourceTop-64` row
+activation. Because progress starts at 481, ordinary +1 scrolling reaches the
+full-height end condition with source top still at 1; the clean regression
+preserves this one-pixel quirk.
+
+Most importantly, direct `0x10120` disassembly disproves the prior incremental
+strip-copy/dirty-region hypothesis for core gameplay. It clones the current
+source view, changes left to `max(horizontalOffset+32,0)`, sets right to
+`left+416`, builds destination `{0,0,480,416}`, and calls the existing surface
+copy helper from the persistent terrain raster to the visible/main surface.
+The game therefore copies the full 416x480 terrain viewport on every call.
+Persistent terrain stamps survive because layer-0/1 writes mutate the long-lived
+full raster itself.
+
+The surrounding `0x30BC0` renderer now also gives a direct next-stage ordering
+oracle: `0x18B20(group0)` terrain writes -> `0x10120` full viewport copy ->
+`0x18B20(group1)` -> `0x43BA0` -> `0x18B20(group2)`. This ordering is documented
+but intentionally left for the next clean frame-orchestration checkpoint.
+
+Added `LegacyTerrainSurfaceConfig`, `LegacyTerrainSurfaceRuntime`, exact prime /
+step / tick / viewport-copy helpers, and a dedicated terrain surface regression.
+The suite is now **34/34 PASS in Debug**. The real canonical `Game.pak` probe
+reports `terrain viewport/depth: 416x480x16` while retaining 386 groups / 546
+constructed members / 544 first-tick active members and RNG seeds `2249411936`
+/ `2633739833`.

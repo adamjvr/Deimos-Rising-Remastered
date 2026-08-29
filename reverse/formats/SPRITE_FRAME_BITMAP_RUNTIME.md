@@ -129,7 +129,7 @@ This milestone deliberately leaves downstream renderer work bounded:
 - exact clipping and destination-surface arithmetic in the software blitters;
 - backend identities and submission semantics below `0x18A40` / `0x19570`;
 - alternate submission behavior associated with the remaining renderer selector byte;
-- actual terrain/background pixel composition behind the terrain-submission path;
+- top-level frame-loop binding around the now-reconstructed persistent terrain/background surface and full-viewport copy;
 - ownership/lifetime details that matter only to the original QuickDraw implementation and have no clean-runtime observable yet.
 
 The source frame pixels and transparency semantics are no longer part of that open boundary.

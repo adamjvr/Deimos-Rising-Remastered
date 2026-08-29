@@ -610,6 +610,14 @@ int main(int argc, char** argv) {
         std::cerr << "canonical water-impact config: " << error << '\n';
         return 24;
     }
+    const auto terrain_surface_config = deimos::compile_legacy_terrain_surface_config(
+        *canonical_game_floats, &error);
+    if (!terrain_surface_config || terrain_surface_config->visible_width != 416 ||
+        terrain_surface_config->visible_height != 480 || terrain_surface_config->display_depth != 16) {
+        std::cerr << "canonical terrain-surface config: "
+                  << (error.empty() ? "unexpected values" : error) << '\n';
+        return 31;
+    }
     const auto shadow_runtime_config = deimos::compile_legacy_shadow_runtime_config(
         *canonical_game_floats, &error);
     if (!shadow_runtime_config || shadow_runtime_config->air_x_offset != -48.0f ||
@@ -1076,6 +1084,10 @@ int main(int argc, char** argv) {
               << water_impact_config->small.str() << ','
               << water_impact_config->medium.str() << ','
               << water_impact_config->large.str() << '\n'
+              << "    terrain viewport/depth: "
+              << terrain_surface_config->visible_width << 'x'
+              << terrain_surface_config->visible_height << 'x'
+              << terrain_surface_config->display_depth << '\n'
               << "  destruction/removal fields:\n"
               << "    destruction spawns: " << unit_destruction_spawns << '\n'
               << "    deletion spawns: " << unit_deletion_spawns << '\n'
