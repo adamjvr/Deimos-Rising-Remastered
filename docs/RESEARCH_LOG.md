@@ -546,7 +546,7 @@ The renderer-resource boundary was pushed below the atlas/cache layer. PPC `0x1D
 
 Canonical replay across all 123 existing alpha/color pairs constructs 2,460 normal frame surfaces containing 3,115,564 color words and 3,115,564 transparency words, with 6,341 row sentinels. The aggregate deterministic surface oracle is FNV64 `0x9f9dcfba05b5089c`. Stock alpha/color FourCC tags differ by case, so the pair identity check is intentionally ASCII case-folded.
 
-PPC `0x13460` was also closed. `Game[gafl]` entries 48..51 are explicitly `Shadow_XOffset=-48`, `Shadow_YOffset=104`, `Shadow_GroundXOffset=-6`, and `Shadow_GroundYOffset=8`. Air shadows use `0.5 * entityScale`; ground shadows use entity scale. `adjustShadowLocForScaling_BOOL` changes only the air-offset basis. The global returned by `0x100A0` is functionally bounded as the horizontal view offset used by world-space rendering; terrain submission instead uses a fixed `-32` X shift and the `0xFEC0` background Y origin. The visibility helper `0x10C20` produces the legacy 0..32 transparency value and `0x13460` clamps it to a minimum of 20.
+PPC `0x13460` was also closed. `Game[gafl]` entries 48..51 are explicitly `Shadow_XOffset=-48`, `Shadow_YOffset=104`, `Shadow_GroundXOffset=-6`, and `Shadow_GroundYOffset=8`. Air shadows use `0.5 * entityScale`; ground shadows use entity scale. `adjustShadowLocForScaling_BOOL` changes only the air-offset basis. The global returned by `0x100A0` is functionally bounded as the horizontal view offset used by world-space rendering; the `0x13460` terrain-shadow submission instead uses its fixed `-32` X basis and the `0xFEC0` background Y origin. The visibility helper `0x10C20` produces the legacy 0..32 transparency value and `0x13460` clamps it to a minimum of 20.
 
 Two dedicated regressions were added (`sprite_frame_bitmap_test`, `shadow_runtime_test`), advancing the suite to **31/31 PASS** while the canonical constructor/first-tick and audio oracles remain unchanged.
 ## 2026-08-28 — Software compositor, queue, and terrain-target backend
@@ -559,3 +559,10 @@ Executable diagnostic strings identify two default-enabled toggles: `Sprite FX E
 
 A new `render_backend_test` advances the repository suite to **32/32 PASS**. The canonical probe runs six compositor variants across all 2,460 stock frame surfaces (14,760 render passes) and freezes aggregate FNV64 `0x32290b39b091e970`; the source-surface oracle remains `0x9f9dcfba05b5089c` and all gameplay/audio/RNG baselines remain unchanged.
 
+
+
+## 2026-08-28 — semantic-to-raw render orchestration and horizontal view controller
+
+The recovered visual/runtime and software-backend layers are now connected end-to-end. `0x12FA0` copies frame identity, clip, scale and the sprite-base `+0x35` immediate selector into the 76-byte request; ordinary world-space X is `trunc(worldX)-0x100A0`, HUD/non-world-space bypasses the view offset, and tint/glow RGB24 is packed to xRGB1555 before submission. Main terrain stamps were corrected from an earlier collapsed description: `0x12FA0` uses `trunc(worldX)+32` and `trunc(worldY)+0xFEC0`, layer 1 and flag 0x8, while `0x13460` terrain shadows remain a distinct layer-0 path using the recovered shadow transform and its -32 terrain basis. Sprite-base `+0x90` gates the persistent main-terrain stamp by strictly newer render sequence.
+
+`0x100B0` is the exact controller for the integer returned by `0x100A0`: each call clears the direction latch, applies +/-1, clamps to [-32,31], and records -1/+1 only when the movement did not saturate at a hard edge. A new `render_orchestration_test` advances the repository suite to **33/33 PASS** and exercises semantic state -> raw request -> queue -> software compositor end-to-end. The external canonical resource/gameplay probe remains unchanged.

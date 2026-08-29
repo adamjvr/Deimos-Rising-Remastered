@@ -7,6 +7,28 @@
 #include <string_view>
 
 namespace deimos {
+
+void step_legacy_horizontal_view(LegacyHorizontalViewRuntime& view, bool positive_direction) {
+    // 0x100B0 clears the direction latch first, then applies +/-1. Saturating
+    // at a hard edge returns before re-latching direction.
+    view.direction = 0;
+    const int delta = positive_direction ? 1 : -1;
+    view.offset += delta;
+    if (delta < 0) {
+        if (view.offset < -32) {
+            view.offset = -32;
+            return;
+        }
+        view.direction = -1;
+        return;
+    }
+    if (view.offset > 31) {
+        view.offset = 31;
+        return;
+    }
+    view.direction = 1;
+}
+
 namespace {
 
 constexpr FourCC fourcc(char a, char b, char c, char d) {

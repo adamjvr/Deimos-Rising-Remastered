@@ -12,6 +12,18 @@
 
 namespace deimos {
 
+
+// PPC 0x100A0/0x100B0 horizontal renderer-view controller. The offset is
+// constrained to [-32,31]. A requested step moves by exactly one pixel; the
+// direction latch is -1/+1 only when movement remains inside the bounds and
+// is left at zero when a requested step saturates at either hard limit.
+struct LegacyHorizontalViewRuntime {
+    int offset = 0;
+    int direction = 0;
+};
+
+void step_legacy_horizontal_view(LegacyHorizontalViewRuntime& view, bool positive_direction);
+
 // Persistent rectangle list owned by the classic background/terrain module.
 // PPC 0x2A6D0 appends one QuickDraw-style Rect, 0x2A770 shifts every rect by
 // the vertical terrain-scroll delta, and 0x2A830 performs inclusive overlap.

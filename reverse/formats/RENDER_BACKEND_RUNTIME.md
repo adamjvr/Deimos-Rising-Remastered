@@ -238,12 +238,13 @@ The source-frame surface oracle remains `0x9f9dcfba05b5089c`.
 ## Remaining renderer boundary
 
 The sprite software compositor and ordinary terrain-target composition are now
-reconstructed. Remaining work is primarily orchestration/platform ownership:
+reconstructed, and `RENDER_ORCHESTRATION_RUNTIME.md` closes the recovered
+entity/player semantic-to-raw request bridge. Remaining work is primarily
+background/platform ownership:
 
-- convert every semantic world/player render intent into the typed raw request
-  with exact clip/destination ownership at the original call sites;
-- reconstruct complete terrain/background surface lifetime, scroll/persistence,
-  and presentation rather than just per-request rasterization;
+- reconstruct complete terrain/background surface lifetime, vertical
+  scroll/strip-copy persistence, dirty-region flow, and presentation rather
+  than just per-request rasterization;
 - recover any remaining non-sprite/UI presentation special cases;
-- replace legacy QuickDraw/Sound Manager display ownership with a native
-  presentation layer without changing the proven software-render arithmetic.
+- replace legacy QuickDraw display ownership with a native presentation layer
+  without changing the proven software-render arithmetic.

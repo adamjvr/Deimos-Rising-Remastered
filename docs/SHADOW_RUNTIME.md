@@ -92,7 +92,7 @@ y = trunc(worldY + yOffset)
 
 The horizontal view offset is applied only when the live world-space transform gate (`+0x18`) is enabled. HUD/non-world-space objects therefore do not receive that shift.
 
-`0x100A0` returns an integer bounded to `[-32,31]`; companion code increments/decrements it from player-side control logic. The clean runtime names it **bounded horizontal view offset**, which is the proven renderer-facing role, without claiming a stronger camera-controller identity than the evidence supports.
+`0x100A0` returns an integer bounded to `[-32,31]`. PPC `0x100B0` is now reconstructed as its exact step controller: every accepted step changes the offset by one pixel, writes a direction latch of `-1` or `+1`, and clamps at `-32/31`; a request that would cross a hard limit leaves the direction latch at zero. The clean runtime therefore models the proven renderer-facing horizontal-view state without assigning a broader gameplay-camera meaning that has not been demonstrated.
 
 ## Terrain submission transform
 
@@ -153,6 +153,6 @@ The following are deliberately outside this boundary:
 - exact destination clipping/software-blitter internals;
 - backend dispatch/submission below `0x18A40` / `0x19570`;
 - the remaining alternate renderer submission selector;
-- terrain/background raster composition after a terrain request is emitted.
+- complete terrain/background surface lifetime, vertical scrolling/strip-copy persistence, and presentation after terrain-target composition.
 
 Shadow position, scale, layer selection, and transparency are no longer open renderer questions.

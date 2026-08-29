@@ -146,7 +146,7 @@ terrain submission     -> 0
 
 The transform itself is now recovered and lives in `SHADOW_RUNTIME.md`. Canonical `Game[gafl]` positions 48..51 are label-verified as `Shadow_XOffset=-48`, `Shadow_YOffset=104`, `Shadow_GroundXOffset=-6`, and `Shadow_GroundYOffset=8`. Air shadows render at `0.5 * entityScale`; ground shadows render at `entityScale`. The `adjustShadowLocForScaling_BOOL` branch controls whether air offsets scale with the entity or remain on the fixed 0.5 basis.
 
-Ordinary world-space requests apply the bounded horizontal view offset from `0x100A0`; terrain requests instead use the fixed `-32` X shift and the world/background Y origin from `0xFEC0`. Visibility is converted through the original 0–32 transparency mapping and then clamped to a minimum transparency value of 20.
+Ordinary world-space requests apply the bounded horizontal view offset from `0x100A0`. Main terrain stamps instead use `trunc(worldX) + 32` with the world/background Y origin from `0xFEC0`; terrain shadows remain a separate `0x13460` path and retain their recovered `-32` terrain X basis. Visibility is converted through the original 0–32 transparency mapping and then clamped to a minimum transparency value of 20.
 
 ## Render intent order
 
@@ -191,4 +191,4 @@ plef=0, plui=10, atmo=0, hud=17, none=50, other=0`.
 
 `RENDER_BACKEND_RUNTIME.md` now closes the software clipping/blitting, scaled sampling, request queue, `0x18A40/0x19570` submission, and per-request terrain-target compositor below this semantic intent layer. The former live `+0x35` mystery is the request's direct/immediate selector, not a separate rendering backend.
 
-Remaining work is orchestration/platform ownership: construct every raw request from world/player state at the original call sites, reconstruct full terrain/background surface lifetime and scrolling/persistence, and replace the legacy display/presentation ownership without changing the proven compositor arithmetic.
+`RENDER_ORCHESTRATION_RUNTIME.md` now closes the semantic-to-raw request bridge for the recovered entity/player sprite paths, including frame resolution, world/HUD/terrain coordinate selection, effect-color packing, immediate/queued routing, and the exact `0x100B0` horizontal-view stepper. Remaining work is platform/background ownership: reconstruct full terrain/background surface lifetime and vertical scroll/strip persistence, finish the top-level frame-loop sequencing around those surfaces, and replace legacy display/presentation ownership without changing the proven compositor arithmetic.

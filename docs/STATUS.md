@@ -77,7 +77,7 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **32/32**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **33/33**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Software render-backend findings now binary-confirmed
 
@@ -163,7 +163,7 @@ Synthetic repository tests pass **32/32**. Original assets/binaries are used onl
 - Member constructor `0x35DAC..0x35DF0` caches the existence of any such state in live `+0xCD`.
 - On zero shields, `0x14F10` awards score and either calls ordinary destruction (`+0xCD == 0`) or `0x17E70`, which enters the first marked state (`+0xCD != 0`).
 - Stock canonical `Game.pak` has 0 marked shield-depletion states; the executable path is retained through synthetic compatibility regression.
-- Core-edge checkpoint remains covered inside the current **32/32 PASS** suite; canonical constructor/first-tick seeds remain unchanged.
+- Core-edge checkpoint remains covered inside the current **33/33 PASS** suite; canonical constructor/first-tick seeds remain unchanged.
 
 
 ### Visual/render-request findings now binary-confirmed
@@ -248,12 +248,12 @@ Synthetic repository tests pass **32/32**. Original assets/binaries are used onl
 - `0x1EEC0` maps alpha red5 into the legacy inverted transparency domain `0=opaque`, `1..31=blend`, `32=transparent`; fully transparent rows use sentinel `1000` in their first word. When no secondary plane is needed the legacy blitter falls back to transparent-key comparison.
 - Canonical 123 paired IA/IC plates produce 2,460 normal frame surfaces, 3,115,564 color words, 3,115,564 transparency words, 6,341 row sentinels, and aggregate surface FNV64 `0x9f9dcfba05b5089c`.
 - `0x13460` shadow geometry is exact: canonical offsets are air `-48,104`, ground `-6,8`; air scale is `0.5*entityScale`, ground scale is `entityScale`; the scaling-adjust flag only alters the air offset basis.
-- `0x100A0` is now functionally bounded as the horizontal view offset used by world-space main/shadow transforms. Terrain submission instead uses the fixed `-32` X shift plus the `0xFEC0` world/background Y origin.
+- `0x100A0` is the bounded horizontal view offset used by world-space main/shadow transforms, and `0x100B0` now supplies its exact +/-1 step/clamp/direction-latch behavior. Main terrain stamps use `trunc(worldX)+32` plus `0xFEC0` world/background Y origin, while terrain shadows independently use the recovered `0x13460` shadow transform with its -32 terrain basis.
 - `0x10C20` maps visibility into the original 0–32 shadow transparency domain; `0x13460` clamps the request to a minimum transparency of 20.
 
 ### Active reverse-engineering fronts
 
-1. Bind semantic world/player render intents to the now-recovered raw 76-byte request contract at every original call site, then reconstruct complete terrain/background surface lifetime, scrolling/persistence, dirty-region presentation, and native display ownership. `0x18A40/0x19570` software clipping/blending and the per-request terrain target are now closed.
+1. Reconstruct complete terrain/background surface lifetime, vertical scrolling/strip-copy persistence, dirty-region presentation, and native display ownership. Semantic sprite state is now bound to the recovered raw 76-byte request/compositor contract.
 2. Bind the recovered player life/respawn/game-over lifecycle spawn/audio/UI facts into full world orchestration and continue into the remaining active-player movement/weapon boundaries.
 3. Wire every remaining non-collision destruction entry site through the same clean teardown orchestration.
 4. Recover the rare special single-member parent-container / intrusive-list semantics around `0x33220` and bind an actual decoded Media Mask provider to the terrain/media runtime.

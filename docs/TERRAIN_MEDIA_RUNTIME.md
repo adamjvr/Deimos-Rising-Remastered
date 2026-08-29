@@ -126,7 +126,7 @@ composition remain downstream.
 
 ## Validation
 
-The repository suite is **32/32 PASS**. The canonical `Game.pak` probe verifies
+The repository suite is **33/33 PASS**. The canonical `Game.pak` probe verifies
 all new compiled fields and the fixed water-impact labels/IDs while retaining
 the established deterministic baseline:
 
@@ -137,7 +137,7 @@ the established deterministic baseline:
 
 ## Remaining terrain-facing boundaries
 
-- bind recovered semantic render intents to raw requests at all original call sites and reconstruct complete terrain/background surface lifetime, scroll/persistence, dirty-region presentation, and native display ownership;
+- reconstruct complete terrain/background surface lifetime, vertical scroll/strip-copy persistence, dirty-region presentation, and native display ownership;
 - bind a decoded Media Mask resource/provider instead of the clean callback
   boundary;
 - route remaining destruction entry sites through the recovered teardown

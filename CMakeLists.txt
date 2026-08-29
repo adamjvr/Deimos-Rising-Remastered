@@ -25,6 +25,7 @@ add_library(deimos_core STATIC
     src/core/terrain_runtime.cpp
     src/core/render_runtime.cpp
     src/core/render_backend.cpp
+    src/core/render_orchestration.cpp
     src/core/sprite_resource.cpp
     src/core/audio_resource.cpp
     src/core/game_definitions.cpp
@@ -72,6 +73,7 @@ if(BUILD_TESTING)
         terrain_runtime_test
         render_runtime_test
         render_backend_test
+        render_orchestration_test
         shadow_runtime_test
         sprite_resource_test
         sprite_frame_bitmap_test
