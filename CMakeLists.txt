@@ -14,6 +14,7 @@ add_library(deimos_core STATIC
     src/core/weapon_definition.cpp
     src/core/player_definition.cpp
     src/core/player_runtime.cpp
+    src/core/preview_player_control.cpp
     src/core/unit_behavior.cpp
     src/core/state_runtime.cpp
     src/core/legacy_math.cpp
@@ -153,6 +154,7 @@ if(BUILD_TESTING)
         player_definition_test
         player_runtime_test
         player_lifecycle_test
+        preview_player_control_test
         unit_behavior_test
         state_runtime_test
         legacy_math_test

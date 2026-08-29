@@ -59,8 +59,7 @@ families required to produce one representative frame rather than decoding the
 entire game sprite corpus.
 
 The produced frame is a real execution of the recovered gameplay-frame
-boundary. The fixture remains called a *preview* because entity, weapon, audio,
-input and full player-world orchestration are not all bound yet. It now advances
+boundary. The fixture remains called a *preview* because entity, weapon, audio and full player-world orchestration are not all bound yet. A bounded modern directional-control bridge is now attached, but it is explicitly not treated as proof of the unresolved original InputSprocket/film-bit dispatcher. It now advances
 the exact terrain-scroll and score-bar convergence ticks at canonical
 `FPS_MaxRate=30`, with persistent render surfaces. The Player-1 score-bar/life
 sprite family remains at the recovered solo entry position to exercise the
@@ -161,3 +160,8 @@ live-loop integration order is:
 5. audio event ownership.
 
 See `APPLE_LIVE_FRAME_LOOP.md`.
+
+
+## Live desktop control checkpoint
+
+The macOS integration host now maps arrows/WASD into `PreviewPlayerControlInput`. The portable bridge compiles canonical Player-1 tuning (`active_DefaultMaxSpeed_FLOAT=7.8`, `active_VelocityDelta_FLOAT=1.6`) plus Game[gafl] 183 `Player_TopGameAreaLimit=13`. A one-right-input tick moves the preview player from `(208,330)` to `(209.6,330)` at velocity `(1.6,0)` and freezes complete-frame FNV64 `0x6fd5c94a64dcb0c8`. No-input hashes remain unchanged. See `PREVIEW_PLAYER_CONTROL.md` for the evidence boundary.

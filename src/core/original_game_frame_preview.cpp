@@ -350,6 +350,12 @@ std::optional<OriginalGameFramePreview> OriginalGameFramePreview::load(
     out.score_bar_weapon_input_ = weapon_input;
     out.player_runtime_ = player;
     out.player_definition_ = player_def;
+    const auto player_control = compile_preview_player_control_config(
+        player_tagged.definition, *game_floats,
+        out.presentation_config_.visible_game_width,
+        out.presentation_config_.visible_game_height, error);
+    if (!player_control) return std::nullopt;
+    out.player_control_config_ = *player_control;
 
     const auto score_resources = out.score_bar_player_.resources;
     for (const auto id : {score_resources.base_face, score_resources.power_face, score_resources.shield_face}) {
@@ -399,8 +405,13 @@ std::optional<OriginalGameFramePreview> OriginalGameFramePreview::load(
     return out;
 }
 
-OriginalGameFrameTickResult OriginalGameFramePreview::tick() {
+OriginalGameFrameTickResult OriginalGameFramePreview::tick(
+    const PreviewPlayerControlInput& input) {
     OriginalGameFrameTickResult result;
+    result.player_control = advance_preview_player_control(
+        player_runtime_, player_control_config_, input);
+    player_x_ = player_runtime_.x;
+    player_y_ = player_runtime_.y;
     result.terrain_reached_end = tick_legacy_terrain_scroll(
         terrain_runtime_, persistent_terrain_);
     advance_legacy_score_bar_player(

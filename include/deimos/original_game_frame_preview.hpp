@@ -2,6 +2,7 @@
 
 #include "deimos/gameplay_frame_runtime.hpp"
 #include "deimos/render_orchestration.hpp"
+#include "deimos/preview_player_control.hpp"
 #include "deimos/render_runtime.hpp"
 #include "deimos/score_bar_runtime.hpp"
 
@@ -36,12 +37,15 @@ inline constexpr std::uint64_t kCanonicalOriginalGameTick1FrameFnv64 =
     0x44dede08075273f2ull;
 inline constexpr std::uint64_t kCanonicalOriginalGameTick30FrameFnv64 =
     0x51d4a7eec9b0beefull;
+inline constexpr std::uint64_t kCanonicalOriginalGameRightTick1FrameFnv64 =
+    0x6fd5c94a64dcb0c8ull;
 
 struct OriginalGameFrameTickResult {
     std::uint64_t tick_index = 0;
     int terrain_source_top = 0;
     int terrain_applied_vertical_delta = 0;
     bool terrain_reached_end = false;
+    PreviewPlayerControlResult player_control{};
 };
 
 class OriginalGameFramePreview {
@@ -69,17 +73,22 @@ public:
         LegacyGameplayFrameResult* frame_result = nullptr,
         std::string* error = nullptr);
 
-    // Advance one deterministic recovered gameplay tick. The current live
-    // preview intentionally advances only subsystems whose exact outer-loop
-    // semantics are already closed: terrain scroll and score-bar convergence.
-    // Player input, entities, collisions and spawns remain separate upcoming
-    // integrations rather than being approximated here.
-    [[nodiscard]] OriginalGameFrameTickResult tick();
+    // Advance one deterministic gameplay-preview tick. Terrain scroll and
+    // score-bar convergence remain recovered/oracle-backed. The optional
+    // directional input passes through the explicitly bounded preview control
+    // bridge, whose tuning values are canonical but whose original
+    // InputSprocket/film-bit dispatcher is still being instruction-closed.
+    [[nodiscard]] OriginalGameFrameTickResult tick(
+        const PreviewPlayerControlInput& input = {});
 
     [[nodiscard]] std::uint64_t ticks_elapsed() const noexcept { return ticks_elapsed_; }
     [[nodiscard]] const OriginalGameFramePreviewInfo& info() const noexcept { return info_; }
     [[nodiscard]] const LegacyPresentationConfig& presentation_config() const noexcept {
         return presentation_config_;
+    }
+    [[nodiscard]] const PlayerRuntimeSlot& player_runtime() const noexcept { return player_runtime_; }
+    [[nodiscard]] const PreviewPlayerControlConfig& player_control_config() const noexcept {
+        return player_control_config_;
     }
 
 private:
@@ -100,6 +109,7 @@ private:
     LegacyScoreBarWeaponInput score_bar_weapon_input_{};
     PlayerRuntimeSlot player_runtime_{};
     CompiledPlayerRuntimeDefinition player_definition_{};
+    PreviewPlayerControlConfig player_control_config_{};
 
     LegacySpriteVisualRuntime player_visual_{};
     float player_x_ = 0.0f;

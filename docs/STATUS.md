@@ -77,7 +77,7 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **48/48**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **49/49**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Modern/native presentation status
 
@@ -283,7 +283,7 @@ Synthetic repository tests pass **48/48**. Original assets/binaries are used onl
 
 ### Active reverse-engineering fronts
 
-1. Validate the original-data 30 Hz live Metal session on macOS/iPadOS, then bind real player/world input orchestration; Vulkan on Linux follows the Apple live-loop proof.
+1. Validate the new macOS keyboard player-control bridge and the 30 Hz live session on iPadOS; then instruction-close the original InputSprocket/film-bit dispatcher, bind controller/touch to the same portable snapshot, and proceed to Vulkan on Linux.
 2. Bind the recovered player life/respawn/game-over lifecycle spawn/audio/UI facts into full world orchestration and continue into the remaining active-player movement/weapon boundaries.
 3. Wire every remaining non-collision destruction entry site through the same clean teardown orchestration.
 4. Recover the rare special single-member parent-container / intrusive-list semantics around `0x33220` and bind an actual decoded Media Mask provider to the terrain/media runtime.
@@ -344,18 +344,25 @@ The residual `0x2F7A0..0x2FE40` `COST` path is now classified and implemented as
 
 The clean renderer now has its first post-canonical host boundary. `modern_presentation_runtime` requires the exact recovered 640x480 legacy display frame, expands xRGB1555 to tightly packed RGBA8888 only after deterministic raster completion, and calculates aspect-fit, integer-fit, or explicit stretch viewports in physical drawable pixels. A `ModernPresentationBackend` interface isolates future Metal/Vulkan/D3D code from simulation and legacy raster state.
 
-A dependency-free nearest-neighbour reference presenter supplies byte-level letterbox/scaling parity without becoming the shipping renderer; it intentionally rejects linear filtering as a deterministic oracle because sampler details differ by graphics API. The reference probe now locks the canonical bridge at `rowBytes=2560` and 1920x1080 aspect-fit viewport `240,0 1440x1080`. Synthetic Debug suite: **48/48 PASS**.
+A dependency-free nearest-neighbour reference presenter supplies byte-level letterbox/scaling parity without becoming the shipping renderer; it intentionally rejects linear filtering as a deterministic oracle because sampler details differ by graphics API. The reference probe now locks the canonical bridge at `rowBytes=2560` and 1920x1080 aspect-fit viewport `240,0 1440x1080`. Synthetic Debug suite: **49/49 PASS**.
 
 
 ## 2026-08-29 — Native Apple host visual pass + external original-data frame bridge
 
 The corrected `deimos_apple_host` Objective-C++ scope now builds and the macOS smoke application has been visually validated through a real `NSView -> CAMetalLayer -> Metal` path. The captured diagnostic frame preserves the recovered 32+416+160+32 geometry, crisp nearest sampling, letterboxing, and Retina drawable mapping. The Apple backend itself had already compiled for both macOS and iPadOS.
 
-`OriginalGameFramePreview` now supplies the next integration boundary without embedding copyrighted assets: given a user-owned directory containing `Game.pak` and `Interface.pak`, it loads Level 01, the full 480x3600 background, canonical score-bar panel/TESM font, Player-1 score-bar/player sprite family, and three weapon-preview groups, then executes `render_legacy_gameplay_frame()` to produce the canonical 640x480 xRGB1555 display. `deimos_original_frame_probe` reports a whole-frame FNV64 so the first canonical run can become a parity oracle. The Apple smoke app auto-detects this data, falling back to the synthetic diagnostic frame if unavailable. Optional `DEIMOS_ORIGINAL_PAK_DIR` CMake staging copies the two user-owned PAKs only into a local generated Apple smoke-app bundle for iPad/device tests. Repository synthetic suite: **48/48 PASS**.
+`OriginalGameFramePreview` now supplies the next integration boundary without embedding copyrighted assets: given a user-owned directory containing `Game.pak` and `Interface.pak`, it loads Level 01, the full 480x3600 background, canonical score-bar panel/TESM font, Player-1 score-bar/player sprite family, and three weapon-preview groups, then executes `render_legacy_gameplay_frame()` to produce the canonical 640x480 xRGB1555 display. `deimos_original_frame_probe` reports a whole-frame FNV64 so the first canonical run can become a parity oracle. The Apple smoke app auto-detects this data, falling back to the synthetic diagnostic frame if unavailable. Optional `DEIMOS_ORIGINAL_PAK_DIR` CMake staging copies the two user-owned PAKs only into a local generated Apple smoke-app bundle for iPad/device tests. Repository synthetic suite: **49/49 PASS**.
 
 
 ## 2026-08-29 — original-data live Metal session milestone
 
 The user-validated macOS Metal path now has a deterministic original-data live session rather than a single static frame. The first complete Level-1 / Player-1 frame is frozen at FNV64 `0x9e8a7ec73b79b254`; recovered terrain-scroll + score-bar ticks freeze tick 1 at `0x44dede08075273f2` and tick 30 at `0x51d4a7eec9b0beef`. Canonical `Game[gafl]` supplies `FPS_MaxRate=30`.
 
-`OriginalGameFramePreview` now retains terrain camera state, score-bar cache, game/source/display surfaces, and tick/render sequence state. The Apple integration host uses a 30 Hz main-run-loop timer on macOS and a preferred-30-FPS `CADisplayLink` on iPadOS to execute one recovered tick, one canonical gameplay-frame render, and one Metal present. The fixture still intentionally excludes unproven full entity-owned render-queue record lifetime, player input, weapon production, collision/spawn orchestration and audio; those are the next live-loop bindings rather than approximations.
+`OriginalGameFramePreview` now retains terrain camera state, score-bar cache, game/source/display surfaces, and tick/render sequence state. The Apple integration host uses a 30 Hz main-run-loop timer on macOS and a preferred-30-FPS `CADisplayLink` on iPadOS to execute one recovered tick, one canonical gameplay-frame render, and one Metal present. The fixture now includes a clearly bounded modern host-control bridge using canonical Player-1 speed/delta tuning, while the original InputSprocket/film-bit dispatcher remains intentionally unclaimed. It still excludes unproven full entity-owned render-queue record lifetime, weapon production, collision/spawn orchestration and audio; those are the next live-loop bindings rather than approximations.
+
+
+## 2026-08-29 — First live player-control integration
+
+The original-data Metal session now accepts a portable directional input snapshot. Canonical source data supplies Player-1 `active_DefaultMaxSpeed_FLOAT=7.8`, `active_VelocityDelta_FLOAT=1.6`, and label-verified Game[gafl] 183 `Player_TopGameAreaLimit=13`. The integration deliberately remains named `PreviewPlayerControl`: the original InputSprocket/film bit dispatcher is not yet instruction-closed, so the modern host mapping is not presented as recovered replay semantics.
+
+The macOS smoke host tracks independent key-down/key-up for arrows and WASD. No-input frame hashes remain initial `0x9e8a7ec73b79b254`, tick 1 `0x44dede08075273f2`, tick 30 `0x51d4a7eec9b0beef`. A separate one-right-input oracle is Player `(209.6,330)`, velocity `(1.6,0)`, full frame `0x6fd5c94a64dcb0c8`. The synthetic Debug suite is now **49/49 PASS**.

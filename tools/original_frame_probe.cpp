@@ -90,5 +90,32 @@ int main(int argc, char** argv) {
               << "  tick 30: sourceTop=" << tick30.terrain_source_top
               << " delta=" << tick30.terrain_applied_vertical_delta
               << " FNV64=0x" << std::hex << tick30_hash << std::dec << '\n';
+
+    auto controlled = deimos::OriginalGameFramePreview::load(
+        std::filesystem::path(argv[1]), {{'l','e','0','1'}}, 0, &error);
+    if (!controlled || !controlled->render(frame, &result, &error)) {
+        std::cerr << "controlled preview setup failed: " << error << '\n';
+        return 9;
+    }
+    deimos::PreviewPlayerControlInput right;
+    right.right = true;
+    const auto controlled_tick = controlled->tick(right);
+    if (!controlled->render(frame, &result, &error)) {
+        std::cerr << "controlled preview render failed: " << error << '\n';
+        return 10;
+    }
+    const auto controlled_hash = fnv1a64(frame.pixels);
+    if (controlled_hash != deimos::kCanonicalOriginalGameRightTick1FrameFnv64) {
+        std::cerr << "controlled frame oracle mismatch: got 0x" << std::hex << controlled_hash
+                  << " expected=0x" << deimos::kCanonicalOriginalGameRightTick1FrameFnv64
+                  << std::dec << '\n';
+        return 11;
+    }
+    std::cout << "  control right tick 1: player=(" << controlled->player_runtime().x
+              << ',' << controlled->player_runtime().y << ") velocity=("
+              << controlled->player_runtime().velocity_x << ','
+              << controlled->player_runtime().velocity_y << ") sourceTop="
+              << controlled_tick.terrain_source_top
+              << " FNV64=0x" << std::hex << controlled_hash << std::dec << '\n';
     return 0;
 }

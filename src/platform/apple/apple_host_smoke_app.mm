@@ -105,6 +105,7 @@ deimos::LegacyRasterSurface make_smoke_frame() {
 
 class SmokeFrameSource {
 public:
+    enum class ControlDirection { Left, Right, Up, Down };
     bool initialize(std::string& description) {
         const auto pak_dir = find_original_pak_directory();
         if (pak_dir) {
@@ -136,9 +137,20 @@ public:
         return true;
     }
 
+    void set_control_direction(ControlDirection direction, bool pressed) {
+        switch (direction) {
+            case ControlDirection::Left: control_.left = pressed; break;
+            case ControlDirection::Right: control_.right = pressed; break;
+            case ControlDirection::Up: control_.up = pressed; break;
+            case ControlDirection::Down: control_.down = pressed; break;
+        }
+    }
+
+    void clear_control() noexcept { control_ = {}; }
+
     bool advance() {
         if (!preview_) return true;
-        const auto tick = preview_->tick();
+        const auto tick = preview_->tick(control_);
         deimos::LegacyGameplayFrameResult frame_result{};
         std::string error;
         if (!preview_->render(frame_, &frame_result, &error)) {
@@ -156,6 +168,7 @@ public:
 private:
     std::unique_ptr<deimos::OriginalGameFramePreview> preview_;
     deimos::LegacyRasterSurface frame_{};
+    deimos::PreviewPlayerControlInput control_{};
     double fps_ = 0.0;
 };
 
@@ -270,6 +283,7 @@ int main(int argc, char* argv[]) {
 @implementation DeimosSmokeAppDelegate {
     NSWindow* _window;
     NSTimer* _timer;
+    id _keyMonitor;
     std::unique_ptr<deimos::AppleMetalHostView> _host;
     std::unique_ptr<SmokeFrameSource> _source;
 }
@@ -313,6 +327,37 @@ int main(int argc, char* argv[]) {
     [_window makeKeyAndOrderFront:nil];
     [NSApp activateIgnoringOtherApps:YES];
 
+    // Modern host mapping for the live integration fixture. This deliberately
+    // does not assign names to the original film/InputSprocket bits yet.
+    SmokeFrameSource* source = _source.get();
+    _keyMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:(NSEventMaskKeyDown | NSEventMaskKeyUp)
+        handler:^NSEvent* _Nullable(NSEvent* event) {
+            const bool pressed = event.type == NSEventTypeKeyDown;
+            bool handled = true;
+            switch (event.keyCode) {
+                case 123: // left arrow
+                case 0:   // A
+                    source->set_control_direction(SmokeFrameSource::ControlDirection::Left, pressed);
+                    break;
+                case 124: // right arrow
+                case 2:   // D
+                    source->set_control_direction(SmokeFrameSource::ControlDirection::Right, pressed);
+                    break;
+                case 126: // up arrow
+                case 13:  // W
+                    source->set_control_direction(SmokeFrameSource::ControlDirection::Up, pressed);
+                    break;
+                case 125: // down arrow
+                case 1:   // S
+                    source->set_control_direction(SmokeFrameSource::ControlDirection::Down, pressed);
+                    break;
+                default:
+                    handled = false;
+                    break;
+            }
+            return handled ? nil : event;
+        }];
+
     (void)_host->sync_drawable_geometry(&error);
     (void)present_host(*_host, _source->frame());
 
@@ -350,10 +395,20 @@ int main(int argc, char* argv[]) {
     [self windowDidResize:nil];
 }
 
+- (void)windowDidResignKey:(NSNotification*)notification {
+    (void)notification;
+    if (_source) _source->clear_control();
+}
+
 - (void)windowWillClose:(NSNotification*)notification {
     (void)notification;
     [_timer invalidate];
     _timer = nil;
+    if (_keyMonitor != nil) {
+        [NSEvent removeMonitor:_keyMonitor];
+        _keyMonitor = nil;
+    }
+    if (_source) _source->clear_control();
 }
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)sender {

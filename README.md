@@ -43,7 +43,8 @@ The portable C++20 core now contains:
 - first modern host-presentation seam: canonical 640x480 xRGB1555 frames convert only after deterministic raster completion to RGBA8888, with aspect-fit/integer-fit/stretch viewport planning, a platform-backend interface, and a dependency-free nearest-neighbour CPU parity oracle.
 - first native adapter: Apple-only `deimos_metal_backend` for macOS/iPadOS, using one RGBA8 upload texture, the backend-neutral viewport, selectable nearest/linear sampling, and one drawable commit while keeping `deimos_core` free of Apple APIs; the backend has now compiled successfully on both macOS and iPadOS toolchains;
 - first reusable Apple host view: `deimos_apple_host` creates/owns an `NSView` or `UIView` backed by `CAMetalLayer`, tracks logical-point to physical-pixel Retina/iPad sizing, exposes the borrowed native view for app hierarchy integration, and presents completed canonical 640x480 frames through the backend-neutral bridge;
-- first original-data live native session: `OriginalGameFramePreview` now persists terrain/HUD/display state and advances recovered terrain scroll plus score-bar convergence at canonical `FPS_MaxRate=30`; the Apple host continuously presents those frames through Metal. Complete-frame oracles are initial `0x9e8a7ec73b79b254`, tick 1 `0x44dede08075273f2`, and tick 30 `0x51d4a7eec9b0beef`.
+- first original-data live native session: `OriginalGameFramePreview` persists terrain/HUD/display state and advances recovered terrain scroll plus score-bar convergence at canonical `FPS_MaxRate=30`; the Apple host continuously presents those frames through Metal. Complete-frame no-input oracles are initial `0x9e8a7ec73b79b254`, tick 1 `0x44dede08075273f2`, and tick 30 `0x51d4a7eec9b0beef`.
+- first bounded player-control integration: canonical Player-1 tuning (`maxSpeed=7.8`, `velocityDelta=1.6`) plus label-verified `Player_TopGameAreaLimit=13` drive a portable preview-control snapshot; the macOS live host maps arrows/WASD to it. One right-input tick is frozen at player `(209.6,330)`, velocity `(1.6,0)`, full-frame FNV64 `0x6fd5c94a64dcb0c8`. This remains explicitly separate from unresolved original InputSprocket/film-bit semantics.
 - native macOS host smoke is now visually validated end-to-end; `OriginalGameFramePreview` can additionally load user-owned `Game.pak` + `Interface.pak` at runtime and feed a real Level-1 background/score-bar/player-sprite frame through `render_legacy_gameplay_frame()` without embedding original assets, with `deimos_original_frame_probe` available to freeze the resulting whole-frame FNV64.
 
 The original 1.0.6 `Game.pak` has been loaded directly through this clean code: all 763 files CRC-validate, all 12 levels parse, all 565 level placements reconcile, and all four canonical PAK films parse, and all 386 unit definitions / 5 weapons / 2 player definitions parse and cross-validate. Across all four original PAKs, **871 actual files** pass CRC validation.
@@ -62,7 +63,7 @@ ctest --test-dir build --output-on-failure
 ./build/deimos_original_frame_probe reference/DR-EVID-002/canonical/Paks
 ```
 
-Committed tests use synthetic fixtures only; the current suite passes 48/48. Original assets remain in the ignored local reference workspace.
+Committed tests use synthetic fixtures only; the current suite passes 49/49. Original assets remain in the ignored local reference workspace.
 
 See `docs/STATUS.md`, `docs/ROADMAP.md`, and `reverse/formats/` for current reconstruction details.
 

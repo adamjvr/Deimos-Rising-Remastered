@@ -11,6 +11,7 @@ int main() {
     static_assert(deimos::kCanonicalOriginalGameInitialFrameFnv64 == 0x9e8a7ec73b79b254ull);
     static_assert(deimos::kCanonicalOriginalGameTick1FrameFnv64 == 0x44dede08075273f2ull);
     static_assert(deimos::kCanonicalOriginalGameTick30FrameFnv64 == 0x51d4a7eec9b0beefull);
+    static_assert(deimos::kCanonicalOriginalGameRightTick1FrameFnv64 == 0x6fd5c94a64dcb0c8ull);
 
     const auto impossible = std::filesystem::temp_directory_path() /
         "deimos-original-game-frame-preview-definitely-missing";
