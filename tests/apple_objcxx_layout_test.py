@@ -38,3 +38,22 @@ if close_pos < 0 or interface_pos < 0 or implementation_pos < 0:
 if interface_pos < close_pos or implementation_pos < close_pos:
     raise SystemExit(
         'apple_host_smoke_app.mm: Objective-C declarations must remain outside the C++ namespace')
+
+# The macOS playable wrapper must not silently fall back to a static preview.
+# Input is routed through the key window responder so weapon presses reach the
+# semantic live-world input path even when no local event monitor is installed.
+for token in (
+    'PLAYABLE WIP 3',
+    'live-world bootstrap failed:',
+    '@interface DeimosGameWindow : NSWindow',
+    '- (void)keyDown:(NSEvent*)event',
+    'WeaponAction::FireAir',
+    'case 49:  // Space',
+    'case 6:   // Z: primary air fire',
+    'Deimos AIR FIRE accepted',
+):
+    if token not in smoke_text:
+        raise SystemExit(f'apple_host_smoke_app.mm: missing playable-host contract token: {token}')
+if 'addLocalMonitorForEventsMatchingMask' in smoke_text:
+    raise SystemExit('apple_host_smoke_app.mm: obsolete local key monitor must not drive playable input')
+print('Apple playable-host input/fail-fast contract PASS')

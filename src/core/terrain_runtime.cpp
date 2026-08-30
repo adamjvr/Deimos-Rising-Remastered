@@ -332,6 +332,60 @@ std::optional<LegacyWaterImpactConfig> compile_legacy_water_impact_config(
     };
 }
 
+std::optional<LegacyMediaMaskGeometry> compile_legacy_media_mask_geometry(
+    const LegacyRasterSurface& media_mask,
+    RectI world_bounds,
+    std::string* error) {
+    if (!media_mask.valid()) {
+        if (error) *error = "Media Mask surface is invalid";
+        return std::nullopt;
+    }
+    const int world_width = world_bounds.right - world_bounds.left;
+    const int world_height = world_bounds.bottom - world_bounds.top;
+    if (world_width <= 0 || world_height <= 0) {
+        if (error) *error = "Media Mask world rectangle must have positive dimensions";
+        return std::nullopt;
+    }
+    if (world_width % media_mask.width != 0 || world_height % media_mask.height != 0) {
+        if (error) *error = "Media Mask dimensions do not divide the level background rectangle exactly";
+        return std::nullopt;
+    }
+
+    LegacyMediaMaskGeometry geometry;
+    geometry.world_bounds = world_bounds;
+    geometry.world_pixels_per_cell_x = world_width / media_mask.width;
+    geometry.world_pixels_per_cell_y = world_height / media_mask.height;
+    if (geometry.world_pixels_per_cell_x <= 0 || geometry.world_pixels_per_cell_y <= 0) {
+        if (error) *error = "Media Mask world-to-cell scale must be positive";
+        return std::nullopt;
+    }
+    return geometry;
+}
+
+bool legacy_media_mask_is_water(
+    const LegacyRasterSurface& media_mask,
+    const LegacyMediaMaskGeometry& geometry,
+    int world_x,
+    int world_y) {
+    if (!media_mask.valid() || geometry.world_pixels_per_cell_x <= 0 ||
+        geometry.world_pixels_per_cell_y <= 0) return false;
+    if (world_x < geometry.world_bounds.left || world_y < geometry.world_bounds.top ||
+        world_x >= geometry.world_bounds.right || world_y >= geometry.world_bounds.bottom) {
+        return false;
+    }
+
+    const int mask_x = (world_x - geometry.world_bounds.left) /
+        geometry.world_pixels_per_cell_x;
+    const int mask_y = (world_y - geometry.world_bounds.top) /
+        geometry.world_pixels_per_cell_y;
+    if (mask_x < 0 || mask_y < 0 || mask_x >= media_mask.width || mask_y >= media_mask.height) {
+        return false;
+    }
+    const auto index = static_cast<std::size_t>(mask_y) *
+        static_cast<std::size_t>(media_mask.width) + static_cast<std::size_t>(mask_x);
+    return media_mask.pixels[index] == 31u;
+}
+
 LegacyRemovalMediaResult resolve_legacy_removal_media(
     const EntityRuntime& entity,
     int world_y_origin,

@@ -159,6 +159,35 @@ std::size_t EntityWorld::active_member_count() const {
     }));
 }
 
+EntityWorld::PruneResult EntityWorld::prune_finalized_history() {
+    PruneResult out;
+
+    const auto member_before = members_.size();
+    members_.erase(
+        std::remove_if(members_.begin(), members_.end(), [](const EntityRuntime& member) {
+            return member.lifecycle != EntityLifecycle::active && member.removal_processed;
+        }),
+        members_.end());
+    out.members_removed = member_before - members_.size();
+
+    // A group whose recovered active-member count has reached zero can no
+    // longer participate in world behavior once all of its finalized member
+    // records have been removed. Preserve a group if any surviving member
+    // still carries its serial, even if that member is awaiting a later
+    // one-pass removal cascade.
+    const auto group_before = groups_.size();
+    groups_.erase(
+        std::remove_if(groups_.begin(), groups_.end(), [this](const EntityGroupRuntime& group) {
+            if (group.active_member_count > 0) return false;
+            return std::none_of(members_.begin(), members_.end(), [&](const EntityRuntime& member) {
+                return member.group_serial == group.serial;
+            });
+        }),
+        groups_.end());
+    out.groups_removed = group_before - groups_.size();
+    return out;
+}
+
 std::size_t EntityWorld::mark_owned_unit_deleted(
     FourCC unit_id,
     std::int8_t player_owner_index) {

@@ -1,10 +1,21 @@
 #pragma once
 
 #include "deimos/gameplay_frame_runtime.hpp"
+#include "deimos/collision_runtime.hpp"
+#include "deimos/destruction_runtime.hpp"
+#include "deimos/entity_world.hpp"
+#include "deimos/game_definitions.hpp"
+#include "deimos/level.hpp"
+#include "deimos/level_activation_runtime.hpp"
+#include "deimos/live_player_weapon_runtime.hpp"
+#include "deimos/pak_archive.hpp"
+#include "deimos/particle_runtime.hpp"
+#include "deimos/player_runtime.hpp"
 #include "deimos/render_orchestration.hpp"
 #include "deimos/preview_player_control.hpp"
 #include "deimos/render_runtime.hpp"
 #include "deimos/score_bar_runtime.hpp"
+#include "deimos/terrain_runtime.hpp"
 
 #include <cstdint>
 #include <filesystem>
@@ -21,6 +32,11 @@ struct OriginalGameFramePreviewInfo {
     FourCC level_id{};
     std::string level_name;
     FourCC background_id{};
+    FourCC media_mask_id{};
+    int media_mask_width = 0;
+    int media_mask_height = 0;
+    int media_mask_cell_width = 0;
+    int media_mask_cell_height = 0;
     std::string player_name;
     FourCC player_face{};
     int player_frame = 0;
@@ -40,12 +56,49 @@ inline constexpr std::uint64_t kCanonicalOriginalGameTick30FrameFnv64 =
 inline constexpr std::uint64_t kCanonicalOriginalGameRightTick1FrameFnv64 =
     0x6fd5c94a64dcb0c8ull;
 
+// First full live-world integration oracles. These are regression witnesses for
+// the clean Level-1 entity/weapon/collision bridge, not claims of original
+// executable screenshot capture. They deliberately remain distinct from the
+// canonical static/no-input frame hashes above.
+inline constexpr std::uint64_t kLiveWorldIntegrationInitialFrameFnv64 =
+    0x1eb1e07d4b6d038dull;
+inline constexpr std::uint64_t kLiveWorldIntegrationFireTick1FrameFnv64 =
+    0xa0fc41ac06687be2ull;
+inline constexpr std::uint64_t kLiveWorldIntegrationTick120FrameFnv64 =
+    0x055b51228f651199ull;
+
 struct OriginalGameFrameTickResult {
     std::uint64_t tick_index = 0;
     int terrain_source_top = 0;
     int terrain_applied_vertical_delta = 0;
     bool terrain_reached_end = false;
     PreviewPlayerControlResult player_control{};
+};
+
+
+struct OriginalGameLiveInput {
+    PreviewPlayerControlInput movement{};
+    LivePlayerWeaponInput weapons{};
+};
+
+struct OriginalGameLiveTickResult {
+    OriginalGameFrameTickResult frame{};
+    LivePlayerWeaponStepResult weapons{};
+    std::size_t active_entities = 0;
+    std::size_t constructed_groups = 0;
+    std::size_t constructed_members = 0;
+    std::size_t collisions = 0;
+    std::size_t collision_spawns_due = 0;
+    std::size_t removals = 0;
+    std::size_t removal_consequences = 0;
+    std::size_t removal_spawns = 0;
+    std::size_t player_effect_spawns = 0;
+    std::size_t far_offscreen_culled = 0;
+    std::size_t pruned_members = 0;
+    std::size_t pruned_groups = 0;
+    std::size_t particle_systems = 0;
+    std::size_t active_particles = 0;
+    std::size_t level_placements_activated = 0;
 };
 
 class OriginalGameFramePreview {
@@ -81,6 +134,32 @@ public:
     [[nodiscard]] OriginalGameFrameTickResult tick(
         const PreviewPlayerControlInput& input = {});
 
+    // Upgrade the external-data preview into the first live world integration:
+    // level objects are constructed through the recovered group/member path,
+    // canonical weapon definitions create normal spawn requests, entity motion
+    // and state machines advance at the 30 Hz game tick, and the recovered
+    // entity/entity collision scanner is active. The original film/input bit
+    // dispatcher remains separate; host actions arrive as semantic controls.
+    [[nodiscard]] bool enable_live_world(std::string* error = nullptr);
+    [[nodiscard]] OriginalGameLiveTickResult tick_live(
+        const OriginalGameLiveInput& input = {},
+        std::string* error = nullptr);
+    [[nodiscard]] bool live_world_enabled() const noexcept { return live_world_enabled_; }
+    [[nodiscard]] const EntityWorld& entity_world() const noexcept { return entity_world_; }
+    [[nodiscard]] const LivePlayerWeaponState& weapon_state() const noexcept { return weapon_state_; }
+    [[nodiscard]] const LivePlayerWeaponSlot* selected_air_weapon() const noexcept {
+        return selected_live_air_weapon(weapon_catalog_, weapon_state_);
+    }
+    [[nodiscard]] const LivePlayerWeaponSlot* selected_ground_weapon() const noexcept {
+        return selected_live_ground_weapon(weapon_catalog_, weapon_state_);
+    }
+    [[nodiscard]] std::size_t activated_level_placements() const noexcept {
+        return level_activation_.activated_count();
+    }
+    [[nodiscard]] std::size_t pending_level_placements() const noexcept {
+        return level_activation_.pending_count();
+    }
+
     [[nodiscard]] std::uint64_t ticks_elapsed() const noexcept { return ticks_elapsed_; }
     [[nodiscard]] const OriginalGameFramePreviewInfo& info() const noexcept { return info_; }
     [[nodiscard]] const LegacyPresentationConfig& presentation_config() const noexcept {
@@ -102,6 +181,8 @@ private:
     LegacyScoreBarTextStyles score_bar_styles_{};
 
     LegacyRasterSurface persistent_terrain_{};
+    LegacyRasterSurface media_mask_{};
+    LegacyMediaMaskGeometry media_mask_geometry_{};
     LegacyRasterSurface score_bar_panel_{};
     LegacySpriteGroupMetadata small_text_font_{};
     LegacySpriteCache sprite_cache_{};
@@ -110,6 +191,55 @@ private:
     PlayerRuntimeSlot player_runtime_{};
     CompiledPlayerRuntimeDefinition player_definition_{};
     PreviewPlayerControlConfig player_control_config_{};
+
+
+    struct LiveEntityVisualRecord {
+        EntityHandle handle = kNoEntityHandle;
+        std::size_t state_index = 0;
+        LegacySpriteVisualRuntime visual{};
+    };
+
+    std::optional<PakArchive> game_pak_;
+    std::optional<GameDefinitions> game_definitions_;
+    std::optional<LevelDefinition> level_definition_;
+    LevelPlacementActivationRuntime level_activation_{};
+    PlayerWorld player_world_{};
+    EntityWorld entity_world_{};
+    EntityIdentityCounters entity_identities_{};
+    LegacyRandom entity_random_{1};
+    LegacyRandom visual_random_{1};
+    LegacyTrigTables entity_trig_{};
+    LegacyPlayerRuntimeGlobals player_runtime_globals_{};
+    LegacyPlayerRuntimeResources player_runtime_resources_{};
+    LegacyPlayerScoreGlobals player_score_globals_{};
+    LegacyRandomBonusConfig random_bonus_config_{};
+    LegacyRandomBonusContext random_bonus_context_{};
+    LegacyWaterImpactConfig water_impact_config_{};
+    LegacyGroundObstacleRects ground_obstacles_{};
+    LegacyParticleTuning particle_tuning_{};
+    LegacyParticleRuntime particle_runtime_{};
+    LivePlayerWeaponCatalog weapon_catalog_{};
+    LivePlayerWeaponState weapon_state_{};
+    std::vector<LiveEntityVisualRecord> live_visuals_{};
+    int live_level_number_ = 1;
+    bool live_world_enabled_ = false;
+
+    [[nodiscard]] bool construct_live_entity_group(
+        const SpawnRequestSeed& request,
+        std::size_t* groups_created,
+        std::size_t* members_created,
+        std::string* error);
+    [[nodiscard]] bool refresh_live_entity_visual(
+        EntityRuntime& entity,
+        std::string* error);
+    [[nodiscard]] bool activate_live_level_row(
+        int world_y,
+        std::size_t* groups_created,
+        std::size_t* members_created,
+        std::string* error);
+    [[nodiscard]] bool refresh_live_score_bar_weapon_previews(
+        bool mark_changed,
+        std::string* error);
 
     LegacySpriteVisualRuntime player_visual_{};
     float player_x_ = 0.0f;

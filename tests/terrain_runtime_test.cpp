@@ -80,6 +80,27 @@ int main() {
     objects[8].first = "wrong";
     assert(!deimos::compile_legacy_water_impact_config(objects, &error));
 
+    // Resource binding for PPC 0xFEE0: derive the world-to-mask cell geometry
+    // from actual dimensions and classify only normalized pixel value 31 as
+    // water. A 10x10 world over a 2x2 mask is the canonical 5x5-cell shape in
+    // miniature.
+    deimos::LegacyRasterSurface mask(2, 2, 0);
+    mask.pixels = {31u, 7u, 8u, 31u};
+    const auto mask_geometry = deimos::compile_legacy_media_mask_geometry(
+        mask, deimos::RectI{0, 0, 10, 10}, &error);
+    assert(mask_geometry);
+    assert(mask_geometry->world_pixels_per_cell_x == 5);
+    assert(mask_geometry->world_pixels_per_cell_y == 5);
+    assert(deimos::legacy_media_mask_is_water(mask, *mask_geometry, 0, 0));
+    assert(deimos::legacy_media_mask_is_water(mask, *mask_geometry, 4, 4));
+    assert(!deimos::legacy_media_mask_is_water(mask, *mask_geometry, 5, 0));
+    assert(!deimos::legacy_media_mask_is_water(mask, *mask_geometry, 0, 5));
+    assert(deimos::legacy_media_mask_is_water(mask, *mask_geometry, 9, 9));
+    assert(!deimos::legacy_media_mask_is_water(mask, *mask_geometry, -1, 0));
+    assert(!deimos::legacy_media_mask_is_water(mask, *mask_geometry, 10, 9));
+    assert(!deimos::compile_legacy_media_mask_geometry(
+        mask, deimos::RectI{0, 0, 9, 10}, &error));
+
     int probe_calls = 0;
     int seen_x = 0;
     int seen_y = 0;

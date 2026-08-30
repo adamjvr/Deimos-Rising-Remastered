@@ -106,53 +106,120 @@ deimos::LegacyRasterSurface make_smoke_frame() {
 class SmokeFrameSource {
 public:
     enum class ControlDirection { Left, Right, Up, Down };
+    enum class WeaponAction { FireAir, FireGround, SwitchAir };
     bool initialize(std::string& description) {
         const auto pak_dir = find_original_pak_directory();
-        if (pak_dir) {
-            std::string error;
-            auto loaded = deimos::OriginalGameFramePreview::load(
-                *pak_dir, {{'l','e','0','1'}}, 0, &error);
-            if (loaded) {
-                preview_ = std::make_unique<deimos::OriginalGameFramePreview>(std::move(*loaded));
-                deimos::LegacyGameplayFrameResult frame_result{};
-                if (preview_->render(frame_, &frame_result, &error)) {
-                    const auto& info = preview_->info();
-                    description = info.level_name + " [" + info.level_id.str() + "] / " + info.player_name;
-                    fps_ = info.fps_max_rate > 0.0f ? info.fps_max_rate : 30.0f;
-                    NSLog(@"Deimos live original-data frame: PAKs=%s level=%s background=%s playerFace=%s groups=%zu fps=%.2f",
-                          pak_dir->string().c_str(), info.level_name.c_str(), info.background_id.str().c_str(),
-                          info.player_face.str().c_str(), info.loaded_sprite_groups, fps_);
-                    return true;
-                }
-            }
-            NSLog(@"Deimos original-data live source unavailable: %s", error.c_str());
-            preview_.reset();
-        } else {
-            NSLog(@"Deimos original-data live source unavailable: Game.pak + Interface.pak not found");
+        if (!pak_dir) {
+            description = "Game.pak + Interface.pak not found";
+            NSLog(@"Deimos playable host unavailable: %s", description.c_str());
+            return false;
         }
 
-        description = "Diagnostic 32+416+160+32 frame";
-        frame_ = make_smoke_frame();
-        fps_ = 0.0f;
+        std::string error;
+        auto loaded = deimos::OriginalGameFramePreview::load(
+            *pak_dir, {{'l','e','0','1'}}, 0, &error);
+        if (!loaded) {
+            description = "original-data load failed: " + error;
+            NSLog(@"Deimos playable host unavailable: %s", description.c_str());
+            return false;
+        }
+
+        preview_ = std::make_unique<deimos::OriginalGameFramePreview>(std::move(*loaded));
+        if (!preview_->enable_live_world(&error)) {
+            description = "live-world bootstrap failed: " + error;
+            NSLog(@"Deimos playable host unavailable: %s", description.c_str());
+            preview_.reset();
+            return false;
+        }
+        full_world_ = true;
+
+        deimos::LegacyGameplayFrameResult frame_result{};
+        if (!preview_->render(frame_, &frame_result, &error)) {
+            description = "initial live render failed: " + error;
+            NSLog(@"Deimos playable host unavailable: %s", description.c_str());
+            preview_.reset();
+            full_world_ = false;
+            return false;
+        }
+
+        const auto& info = preview_->info();
+        description = info.level_name + " [" + info.level_id.str() + "] / " + info.player_name +
+            " / PLAYABLE WIP 3";
+        fps_ = info.fps_max_rate > 0.0f ? info.fps_max_rate : 30.0f;
+        NSLog(@"Deimos playable original-data host: PAKs=%s level=%s background=%s playerFace=%s groups=%zu fps=%.2f liveObjects=%zu",
+              pak_dir->string().c_str(), info.level_name.c_str(), info.background_id.str().c_str(),
+              info.player_face.str().c_str(), info.loaded_sprite_groups, fps_,
+              preview_->entity_world().active_member_count());
+        if (const auto* weapon = preview_->selected_air_weapon()) {
+            NSLog(@"Deimos selected air weapon: %s [%s]", weapon->name.c_str(), weapon->id.str().c_str());
+        }
+        if (const auto* weapon = preview_->selected_ground_weapon()) {
+            NSLog(@"Deimos selected ground weapon: %s [%s]", weapon->name.c_str(), weapon->id.str().c_str());
+        }
         return true;
     }
 
     void set_control_direction(ControlDirection direction, bool pressed) {
         switch (direction) {
-            case ControlDirection::Left: control_.left = pressed; break;
-            case ControlDirection::Right: control_.right = pressed; break;
-            case ControlDirection::Up: control_.up = pressed; break;
-            case ControlDirection::Down: control_.down = pressed; break;
+            case ControlDirection::Left: input_.movement.left = pressed; break;
+            case ControlDirection::Right: input_.movement.right = pressed; break;
+            case ControlDirection::Up: input_.movement.up = pressed; break;
+            case ControlDirection::Down: input_.movement.down = pressed; break;
         }
     }
 
-    void clear_control() noexcept { control_ = {}; }
+    void set_weapon_action(WeaponAction action, bool pressed) {
+        switch (action) {
+            case WeaponAction::FireAir: input_.weapons.fire_air = pressed; break;
+            case WeaponAction::FireGround: input_.weapons.fire_ground = pressed; break;
+            case WeaponAction::SwitchAir: input_.weapons.switch_air = pressed; break;
+        }
+    }
+
+    void clear_control() noexcept { input_ = {}; }
 
     bool advance() {
         if (!preview_) return true;
-        const auto tick = preview_->tick(control_);
-        deimos::LegacyGameplayFrameResult frame_result{};
+        deimos::OriginalGameFrameTickResult tick{};
         std::string error;
+        if (full_world_) {
+            const auto live = preview_->tick_live(input_, &error);
+            tick = live.frame;
+            if (live.weapons.air_launched) {
+                NSLog(@"Deimos AIR FIRE accepted at tick %llu: +%zu members",
+                      static_cast<unsigned long long>(tick.tick_index), live.constructed_members);
+            }
+            if (live.weapons.ground_launched) {
+                NSLog(@"Deimos GROUND FIRE accepted at tick %llu: +%zu members",
+                      static_cast<unsigned long long>(tick.tick_index), live.constructed_members);
+            }
+            if (live.weapons.air_powerup_activated) {
+                NSLog(@"Deimos AIR CHARGE activated at tick %llu",
+                      static_cast<unsigned long long>(tick.tick_index));
+            }
+            if (live.weapons.air_powerup_released) {
+                NSLog(@"Deimos AIR CHARGE released at tick %llu: power=%.1f%% queued=%zu",
+                      static_cast<unsigned long long>(tick.tick_index),
+                      live.weapons.air_power_percentage, live.weapons.powerup_requests.size());
+            }
+            if ((tick.tick_index % 300u) == 0u) {
+                const auto& player = preview_->player_runtime();
+                NSLog(@"Deimos runtime tick %llu: resident=%zu active=%zu groups=%zu particles=%zu/%zu score=%d lives=%d shield=%.1f power=%.1f money=%d",
+                      static_cast<unsigned long long>(tick.tick_index),
+                      preview_->entity_world().members().size(), live.active_entities,
+                      preview_->entity_world().groups().size(), live.particle_systems,
+                      live.active_particles, player.score, player.lives,
+                      player.shield_percentage, live.weapons.air_power_percentage, player.money);
+            }
+            if (!error.empty()) {
+                NSLog(@"Deimos live-world tick failed at tick %llu: %s",
+                      static_cast<unsigned long long>(tick.tick_index), error.c_str());
+                return false;
+            }
+        } else {
+            tick = preview_->tick(input_.movement);
+        }
+        deimos::LegacyGameplayFrameResult frame_result{};
         if (!preview_->render(frame_, &frame_result, &error)) {
             NSLog(@"Deimos live frame render failed at tick %llu: %s",
                   static_cast<unsigned long long>(tick.tick_index), error.c_str());
@@ -161,14 +228,15 @@ public:
         return true;
     }
 
-    [[nodiscard]] bool live() const noexcept { return preview_ != nullptr; }
+    [[nodiscard]] bool live() const noexcept { return preview_ != nullptr && full_world_; }
     [[nodiscard]] double fps() const noexcept { return fps_; }
     [[nodiscard]] const deimos::LegacyRasterSurface& frame() const noexcept { return frame_; }
 
 private:
     std::unique_ptr<deimos::OriginalGameFramePreview> preview_;
     deimos::LegacyRasterSurface frame_{};
-    deimos::PreviewPlayerControlInput control_{};
+    deimos::OriginalGameLiveInput input_{};
+    bool full_world_ = false;
     double fps_ = 0.0;
 };
 
@@ -277,13 +345,27 @@ int main(int argc, char* argv[]) {
 
 #else
 
+@interface DeimosGameWindow : NSWindow
+@property(nonatomic, copy) void (^deimosKeyHandler)(NSEvent* event, BOOL pressed);
+@end
+
+@implementation DeimosGameWindow
+- (void)keyDown:(NSEvent*)event {
+    if (self.deimosKeyHandler != nil) self.deimosKeyHandler(event, YES);
+    else [super keyDown:event];
+}
+- (void)keyUp:(NSEvent*)event {
+    if (self.deimosKeyHandler != nil) self.deimosKeyHandler(event, NO);
+    else [super keyUp:event];
+}
+@end
+
 @interface DeimosSmokeAppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
 @end
 
 @implementation DeimosSmokeAppDelegate {
     NSWindow* _window;
     NSTimer* _timer;
-    id _keyMonitor;
     std::unique_ptr<deimos::AppleMetalHostView> _host;
     std::unique_ptr<SmokeFrameSource> _source;
 }
@@ -293,7 +375,15 @@ int main(int argc, char* argv[]) {
     _host = std::make_unique<deimos::AppleMetalHostView>();
     _source = std::make_unique<SmokeFrameSource>();
     std::string frameDescription;
-    (void)_source->initialize(frameDescription);
+    if (!_source->initialize(frameDescription)) {
+        NSAlert* alert = [[NSAlert alloc] init];
+        alert.messageText = @"Deimos Rising playable host could not start";
+        alert.informativeText = [NSString stringWithUTF8String:frameDescription.c_str()];
+        [alert addButtonWithTitle:@"Quit"];
+        [alert runModal];
+        [NSApp terminate:nil];
+        return;
+    }
 
     std::string error;
     if (!_host->initialize(&error)) {
@@ -308,7 +398,7 @@ int main(int argc, char* argv[]) {
     _host->set_presentation_options(options);
 
     const NSRect frameRect = NSMakeRect(0.0, 0.0, 960.0, 720.0);
-    _window = [[NSWindow alloc]
+    _window = [[DeimosGameWindow alloc]
         initWithContentRect:frameRect
                   styleMask:(NSWindowStyleMaskTitled |
                              NSWindowStyleMaskClosable |
@@ -317,7 +407,7 @@ int main(int argc, char* argv[]) {
                     backing:NSBackingStoreBuffered
                       defer:NO];
     NSString* detail = [NSString stringWithUTF8String:frameDescription.c_str()];
-    _window.title = [NSString stringWithFormat:@"Deimos Rising - Metal Host Smoke - %@", detail];
+    _window.title = [NSString stringWithFormat:@"Deimos Rising Remastered - %@", detail];
     _window.delegate = self;
 
     NSView* metalView = (__bridge NSView*)_host->native_view_handle();
@@ -327,36 +417,49 @@ int main(int argc, char* argv[]) {
     [_window makeKeyAndOrderFront:nil];
     [NSApp activateIgnoringOtherApps:YES];
 
-    // Modern host mapping for the live integration fixture. This deliberately
-    // does not assign names to the original film/InputSprocket bits yet.
+    // Use the key window responder path directly. The earlier local NSEvent
+    // monitor could leave the app apparently playable while semantic weapon
+    // input never reached the source. Keep physical-key mappings explicit and
+    // add Z as the conventional primary-fire key alongside Space.
     SmokeFrameSource* source = _source.get();
-    _keyMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:(NSEventMaskKeyDown | NSEventMaskKeyUp)
-        handler:^NSEvent* _Nullable(NSEvent* event) {
-            const bool pressed = event.type == NSEventTypeKeyDown;
-            bool handled = true;
-            switch (event.keyCode) {
-                case 123: // left arrow
-                case 0:   // A
-                    source->set_control_direction(SmokeFrameSource::ControlDirection::Left, pressed);
-                    break;
-                case 124: // right arrow
-                case 2:   // D
-                    source->set_control_direction(SmokeFrameSource::ControlDirection::Right, pressed);
-                    break;
-                case 126: // up arrow
-                case 13:  // W
-                    source->set_control_direction(SmokeFrameSource::ControlDirection::Up, pressed);
-                    break;
-                case 125: // down arrow
-                case 1:   // S
-                    source->set_control_direction(SmokeFrameSource::ControlDirection::Down, pressed);
-                    break;
-                default:
-                    handled = false;
-                    break;
-            }
-            return handled ? nil : event;
-        }];
+    DeimosGameWindow* gameWindow = (DeimosGameWindow*)_window;
+    gameWindow.deimosKeyHandler = ^(NSEvent* event, BOOL pressedValue) {
+        const bool pressed = pressedValue == YES;
+        switch (event.keyCode) {
+            case 123: // left arrow
+            case 0:   // A
+                source->set_control_direction(SmokeFrameSource::ControlDirection::Left, pressed);
+                break;
+            case 124: // right arrow
+            case 2:   // D
+                source->set_control_direction(SmokeFrameSource::ControlDirection::Right, pressed);
+                break;
+            case 126: // up arrow
+            case 13:  // W
+                source->set_control_direction(SmokeFrameSource::ControlDirection::Up, pressed);
+                break;
+            case 125: // down arrow
+            case 1:   // S
+                source->set_control_direction(SmokeFrameSource::ControlDirection::Down, pressed);
+                break;
+            case 49:  // Space
+            case 6:   // Z: primary air fire
+                source->set_weapon_action(SmokeFrameSource::WeaponAction::FireAir, pressed);
+                break;
+            case 7:   // X: ground weapon
+            case 56:  // Left Shift: secondary/ground fire alias
+            case 60:  // Right Shift
+                source->set_weapon_action(SmokeFrameSource::WeaponAction::FireGround, pressed);
+                break;
+            case 48:  // Tab
+            case 8:   // C: cycle air weapon
+                source->set_weapon_action(SmokeFrameSource::WeaponAction::SwitchAir, pressed);
+                break;
+            default:
+                break;
+        }
+    };
+    [_window makeFirstResponder:_window];
 
     (void)_host->sync_drawable_geometry(&error);
     (void)present_host(*_host, _source->frame());
@@ -404,9 +507,8 @@ int main(int argc, char* argv[]) {
     (void)notification;
     [_timer invalidate];
     _timer = nil;
-    if (_keyMonitor != nil) {
-        [NSEvent removeMonitor:_keyMonitor];
-        _keyMonitor = nil;
+    if ([_window isKindOfClass:[DeimosGameWindow class]]) {
+        ((DeimosGameWindow*)_window).deimosKeyHandler = nil;
     }
     if (_source) _source->clear_control();
 }

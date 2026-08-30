@@ -160,6 +160,33 @@ struct LegacyWaterImpactConfig {
 // identifies that path as water by selecting Objects[gaob] Water impact IDs.
 using LegacyWaterMaskProbe = std::function<bool(int world_x, int world_y)>;
 
+// Clean resource-binding geometry for the level Media Mask. Canonical 1.0.6
+// Level 1 pairs a 480x3600 background with a 96x720 16-bit mask, yielding an
+// exact 5x5 world-pixel cell. Keep the scale derived from the actual level
+// rectangle and decoded resource rather than baking that canonical ratio into
+// gameplay code; this also makes malformed/non-integral pairings fail closed.
+struct LegacyMediaMaskGeometry {
+    RectI world_bounds{};
+    int world_pixels_per_cell_x = 0;
+    int world_pixels_per_cell_y = 0;
+};
+
+[[nodiscard]] std::optional<LegacyMediaMaskGeometry>
+compile_legacy_media_mask_geometry(
+    const LegacyRasterSurface& media_mask,
+    RectI world_bounds,
+    std::string* error = nullptr);
+
+// PPC 0xFEE0's recovered classification is exact: a sampled 16-bit mask cell
+// is water iff its normalized xRGB1555 value equals 31. The remaining address
+// transform is expressed by LegacyMediaMaskGeometry and can therefore be
+// instruction-closed independently without changing removal semantics.
+[[nodiscard]] bool legacy_media_mask_is_water(
+    const LegacyRasterSurface& media_mask,
+    const LegacyMediaMaskGeometry& geometry,
+    int world_x,
+    int world_y);
+
 struct LegacyRemovalMediaResult {
     bool water_hit = false;
     bool allow_requested_spawn = true;

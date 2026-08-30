@@ -178,6 +178,8 @@ struct CollisionPairResult {
     bool collided = false;
     EntityHandle first_damage_target = kNoEntityHandle;
     EntityHandle second_damage_target = kNoEntityHandle;
+    std::int8_t first_damage_source_owner_index = -1;
+    std::int8_t second_damage_source_owner_index = -1;
     CollisionDamageResult first_damage;
     CollisionDamageResult second_damage;
 };
@@ -203,6 +205,13 @@ struct CollisionScanResult {
     std::size_t radial_overlaps = 0;
     std::size_t collisions_applied = 0;
     bool self_became_inactive = false;
+
+    // Preserve each successful pair result in exact traversal order.  The
+    // aggregate scanner previously discarded these facts, which made
+    // collisionSpawn_ID requests produced by PPC 0x14F10 unreachable from
+    // the owning world loop even though the pair-damage runtime recovered
+    // them correctly.
+    std::vector<CollisionPairResult> pairs;
 };
 
 // Bounded headless reconstruction of PPC 0x36CF0. EntityWorld insertion order

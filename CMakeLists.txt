@@ -5,6 +5,7 @@ add_library(deimos_core STATIC
     src/core/resource_id.cpp
     src/core/legacy_text.cpp
     src/core/level.cpp
+    src/core/level_activation_runtime.cpp
     src/core/film.cpp
     src/core/pak_archive.cpp
     src/core/resource_store.cpp
@@ -15,7 +16,10 @@ add_library(deimos_core STATIC
     src/core/player_definition.cpp
     src/core/player_runtime.cpp
     src/core/preview_player_control.cpp
+    src/core/live_player_weapon_runtime.cpp
+    src/core/live_entity_screen_motion.cpp
     src/core/unit_behavior.cpp
+    src/core/unit_rule_world_runtime.cpp
     src/core/state_runtime.cpp
     src/core/legacy_math.cpp
     src/core/spawn_runtime.cpp
@@ -130,6 +134,8 @@ if(DEIMOS_BUILD_TOOLS)
     target_link_libraries(deimos_reference_probe PRIVATE deimos_core)
     add_executable(deimos_original_frame_probe tools/original_frame_probe.cpp)
     target_link_libraries(deimos_original_frame_probe PRIVATE deimos_core)
+    add_executable(deimos_playable_runtime_probe tools/playable_runtime_probe.cpp)
+    target_link_libraries(deimos_playable_runtime_probe PRIVATE deimos_core)
 endif()
 
 if(MSVC)
@@ -144,6 +150,7 @@ if(BUILD_TESTING)
         resource_id_test
         legacy_text_test
         level_test
+        level_activation_runtime_test
         film_test
         pak_archive_test
         resource_store_test
@@ -155,6 +162,8 @@ if(BUILD_TESTING)
         player_runtime_test
         player_lifecycle_test
         preview_player_control_test
+        live_player_weapon_runtime_test
+        live_entity_screen_motion_test
         unit_behavior_test
         state_runtime_test
         legacy_math_test
@@ -203,3 +212,7 @@ if(BUILD_TESTING)
             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/apple_objcxx_layout_test.py)
     endif()
 endif()
+
+add_executable(unit_rule_world_runtime_test tests/unit_rule_world_runtime_test.cpp)
+target_link_libraries(unit_rule_world_runtime_test PRIVATE deimos_core)
+add_test(NAME unit_rule_world_runtime_test COMMAND unit_rule_world_runtime_test)

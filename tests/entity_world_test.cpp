@@ -230,5 +230,33 @@ int main() {
         world, *world_tick_live, tick_unit, world_tick_context, player, tick_rng, trig);
     assert(world_tick_live->x == 85.0f && world_tick_live->y == 95.0f);
 
+    // Finalized inactive history must not accumulate forever in the portable
+    // vector world. Active members and pending-removal members remain intact,
+    // while a fully empty group is removed with its finalized member.
+    deimos::EntityWorld prune_world;
+    auto finalized = one_member(80, 800, id("done"), 0.0f, 0.0f);
+    finalized.members[0].lifecycle = deimos::EntityLifecycle::destroyed;
+    finalized.members[0].removal_processed = true;
+    finalized.group->active_member_count = 0;
+    const auto finalized_group_serial = finalized.group->serial;
+    prune_world.register_group(std::move(finalized));
+
+    auto pending = one_member(81, 801, id("wait"), 0.0f, 0.0f);
+    pending.members[0].lifecycle = deimos::EntityLifecycle::destroyed;
+    pending.members[0].removal_processed = false;
+    pending.group->active_member_count = 0;
+    prune_world.register_group(std::move(pending));
+
+    auto active = one_member(82, 802, id("live"), 0.0f, 0.0f);
+    prune_world.register_group(std::move(active));
+
+    const auto pruned = prune_world.prune_finalized_history();
+    assert(pruned.members_removed == 1);
+    assert(pruned.groups_removed == 1);
+    assert(prune_world.find_member(80) == nullptr);
+    assert(prune_world.find_group(finalized_group_serial) == nullptr);
+    assert(prune_world.find_member(81) != nullptr);
+    assert(prune_world.find_member(82) != nullptr);
+
     return 0;
 }

@@ -474,6 +474,7 @@ CollisionPairResult apply_legacy_collision_pair(
 
     EntityRuntime* first_target = first_damage_target(world, self);
     result.first_damage_target = first_target->handle;
+    result.first_damage_source_owner_index = candidate.player_owner_index;
     const auto& first_definition = definition_or_throw(definition_for_unit, first_target->unit_id);
     result.first_damage = apply_collision_damage(
         *first_target,
@@ -491,6 +492,7 @@ CollisionPairResult apply_legacy_collision_pair(
     // second passHitsToOwner decision.
     EntityRuntime* second_target = second_damage_target(world, self, candidate);
     result.second_damage_target = second_target->handle;
+    result.second_damage_source_owner_index = self.player_owner_index;
     const auto& second_definition = definition_or_throw(definition_for_unit, second_target->unit_id);
     result.second_damage = apply_collision_damage(
         *second_target,
@@ -536,9 +538,10 @@ CollisionScanResult scan_legacy_entity_collisions(
         if (!legacy_radial_collision(self, self_bounds, candidate, candidate_bounds)) continue;
         ++result.radial_overlaps;
 
-        (void)apply_legacy_collision_pair(
+        auto pair = apply_legacy_collision_pair(
             world, self, candidate, current_tick, definition_for_unit, random,
             entity_hit_delay_ticks, removal_context, removal_trace);
+        result.pairs.push_back(std::move(pair));
         ++result.collisions_applied;
 
         if (!active(self)) {

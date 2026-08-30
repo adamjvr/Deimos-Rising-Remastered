@@ -109,6 +109,17 @@ public:
     [[nodiscard]] bool has_active_unit(FourCC unit_id) const;
     [[nodiscard]] std::size_t active_member_count() const;
 
+    // Clean host-side storage compaction. PPC removes finalized live members
+    // from its intrusive world lists; retaining every dead projectile forever
+    // is not legacy behavior and makes the portable vector-backed host degrade
+    // over long sessions. Only members whose recovered removal pass has fully
+    // completed are eligible. Empty finalized groups are discarded afterward.
+    struct PruneResult {
+        std::size_t members_removed = 0;
+        std::size_t groups_removed = 0;
+    };
+    [[nodiscard]] PruneResult prune_finalized_history();
+
     // PPC 0x36BE0 scans matching Unit ID + signed owner index. This helper
     // performs the proven query/marking step; full consequence processing is
     // owned by the destruction/removal runtime so callers can preserve the

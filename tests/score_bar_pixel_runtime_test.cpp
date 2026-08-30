@@ -131,5 +131,15 @@ int main() {
     assert(shield_left != shield_right);
     assert(canvas.pixels[159u*canvas.width+495u] == 0x7c00);
 
+    // Locked/unavailable weapon slots in the original HUD are represented by
+    // an absent descriptor after restoring the static score-bar panel. They
+    // must not be treated as missing-sprite failures.
+    deimos::LegacyRasterSurface locked_canvas(576,480,0x7777);
+    auto locked_state = state;
+    locked_state.weapon_previews = {{{id("gun1"),0},{id("none"),0},{deimos::FourCC{},0}}};
+    locked_state.dirty = {false,false,false,true,false,false};
+    assert(deimos::rasterize_legacy_score_bar_player(
+        0,locked_state,cfg,styles,assets,locked_canvas,&error));
+
     std::cout << "score-bar pixel runtime tests passed\n";
 }

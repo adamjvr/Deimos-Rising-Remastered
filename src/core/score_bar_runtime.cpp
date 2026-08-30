@@ -10,6 +10,14 @@
 namespace deimos {
 namespace {
 
+constexpr FourCC fourcc(char a, char b, char c, char d) {
+    return FourCC{{a, b, c, d}};
+}
+
+bool absent_preview(FourCC id) {
+    return id == FourCC{} || id == fourcc('n', 'o', 'n', 'e');
+}
+
 void fail(std::string* error, std::string message) {
     if (error) *error = std::move(message);
 }
@@ -428,6 +436,11 @@ bool rasterize_legacy_score_bar_player(
             if (!restore(3 + slot)) return false;
             if (!state.content_visible) continue; // dispatcher restores but suppresses preview draw.
             const auto& preview = state.weapon_previews[slot];
+            // Empty/unavailable live weapon slots are restored to the original
+            // score-panel background and intentionally draw no preview. The
+            // old integration treated `none` as a missing required sprite and
+            // therefore could not represent Level-1's locked weapon slots.
+            if (absent_preview(preview.face)) continue;
             const bool selected = slot == 0;
             const int amount = selected ? config.weapon_blend_selected : config.weapon_blend_nonselected;
             const float scale = selected ? 1.0f : config.weapon_nonselected_scale;

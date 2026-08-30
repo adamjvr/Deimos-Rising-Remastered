@@ -562,10 +562,14 @@ int main() {
     auto* self = pair_world.find_member(71);
     auto* cand = pair_world.find_member(72);
     self->parent = {70, 70};
+    self->player_owner_index = 0;
+    cand->player_owner_index = -1;
     const auto pair = deimos::apply_legacy_collision_pair(
         pair_world, *self, *cand, 2, provider, rng);
     assert(pair.first_damage_target == 70);
     assert(pair.second_damage_target == 70);
+    assert(pair.first_damage_source_owner_index == -1);
+    assert(pair.second_damage_source_owner_index == 0);
     assert(pair.first_damage.applied);
     assert(!pair.second_damage.applied);
     assert(near(parent->shields, 17.0f));
@@ -604,6 +608,7 @@ int main() {
     assert(scan_result.aabb_overlaps == 2);
     assert(scan_result.radial_overlaps == 0);
     assert(scan_result.collisions_applied == 0);
+    assert(scan_result.pairs.empty());
     assert(scan_self->lifecycle == deimos::EntityLifecycle::active);
 
     scan_world.find_member(81)->x = 10.0f;
@@ -612,8 +617,45 @@ int main() {
         scan_world, *scan_self, 2, scan_provider, rng);
     assert(scan_result.radial_overlaps == 1);
     assert(scan_result.collisions_applied == 1);
+    assert(scan_result.pairs.size() == 1);
+    assert(scan_result.pairs[0].collided);
     assert(scan_result.self_became_inactive);
     assert(scan_self->lifecycle == deimos::EntityLifecycle::destroyed);
+
+    // The aggregate scanner must retain collisionSpawn_ID facts from each pair
+    // instead of forcing the world host to repeat damage or reconstruct pair
+    // ordering. Here the enemy is the second damage target and emits `boom`.
+    UnitOptions aggregate_self_o = projectile_o;
+    aggregate_self_o.shields = 10.0f;
+    aggregate_self_o.damage = 1.0f;
+    auto aggregate_self_u = make_unit(aggregate_self_o);
+    UnitOptions aggregate_enemy_o = enemy_o;
+    aggregate_enemy_o.shields = 10.0f;
+    aggregate_enemy_o.damage = 1.0f;
+    aggregate_enemy_o.collision_spawn = id("boom");
+    aggregate_enemy_o.collision_spawn_delay = 2;
+    auto aggregate_enemy_u = make_unit(aggregate_enemy_o);
+    std::map<std::string, const deimos::UnitDefinition*> aggregate_defs = {
+        {"aslf", &aggregate_self_u}, {"aenm", &aggregate_enemy_u}
+    };
+    const auto aggregate_provider = [&](deimos::FourCC unit_id) -> const deimos::UnitDefinition* {
+        auto it = aggregate_defs.find(unit_id.str());
+        return it == aggregate_defs.end() ? nullptr : it->second;
+    };
+    deimos::EntityWorld aggregate_world;
+    aggregate_world.members().push_back(make_entity(90, 90, id("aslf"), aggregate_self_u));
+    aggregate_world.members().push_back(make_entity(91, 91, id("aenm"), aggregate_enemy_u));
+    auto* aggregate_self = aggregate_world.find_member(90);
+    aggregate_self->x = 20.0f;
+    aggregate_self->y = 20.0f;
+    aggregate_world.find_member(91)->x = 20.0f;
+    aggregate_world.find_member(91)->y = 20.0f;
+    const auto aggregate_scan = deimos::scan_legacy_entity_collisions(
+        aggregate_world, *aggregate_self, 2, aggregate_provider, rng, 0);
+    assert(aggregate_scan.collisions_applied == 1);
+    assert(aggregate_scan.pairs.size() == 1);
+    assert(aggregate_scan.pairs[0].second_damage.collision_spawn_due);
+    assert(*aggregate_scan.pairs[0].second_damage.collision_spawn_due == id("boom"));
 
     return 0;
 }

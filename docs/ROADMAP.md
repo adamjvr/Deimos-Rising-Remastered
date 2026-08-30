@@ -105,7 +105,7 @@ Already implemented from binary-confirmed behavior:
 Exit criteria:
 
 - bind recovered player lifecycle spawn/audio/UI facts into full world orchestration and finish remaining destruction orchestration; validate `deimos_apple_host` in real macOS/iPadOS view hierarchies with CPU-oracle screenshot parity and map the same completed modern presentation packet to Vulkan/D3D swapchains without changing the canonical xRGB1555 frame;
-- integrate world/entity construction, then reconstruct movement, weapons, projectiles, collision, damage, scoring, power-ups, camera/scrolling, two-player behavior, menus/preferences, timing, and audio triggers;
+- continue hardening the now-live scheduled world/entity construction, movement, weapons and collision slice; placement-row activation, state-rule world facts, lethal destruction effects, outer group/member removal, real decoded Media Mask water classification, and lossless collision-pair aggregation are now hosted. Next priorities are consume destruction reward/score/audio/UI consequences, instruction-close and construct surfaced collision-spawn requests, attach live particle systems with correct shared-RNG startup/order, integrate the already-recovered full player lifecycle/game-over path, then replay action bits, controller/touch, two-player behavior, menus/preferences, and remaining timing/audio triggers;
 - feed v10005 recordings into the clean simulation as deterministic regression oracles;
 - retain original assets as the canonical content tier.
 
@@ -143,3 +143,37 @@ Exit criteria:
 - audio restoration comparison-tested;
 - remaining collision/timing/rendering discrepancies closed against evidence;
 - optional modernization remains separable from canonical behavior.
+
+
+### Live-world transition note (2026-08-29)
+
+The first native Level-1 gameplay slice is no longer a fixture-only player over scrolling terrain. `enable_live_world()` now instantiates canonical level objects, Weapon Definitions drive actual Unit-spawn requests, live entity state/spawn scheduling advances in the native 30 Hz session, and recovered collision paths are active. Immediate next closure work is consequence orchestration (score/reward/destruction/audio/UI), exact original input/replay action-bit mapping, and player lifecycle/spawn ownership rather than reimplementing already-working world/weapon/collision primitives.
+
+
+### 2026-08-30 playable-device correction checkpoint
+
+- [x] Make macOS gameplay startup fail hard instead of silently retaining Preview/smoke mode.
+- [x] Route keyboard input through the key `NSWindow` responder; expose Space/Z air fire, X ground fire, Tab/C weapon cycling.
+- [x] Bind Level weapon availability into the three score-bar weapon slots and support blank locked slots.
+- [x] Preserve player source ownership on collision damage and feed recovered kill-score awards into live Player-1 score/extra-life state.
+- [ ] Device-validate this exact wrapper on EVE/macOS and capture accepted-fire log plus first enemy/projectile screenshot.
+- [ ] Continue full Player lifecycle/reward/audio/particle consequence orchestration after the playable boundary is proven on device.
+
+### Playable-host immediate follow-ons after WIP 3
+
+- recover the exact PPC outer live-list/offscreen cull caller and replace the current conservative one-viewport host guard with proven thresholds/order;
+- recover the weapon-power/power-up producer so the original HUD power meter becomes gameplay-driven rather than deliberately neutral at zero;
+- route pickup/coin and destruction audio/notice feedback into the native host;
+- close collision-spawn construction position/ownership and remaining score/reward consumers;
+- continue full Player game-over / level-completion orchestration and menu/control UI toward complete-game parity.
+
+### Playable-host WIP 4 — charge/HUD closure
+
+- [x] Compile and execute canonical air-weapon `powerup_Air_*` fields in the live host.
+- [x] Drive the original score-bar power meter from actual held-weapon charge state.
+- [x] Construct charge activation/release Units and release the activation visual through its serialized release state.
+- [x] Add original-data charge regression to the playable runtime probe.
+- [ ] Instruction-close the PPC caller that converts power level into release-spawner count/overload behavior; replace the current isolated host orchestration if needed.
+- [ ] Recover native audio/notice consumption for weapon charge, pickups, destruction and player warnings.
+- [ ] Close collision-spawn position/ownership and remaining pickup/reward feedback.
+- [ ] Continue level completion/game-over/menu orchestration toward full-game parity.

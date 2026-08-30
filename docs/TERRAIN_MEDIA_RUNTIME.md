@@ -126,9 +126,14 @@ composition remain downstream.
 
 ## Validation
 
-The repository suite is **38/38 PASS**. The canonical `Game.pak` probe verifies
-all new compiled fields and the fixed water-impact labels/IDs while retaining
-the established deterministic baseline:
+The repository suite is **53/53 PASS**. The canonical original-data frame probe
+now binds Level-1 Media Mask `cat1` as 96x720 over the serialized 480x3600
+background rectangle, deriving exact 5x5 world-pixel cells. The decoded mask
+contains exactly two normalized xRGB1555 values: 32767 in 65,206 cells and the
+recovered water value 31 in 3,914 cells. All established deterministic frame and
+live-world witnesses remain unchanged after enabling the real mask provider.
+
+The canonical `Game.pak` probe also retains the earlier construction baseline:
 
 - 386 groups / 546 live members after construction;
 - construction RNG seed `2249411936`;
@@ -138,8 +143,9 @@ the established deterministic baseline:
 ## Remaining terrain-facing boundaries
 
 - bind the proven `0x30BC0` terrain flush/full-viewport-copy/world-layer ordering and then establish native display ownership;
-- bind a decoded Media Mask resource/provider instead of the clean callback
-  boundary;
+- instruction-close `0xFEE0`'s exact internal world-to-mask address arithmetic;
+  the clean host now binds the decoded original mask through an integral scale
+  derived from the serialized level rectangle and resource dimensions;
 - route remaining destruction entry sites through the recovered teardown
   orchestration; the former `+0xCD -> 0x17E70` "special destruction" item is
   now proven to be a shield-depletion state transition, not destruction.

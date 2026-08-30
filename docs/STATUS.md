@@ -77,7 +77,7 @@ Across all four canonical PAKs, 871 original files CRC-validate.
 
 ### Tests
 
-Synthetic repository tests pass **49/49**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
+Synthetic repository tests pass **53/53**. Original assets/binaries are used only by optional local reference probes and remain outside Git.
 
 ### Modern/native presentation status
 
@@ -286,7 +286,7 @@ Synthetic repository tests pass **49/49**. Original assets/binaries are used onl
 1. Validate the new macOS keyboard player-control bridge and the 30 Hz live session on iPadOS; then instruction-close the original InputSprocket/film-bit dispatcher, bind controller/touch to the same portable snapshot, and proceed to Vulkan on Linux.
 2. Bind the recovered player life/respawn/game-over lifecycle spawn/audio/UI facts into full world orchestration and continue into the remaining active-player movement/weapon boundaries.
 3. Wire every remaining non-collision destruction entry site through the same clean teardown orchestration.
-4. Recover the rare special single-member parent-container / intrusive-list semantics around `0x33220` and bind an actual decoded Media Mask provider to the terrain/media runtime.
+4. Recover the rare special single-member parent-container / intrusive-list semantics around `0x33220` and instruction-close the exact `0xFEE0` world-to-Media-Mask address transform now that the decoded resource provider is live.
 5. Expand Windows evidence and replay/action mapping after the remaining Mac gameplay-core boundaries are stable.
 
 
@@ -344,14 +344,14 @@ The residual `0x2F7A0..0x2FE40` `COST` path is now classified and implemented as
 
 The clean renderer now has its first post-canonical host boundary. `modern_presentation_runtime` requires the exact recovered 640x480 legacy display frame, expands xRGB1555 to tightly packed RGBA8888 only after deterministic raster completion, and calculates aspect-fit, integer-fit, or explicit stretch viewports in physical drawable pixels. A `ModernPresentationBackend` interface isolates future Metal/Vulkan/D3D code from simulation and legacy raster state.
 
-A dependency-free nearest-neighbour reference presenter supplies byte-level letterbox/scaling parity without becoming the shipping renderer; it intentionally rejects linear filtering as a deterministic oracle because sampler details differ by graphics API. The reference probe now locks the canonical bridge at `rowBytes=2560` and 1920x1080 aspect-fit viewport `240,0 1440x1080`. Synthetic Debug suite: **49/49 PASS**.
+A dependency-free nearest-neighbour reference presenter supplies byte-level letterbox/scaling parity without becoming the shipping renderer; it intentionally rejects linear filtering as a deterministic oracle because sampler details differ by graphics API. The reference probe now locks the canonical bridge at `rowBytes=2560` and 1920x1080 aspect-fit viewport `240,0 1440x1080`. Synthetic Debug suite: **53/53 PASS**.
 
 
 ## 2026-08-29 — Native Apple host visual pass + external original-data frame bridge
 
 The corrected `deimos_apple_host` Objective-C++ scope now builds and the macOS smoke application has been visually validated through a real `NSView -> CAMetalLayer -> Metal` path. The captured diagnostic frame preserves the recovered 32+416+160+32 geometry, crisp nearest sampling, letterboxing, and Retina drawable mapping. The Apple backend itself had already compiled for both macOS and iPadOS.
 
-`OriginalGameFramePreview` now supplies the next integration boundary without embedding copyrighted assets: given a user-owned directory containing `Game.pak` and `Interface.pak`, it loads Level 01, the full 480x3600 background, canonical score-bar panel/TESM font, Player-1 score-bar/player sprite family, and three weapon-preview groups, then executes `render_legacy_gameplay_frame()` to produce the canonical 640x480 xRGB1555 display. `deimos_original_frame_probe` reports a whole-frame FNV64 so the first canonical run can become a parity oracle. The Apple smoke app auto-detects this data, falling back to the synthetic diagnostic frame if unavailable. Optional `DEIMOS_ORIGINAL_PAK_DIR` CMake staging copies the two user-owned PAKs only into a local generated Apple smoke-app bundle for iPad/device tests. Repository synthetic suite: **49/49 PASS**.
+`OriginalGameFramePreview` now supplies the next integration boundary without embedding copyrighted assets: given a user-owned directory containing `Game.pak` and `Interface.pak`, it loads Level 01, the full 480x3600 background, canonical score-bar panel/TESM font, Player-1 score-bar/player sprite family, and three weapon-preview groups, then executes `render_legacy_gameplay_frame()` to produce the canonical 640x480 xRGB1555 display. `deimos_original_frame_probe` reports a whole-frame FNV64 so the first canonical run can become a parity oracle. The Apple smoke app auto-detects this data, falling back to the synthetic diagnostic frame if unavailable. Optional `DEIMOS_ORIGINAL_PAK_DIR` CMake staging copies the two user-owned PAKs only into a local generated Apple smoke-app bundle for iPad/device tests. Repository synthetic suite: **53/53 PASS**.
 
 
 ## 2026-08-29 — original-data live Metal session milestone
@@ -365,4 +365,63 @@ The user-validated macOS Metal path now has a deterministic original-data live s
 
 The original-data Metal session now accepts a portable directional input snapshot. Canonical source data supplies Player-1 `active_DefaultMaxSpeed_FLOAT=7.8`, `active_VelocityDelta_FLOAT=1.6`, and label-verified Game[gafl] 183 `Player_TopGameAreaLimit=13`. The integration deliberately remains named `PreviewPlayerControl`: the original InputSprocket/film bit dispatcher is not yet instruction-closed, so the modern host mapping is not presented as recovered replay semantics.
 
-The macOS smoke host tracks independent key-down/key-up for arrows and WASD. No-input frame hashes remain initial `0x9e8a7ec73b79b254`, tick 1 `0x44dede08075273f2`, tick 30 `0x51d4a7eec9b0beef`. A separate one-right-input oracle is Player `(209.6,330)`, velocity `(1.6,0)`, full frame `0x6fd5c94a64dcb0c8`. The synthetic Debug suite is now **49/49 PASS**.
+The macOS smoke host tracks independent key-down/key-up for arrows and WASD. No-input frame hashes remain initial `0x9e8a7ec73b79b254`, tick 1 `0x44dede08075273f2`, tick 30 `0x51d4a7eec9b0beef`. A separate one-right-input oracle is Player `(209.6,330)`, velocity `(1.6,0)`, full frame `0x6fd5c94a64dcb0c8`. The synthetic Debug suite is now **53/53 PASS**.
+
+
+## 2026-08-29 — live world scheduler / rule facts / removal integration
+
+The native original-data session now follows the recovered terrain-row encounter schedule instead of constructing the full Level-1 placement corpus at boot. Canonical `le01` starts with only two activated placement groups/members; `sourceTop-64` reaches the third placement on tick 36. PlayerWorld slot 0 is authoritative for live Player 1. The recovered five-slot state-rule evaluator now receives Unit-ID/range/global facts from the live world, with the canonical 2,773 sentinel-`none` `Is Tracking Player` template slots correctly remaining inert.
+
+Collision scans now receive one `LegacyRemovalContext` per tick, lethal `0x16300` consequences preserve same-call RNG order, and the outer `0x36610` inactive-member pass finalizes group accounting/child-owner propagation/deletion and reward spawns. Consequence spawns are constructed only after traversal; the persistent ground-obstacle Rect list scrolls with the camera and participates in the recovered ground-member stop/latch query. The live session now binds the decoded Level Media Mask as well: canonical `cat1` is 96x720 over a 480x3600 level background, producing exact derived 5x5 cells and exposing the recovered value-31 water classifier to `0x16880`. The canonical mask has 3,914 water cells and 65,206 non-water cells. Exact internal `0xFEE0` address arithmetic remains an instruction-closure target, not a hard-coded assumption.
+
+The aggregate entity scanner now preserves each successful `CollisionPairResult` in traversal order, making pair-local `collisionSpawn_ID` requests visible to the world host without replaying damage. The canonical no-aim soak contains zero such requests; construction semantics remain intentionally deferred until the original spawn position/owner call contract is closed. Visible particle-system execution is also still deferred so the host does not invent a separate RNG stream or shift the shared legacy stream prematurely.
+
+The canonical 120-tick soak now activates 3 placements, allocates 24 members, peaks at 20 active, finalizes 7 removals / 10 removal consequences / 1 consequence spawn, and has 0 entity/entity collisions / 0 surfaced collision-spawn requests in this particular no-aim input sequence. Baseline frame hashes remain unchanged; live integration hashes are `0x1eb1e07d4b6d038d` initial, `0x1e24b6143cd762ec` first air-fire tick, and `0x13c37d4b847666f9` at tick 120. macOS semantic controls are arrows/WASD, Space or Z, X, and Tab or C; original film/InputSprocket bits are still unresolved. Synthetic repository suite: **53/53 PASS**.
+
+
+## 2026-08-30 — playable-host fail-fast input and live HUD correction
+
+A device test exposed an app-boundary failure that clean-core probes could not: the macOS integration executable could continue as a bounded Preview/smoke session if `enable_live_world()` failed. That mode still displayed original Level-1 terrain and the score-bar artwork, so it could be mistaken for the game while containing no live enemies and accepting no semantic weapon actions. The macOS wrapper now treats original-data/live-world bootstrap as mandatory. Missing PAKs, load failure, live-world failure, or initial live-render failure produces an explicit startup error and terminates instead of silently presenting a non-playable fallback.
+
+Keyboard delivery now uses an `NSWindow` first-responder subclass instead of a local `NSEvent` monitor. Arrows/WASD drive movement; Space or Z drives the selected air weapon; X drives the ground weapon; Tab or C cycles level-available air weapons. The host logs accepted air/ground launches with the live tick and constructed-member count.
+
+The Level-1 HUD weapon cache is also corrected. Live score-bar slot 0 is the selected level-available air weapon, later slots contain only other currently available air weapons, and locked slots restore the original static panel without manufacturing a sprite. Canonical Level 1 therefore exposes Ion Cannon only rather than advertising later weapons from the definition corpus. The renderer continues to own all six recovered HUD classes: score, life symbol, life count, weapons, shield, and power.
+
+Finally, `CollisionPairResult` now preserves the player-owner source for each damage leg. The live host routes nonzero `0x14F10` shield-depletion score awards through the already-recovered `0x29A10` player-score routine, including power multiplier and strict extra-life threshold semantics, so kill score can update the Player-1 HUD rather than remaining a decorative zero.
+
+The HUD correction intentionally changes only the clean live-world frame witnesses: initial `0x1eb1e07d4b6d038d`, first air-fire tick `0x1e24b6143cd762ec`, tick 120 `0x13c37d4b847666f9`. Canonical static/no-input/right-control witnesses remain exactly `0x9e8a7ec73b79b254`, `0x44dede08075273f2`, `0x51d4a7eec9b0beef`, and `0x6fd5c94a64dcb0c8`. External `Game.pak` validation PASS; external full-frame/live probe PASS; synthetic suite **53/53 PASS**.
+
+## 2026-08-30 — Playable WIP 3: bounded world, player crash lifecycle, particles, secondary fire
+
+Native playtesting exposed four host-integration gaps that did not show up in the earlier static/live-frame milestones: long-session slowdown, missing player ram/crash effects, apparently absent secondary fire, and a misleading live HUD power meter.
+
+The playable host now closes those gaps as follows:
+
+- `EntityWorld::prune_finalized_history()` removes only inactive members whose recovered outer removal pass has completed, then removes genuinely empty finalized groups. This mirrors the original intrusive-list lifetime instead of retaining every dead projectile/member in portable vectors forever.
+- `tick_live()` additionally applies a **conservative playable-host far-offscreen bound**: an entity must be completely more than one full visible viewport beyond the game rectangle before it is marked for ordinary deletion. The exact PPC outer-list cull caller is not yet instruction-closed, so this guard is documented as a bounded host policy rather than claimed original threshold semantics.
+- the recovered particle producer bridge is live for state, collision-hit and destruction producers; `0x438C0` update/prune runs every live tick and the world renderer now receives the live particle-system span.
+- player-collision orchestration now consumes `LegacyPlayerDamageResult` and `LegacyPlayerPickupResult` consequences instead of dropping them. `active_SpawnOnHit`, shield-warning object, `death_Spawn`, extra-life/entry spawn, and death money-drop objects are deferred safely until collision traversal completes.
+- `advance_legacy_player_lifecycle()` is now part of the live host. Dying Player 1 cannot move/fire, the ship sprite is hidden during non-active states, death timing decrements lives, respawn restores the canonical entry location/default shield, and entry effects are constructed.
+- Level-1 ground/secondary fire remains the recovered Plasma Bomb chain; macOS maps both **X** and **either Shift key** to the semantic ground-fire action and logs accepted launches.
+- the live score bar no longer fabricates a permanently full weapon-power channel. Until the actual power-up producer is recovered, live weapon power starts at zero; score, lives and shield remain driven by Player-1 gameplay state and air-weapon previews remain level-availability-driven.
+
+External canonical-Pak playable-runtime validation now proves:
+
+- deliberate opening-lane ram: first dying status at tick 185, respawn at tick 266, lives 3 -> 2, shield restored to 100, seven player-effect object spawns, and visible particle activity;
+- 3000-tick continuous primary-fire / periodic-ground-fire stress: max 91 resident/active members, 14 final resident members, 1762 finalized member records pruned and 201 conservative far-offscreen deletions on the current deterministic run;
+- the same stress dropped from roughly 14.5 s before the offscreen bound to roughly 3.6-3.8 s headless in the current container while preserving gameplay placement boundaries.
+
+All 53 repository tests pass. `deimos_reference_probe` passes the canonical Game.pak corpus. `deimos_original_frame_probe` preserves the four pre-live canonical frame hashes and now freezes the live witness at initial `0x1eb1e07d4b6d038d`, first-fire `0xa0fc41ac06687be2`, and tick-120 `0x055b51228f651199`, with 16 resident members / 10 resident groups at tick 120, 9 removals, 12 removal consequences, one player-effect spawn, two conservative far-offscreen deletions, nine pruned finalized members, and max 25 active particles.
+
+### 2026-08-30 live weapon-charge / HUD-power checkpoint
+
+- The live air-weapon bridge now compiles the canonical `powerup_Air_*` fields from Weapon Definitions instead of leaving them unused.
+- Level-1 Ion Cannon data drives hold-to-charge behavior: activation delay 15 ticks, activation Unit `icpo`, power-level interval 2 ticks, maximum level 20, overload timer 180, release Unit `icps`, release cadence 1 tick.
+- The recovered score-bar power meter is now fed from live charge percentage rather than being held at a deliberately neutral zero.
+- Charged release transitions the matching player-owned activation Unit into the state marked `stateUseThisStateOnWeaponPowerupRelease_BOOL` and schedules canonical release-spawner Units.
+- The player-owned Lock-to-owner bridge is intentionally restricted to the selected weapon's activation Unit; broad player-owner locking was rejected because it perturbed established live-world oracles.
+- `deimos_playable_runtime_probe` now checks charge activation/release in addition to crash/respawn, secondary fire and long-run object bounds.
+- Current playable stress with continuous primary charge plus periodic Plasma Bomb: max resident 111, final resident 18, 2,264 finalized members pruned, 269 far-offscreen members culled on the reference host.
+- Baseline live-frame integration hashes remain unchanged for initial, first ordinary fire and tick 120.
+
+Fidelity note: the serialized power-up field meanings and Unit identities are original-data-backed; the exact PPC outer caller that maps attained power level to repeated release-spawner count is not yet instruction-closed. The clean host currently emits one canonical release spawner per attained power level at the serialized cadence, kept isolated behind the live weapon bridge for later exact replacement.
