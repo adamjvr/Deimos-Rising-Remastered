@@ -256,6 +256,29 @@ External canonical live witnesses after the level-availability HUD fix are initi
 
 ### Playable WIP 3 runtime gate (2026-08-30)
 
-`deimos_playable_runtime_probe /path/to/Paks` is the external-data gameplay gate for the native-host bugs reported after the first actually playable build. It uses canonical Level 1 and asserts the integrated player crash lifecycle (dying tick 185, respawn tick 266, lives 3 -> 2, shield reset, player-effect construction and non-zero particle execution), accepts canonical Plasma Bomb secondary fire, then performs a 3000-tick primary-fire/periodic-ground-fire soak. The soak requires resident live history to remain bounded (`maxResident <= 128`, `finalResident <= 32`), more than 1000 finalized records to have been physically pruned, and at least one conservative far-offscreen cull.
+`deimos_playable_runtime_probe /path/to/Paks` is the external-data gameplay gate for the native-host bugs reported after the first actually playable build. It uses canonical Level 1 and asserts the integrated player crash lifecycle (dying tick 185, respawn tick 266, lives 3 -> 2, shield reset, player-effect construction and non-zero particle execution), accepts canonical Plasma Bomb secondary fire, then performs a 3000-tick primary-fire/periodic-ground-fire soak. The soak requires resident live history to remain bounded (`maxResident <= 128`, `finalResident <= 32`), more than 1000 finalized records to have been physically pruned, and at least one shipped-`0x12CA0` 128px lifetime cull.
 
-`deimos_original_frame_probe` retains the historical static frame oracles unchanged. Its live integration witness now expects 16 resident members and 10 resident groups at tick 120 after finalized-history compaction; 9 removals / 12 consequences include two conservative far-offscreen deletions; one player-hit effect is produced; max active particles is 25. Live frame hashes are `0x1eb1e07d4b6d038d`, `0xa0fc41ac06687be2`, `0x055b51228f651199`. The first-fire hash change is intentional because playable live mode no longer drives the unrecovered weapon-power HUD channel toward a fabricated 100% target.
+`deimos_original_frame_probe` retains the historical static frame oracles unchanged. Its live integration witness now expects 16 resident members and 10 resident groups at tick 120 after finalized-history compaction; 9 removals / 12 consequences include two exact `0x12CA0` far-offscreen deletions; one player-hit effect is produced; max active particles is 25 and max active live members is 19. Live frame hashes are `0x1eb1e07d4b6d038d`, `0xa0fc41ac06687be2`, `0x055b51228f651199`. The first-fire hash change is intentional because playable live mode no longer drives the unrecovered weapon-power HUD channel toward a fabricated 100% target.
+
+
+### Playable WIP 6 secondary/respawn/reticle gate (2026-08-30)
+
+`deimos_playable_runtime_probe /path/to/Paks` now requires the canonical Plasma Bomb crosshair to be enabled as `pbta`, remain exactly at Player 1 plus `(0,-121)`, expose normal frame 0 and locked frame 1 during the opening ground-target approach, accept the ground launch, and reduce the left `bsde` shields exactly 4.0 -> 3.6. Crash/respawn remains dying@185 / respawn@266 / lives=2, charge activates after 15 ticks and releases through `icps`, and the 3000-tick stress remains bounded.
+
+The native Apple wrapper regression requires `flagsChanged:` handling for Shift ground fire. Destruction/runtime tests freeze the shipped `0x27E50 -> 0x34B90` player-owner cleanup and render/state tests freeze entry at `stateSpriteFrameMin`. Manual framebuffer dumps at ticks 266, 270, 276, 282, 300, 311, 312 and 320 verify no GET READY text remains after respawn.
+
+Static original-data hashes remain `0x9e8a7ec73b79b254`, `0x44dede08075273f2`, `0x51d4a7eec9b0beef`, `0x6fd5c94a64dcb0c8`. Restoring the shipped live `pbta` reticle intentionally changes only live witnesses to initial `0xbdf7558de9357ff7`, first air-fire `0x036bb03279ae5b48`, and tick-120 `0x8e4063956c4df5cc`. Synthetic suite remains **53/53 PASS**.
+
+### WIP7 menu/front-end gate
+
+`apple_objcxx_layout_test.py` now also freezes the discoverable front-end contract: launch menu, pause menu, Controls surface, original Option/Command/Space Player-1 mappings, modern aliases, and Escape pause handling. Core synthetic coverage remains 53/53 PASS. With canonical PAKs, the original-data frame and playable-runtime probes remain unchanged from WIP6, including Plasma Bomb ground hit and `pbta` normal/locked reticle behavior.
+
+### WIP8 animation / AI-ordering gate (2026-08-30)
+
+WIP8 retains the 53-test synthetic suite and adds focused assertions inside the existing behavior/runtime tests for the recovered animation field compiler, 24-direction heading mapping (105 -> 7, 255 -> 17), strict animation delay, finite stop plus same-tick `Animation Has Stopped` rule transition, visual-only RotateToTarget, and the delayed-member `2 -> 1` skip / `1 -> 0` same-tick activation contract.
+
+The canonical static/external frame hashes remain unchanged at `0x9e8a7ec73b79b254`, `0x44dede08075273f2`, `0x51d4a7eec9b0beef`, and `0x6fd5c94a64dcb0c8`. WIP8 intentionally re-freezes only the live-world witnesses: live initial `0xcd72678207b195b7`, first air-fire `0x800f06651d29406a`, and tick-120 `0x267609db3ba6dbcc`, with 15 residents / 9 groups and peak 18 active in that probe.
+
+`deimos_playable_runtime_probe` now freezes the investigated full-WIP8 opening-lane lifecycle at dying@171 / respawn@252. It still requires Plasma Bomb damage to the left `bsde` exactly 4.0 -> 3.6, `pbta` normal/locked reticle behavior at `(0,-121)`, 15-tick Ion Cannon charge activation plus `icps` release, and a bounded 3,000-tick stress run. The oracle change is justified by the isolation experiment documented in `WIP8_ANIMATION_AI_ORDERING.md`; it was not accepted merely because the number moved.
+
+Final rerun after documentation freeze: `cmake --build` PASS, **53/53** CTest PASS, `deimos_reference_probe` PASS, `deimos_original_frame_probe` PASS, and `deimos_playable_runtime_probe` PASS. The final stress witness is maxResident=96, finalResident=27, maxActive=96, pruned=1871, farCulled=213; crash/respawn remains 171/252.

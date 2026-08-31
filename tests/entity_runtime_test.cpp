@@ -78,6 +78,17 @@ bool near(float a, float b, float eps = 1.0e-5f) {
 } // namespace
 
 int main() {
+    {
+        deimos::EntityRuntime delayed;
+        delayed.group_delay_ticks = 2;
+        assert(!deimos::advance_entity_group_delay_gate(delayed));
+        assert(delayed.group_delay_ticks == 1);
+        // PPC 0x33A54..0x33A78: 1 -> 0 participates immediately.
+        assert(deimos::advance_entity_group_delay_gate(delayed));
+        assert(delayed.group_delay_ticks == 0);
+        assert(deimos::advance_entity_group_delay_gate(delayed));
+    }
+
     const deimos::LegacyTrigTables trig;
 
     // Group selection happens before player gating, so a rejected request can
@@ -344,6 +355,112 @@ int main() {
     assert(tick.timer_action_processed && tick.rule_matched && tick.range_action_processed);
     assert(live.state.current_state == 3);
     assert(tick.spawns_due.size() == 1);
+
+    // WIP8 / PPC 0x16230: heading-derived directional frame mapping.
+    assert(deimos::legacy_direction_index_for_heading(105, 24) == 7);
+    assert(deimos::legacy_direction_index_for_heading(255, 24) == 17);
+    assert(deimos::legacy_direction_index_for_heading(360, 24) == 0);
+    assert(deimos::legacy_direction_index_for_heading(-15, 24) == 23);
+
+    // PPC 0x15930 uses a strict currentTick > lastTick + FrameDelay gate.
+    deimos::UnitDefinition anim_unit;
+    add_constructor_defaults(anim_unit);
+    auto anim = basic_state("Animate");
+    anim.fields.add(field_int("stateSpriteFrameMin_INT", 0));
+    anim.fields.add(field_int("stateSpriteFrameMax_INT", 0));
+    anim.fields.add(field_int("stateNumDirections_INT", 1));
+    anim.fields.add(field_int("stateFramesPerDirection_INT", 3));
+    anim.fields.add(field_int("stateFrameDelay_INT", 1));
+    anim.fields.add(field_int("stateFrameDelta_INT", 1));
+    anim.fields.add(field_bool("stateDoAnimateBackwards_BOOL", false));
+    anim.fields.add(field_bool("stateDoLoopAnimation_BOOL", false));
+    anim.fields.add(field_bool("stateContinuousFrameRandomisation_BOOL", false));
+    anim.fields.add(field_bool("stateDoRotateToTarget_BOOL", false));
+    anim_unit.states.push_back(std::move(anim));
+    deimos::EntityRuntime anim_live;
+    anim_live.behavior = deimos::compile_unit_behavior(anim_unit);
+    anim_live.state.state_entry_counts.fill(0);
+    deimos::LegacyRandom anim_rng(1);
+    deimos::enter_entity_state(anim_live, anim_unit, 0, 0, anim_rng);
+    assert(anim_live.sprite_frame == 0 && !anim_live.animation_stopped);
+    deimos::advance_entity_animation(anim_live, 1, anim_rng);
+    assert(anim_live.sprite_frame == 0); // >= would incorrectly advance here.
+    deimos::advance_entity_animation(anim_live, 2, anim_rng);
+    assert(anim_live.sprite_frame == 1 && !anim_live.animation_stopped);
+    deimos::advance_entity_animation(anim_live, 4, anim_rng);
+    assert(anim_live.sprite_frame == 2 && anim_live.animation_stopped);
+
+    // Finite stop is visible to the five rule slots in the same tick.
+    deimos::UnitDefinition stopped_unit;
+    add_constructor_defaults(stopped_unit);
+    auto stopped_a = basic_state("A");
+    stopped_a.fields.add(field_int("stateSpriteFrameMin_INT", 0));
+    stopped_a.fields.add(field_int("stateSpriteFrameMax_INT", 0));
+    stopped_a.fields.add(field_int("stateNumDirections_INT", 1));
+    stopped_a.fields.add(field_int("stateFramesPerDirection_INT", 2));
+    stopped_a.fields.add(field_int("stateFrameDelay_INT", 0));
+    stopped_a.fields.add(field_int("stateFrameDelta_INT", 1));
+    stopped_a.fields.add(field_bool("stateDoAnimateBackwards_BOOL", false));
+    stopped_a.fields.add(field_bool("stateDoLoopAnimation_BOOL", false));
+    stopped_a.fields.add(field_bool("stateContinuousFrameRandomisation_BOOL", false));
+    stopped_a.fields.add(field_bool("stateDoRotateToTarget_BOOL", false));
+    deimos::UnitStateRule stopped_rule;
+    stopped_rule.name = "animation done";
+    stopped_rule.unit_id = id("none");
+    stopped_rule.condition = "This Entity's Animation Has Stopped";
+    stopped_rule.action = "B";
+    stopped_a.rules.push_back(stopped_rule);
+    stopped_unit.states.push_back(std::move(stopped_a));
+    stopped_unit.states.push_back(basic_state("B"));
+    deimos::EntityRuntime stopped_live;
+    stopped_live.behavior = deimos::compile_unit_behavior(stopped_unit);
+    stopped_live.state.state_entry_counts.fill(0);
+    deimos::LegacyRandom stopped_rng(1);
+    deimos::enter_entity_state(stopped_live, stopped_unit, 0, 0, stopped_rng);
+    deimos::EntityTickContext stopped_context;
+    stopped_context.current_tick = 1;
+    stopped_context.facts_for_rule =
+        [&stopped_live](const deimos::CompiledStateRule&, std::size_t) {
+            deimos::UnitRuleFacts facts;
+            facts.animation_stopped = stopped_live.animation_stopped;
+            return facts;
+        };
+    const auto stopped_tick =
+        deimos::advance_entity_runtime(stopped_live, stopped_unit, stopped_context, stopped_rng);
+    assert(stopped_tick.rule_matched);
+    assert(stopped_live.state.current_state == 1);
+
+    // PPC 0x172D0: RotateToTarget advances one visual direction at animation
+    // cadence but never overwrites the member's physical heading.
+    deimos::UnitDefinition rotate_unit;
+    add_constructor_defaults(rotate_unit);
+    auto rotate = basic_state("Rotate");
+    rotate.fields.add(field_int("stateSpriteFrameMin_INT", 0));
+    rotate.fields.add(field_int("stateSpriteFrameMax_INT", 0));
+    rotate.fields.add(field_int("stateNumDirections_INT", 24));
+    rotate.fields.add(field_int("stateFramesPerDirection_INT", 1));
+    rotate.fields.add(field_int("stateFrameDelay_INT", 0));
+    rotate.fields.add(field_int("stateFrameDelta_INT", 0));
+    rotate.fields.add(field_bool("stateDoAnimateBackwards_BOOL", false));
+    rotate.fields.add(field_bool("stateDoLoopAnimation_BOOL", false));
+    rotate.fields.add(field_bool("stateContinuousFrameRandomisation_BOOL", false));
+    rotate.fields.add(field_bool("stateDoRotateToTarget_BOOL", true));
+    rotate_unit.states.push_back(std::move(rotate));
+    deimos::EntityRuntime rotate_live;
+    rotate_live.heading_degrees = 105;
+    rotate_live.x = 0.0f;
+    rotate_live.y = 0.0f;
+    rotate_live.has_active_target = true;
+    rotate_live.target_player_x = 0.0f;
+    rotate_live.target_player_y = 10.0f; // legacy heading 180 -> direction 12
+    rotate_live.behavior = deimos::compile_unit_behavior(rotate_unit);
+    rotate_live.state.state_entry_counts.fill(0);
+    deimos::LegacyRandom rotate_rng(1);
+    deimos::enter_entity_state(rotate_live, rotate_unit, 0, 0, rotate_rng);
+    assert(rotate_live.sprite_frame == 7);
+    deimos::advance_entity_animation(rotate_live, 1, rotate_rng);
+    assert(rotate_live.sprite_frame == 8); // positive difference increments.
+    assert(rotate_live.heading_degrees == 105);
 
     return 0;
 }

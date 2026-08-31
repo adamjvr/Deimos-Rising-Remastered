@@ -144,7 +144,7 @@ public:
 
         const auto& info = preview_->info();
         description = info.level_name + " [" + info.level_id.str() + "] / " + info.player_name +
-            " / PLAYABLE WIP 3";
+            " / PLAYABLE WIP 7 / FRONT END";
         fps_ = info.fps_max_rate > 0.0f ? info.fps_max_rate : 30.0f;
         NSLog(@"Deimos playable original-data host: PAKs=%s level=%s background=%s playerFace=%s groups=%zu fps=%.2f liveObjects=%zu",
               pak_dir->string().c_str(), info.level_name.c_str(), info.background_id.str().c_str(),
@@ -157,6 +157,13 @@ public:
             NSLog(@"Deimos selected ground weapon: %s [%s]", weapon->name.c_str(), weapon->id.str().c_str());
         }
         return true;
+    }
+
+    bool restart(std::string& description) {
+        preview_.reset();
+        full_world_ = false;
+        input_ = {};
+        return initialize(description);
     }
 
     void set_control_direction(ControlDirection direction, bool pressed) {
@@ -358,6 +365,27 @@ int main(int argc, char* argv[]) {
     if (self.deimosKeyHandler != nil) self.deimosKeyHandler(event, NO);
     else [super keyUp:event];
 }
+- (void)flagsChanged:(NSEvent*)event {
+    // Shift is delivered by AppKit as a modifier transition rather than an
+    // ordinary keyDown:/keyUp: event. Treat the aggregate Shift state as the
+    // semantic ground-fire button: releasing one Shift while the other remains
+    // held correctly stays pressed, and releasing the final Shift releases it.
+    if (self.deimosKeyHandler != nil) {
+        NSEventModifierFlags mask = 0;
+        switch (event.keyCode) {
+            case 56: case 60: mask = NSEventModifierFlagShift; break;
+            case 58: case 61: mask = NSEventModifierFlagOption; break;
+            case 55: case 54: mask = NSEventModifierFlagCommand; break;
+            default: break;
+        }
+        if (mask != 0) {
+            const BOOL pressed = (event.modifierFlags & mask) != 0;
+            self.deimosKeyHandler(event, pressed);
+            return;
+        }
+    }
+    [super flagsChanged:event];
+}
 @end
 
 @interface DeimosSmokeAppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
@@ -368,10 +396,201 @@ int main(int argc, char* argv[]) {
     NSTimer* _timer;
     std::unique_ptr<deimos::AppleMetalHostView> _host;
     std::unique_ptr<SmokeFrameSource> _source;
+    BOOL _paused;
+    NSString* _baseTitle;
+}
+
+- (void)installApplicationMenus {
+    NSMenu* bar = [[NSMenu alloc] initWithTitle:@""];
+    NSApp.mainMenu = bar;
+
+    NSMenuItem* appRoot = [[NSMenuItem alloc] initWithTitle:@"Deimos Rising" action:nil keyEquivalent:@""];
+    [bar addItem:appRoot];
+    NSMenu* app = [[NSMenu alloc] initWithTitle:@"Deimos Rising"];
+    appRoot.submenu = app;
+    [app addItemWithTitle:@"About Deimos Rising" action:@selector(orderFrontStandardAboutPanel:) keyEquivalent:@""];
+    [app addItem:[NSMenuItem separatorItem]];
+    NSMenuItem* prefs = [app addItemWithTitle:@"Preferences…" action:@selector(showPreferences:) keyEquivalent:@","];
+    prefs.target = self;
+    [app addItem:[NSMenuItem separatorItem]];
+    [app addItemWithTitle:@"Hide Deimos Rising" action:@selector(hide:) keyEquivalent:@"h"];
+    [app addItem:[NSMenuItem separatorItem]];
+    [app addItemWithTitle:@"Quit Deimos Rising" action:@selector(terminate:) keyEquivalent:@"q"];
+
+    NSMenuItem* gameRoot = [[NSMenuItem alloc] initWithTitle:@"Game" action:nil keyEquivalent:@""];
+    [bar addItem:gameRoot];
+    NSMenu* game = [[NSMenu alloc] initWithTitle:@"Game"];
+    gameRoot.submenu = game;
+    NSMenuItem* pause = [game addItemWithTitle:@"Pause / Resume" action:@selector(togglePause:) keyEquivalent:@""];
+    pause.target = self;
+    NSMenuItem* restart = [game addItemWithTitle:@"Restart Level" action:@selector(restartLevel:) keyEquivalent:@"r"];
+    restart.target = self;
+    [game addItem:[NSMenuItem separatorItem]];
+    NSMenuItem* controls = [game addItemWithTitle:@"Controls…" action:@selector(showControls:) keyEquivalent:@"k"];
+    controls.target = self;
+
+    NSMenuItem* viewRoot = [[NSMenuItem alloc] initWithTitle:@"View" action:nil keyEquivalent:@""];
+    [bar addItem:viewRoot];
+    NSMenu* view = [[NSMenu alloc] initWithTitle:@"View"];
+    viewRoot.submenu = view;
+    NSMenuItem* fs = [view addItemWithTitle:@"Toggle Full Screen" action:@selector(toggleFullScreen:) keyEquivalent:@"f"];
+    fs.keyEquivalentModifierMask = NSEventModifierFlagControl | NSEventModifierFlagCommand;
+
+    NSMenuItem* helpRoot = [[NSMenuItem alloc] initWithTitle:@"Help" action:nil keyEquivalent:@""];
+    [bar addItem:helpRoot];
+    NSMenu* help = [[NSMenu alloc] initWithTitle:@"Help"];
+    helpRoot.submenu = help;
+    NSMenuItem* quick = [help addItemWithTitle:@"Deimos Rising Controls" action:@selector(showControls:) keyEquivalent:@"?"];
+    quick.target = self;
+}
+
+- (void)refreshTitle {
+    if (!_window || !_baseTitle) return;
+    _window.title = _paused ? [_baseTitle stringByAppendingString:@" — PAUSED"] : _baseTitle;
+}
+
+- (void)showPauseMenu {
+    if (!_source || !_source->live()) return;
+    _paused = YES;
+    _source->clear_control();
+    [self refreshTitle];
+
+    while (_paused) {
+        NSAlert* a = [[NSAlert alloc] init];
+        a.messageText = @"Deimos Rising — Paused";
+        a.informativeText = @"Choose an action. Escape also opens this menu during play.";
+        [a addButtonWithTitle:@"Resume"];
+        [a addButtonWithTitle:@"Controls…"];
+        [a addButtonWithTitle:@"Preferences…"];
+        [a addButtonWithTitle:@"Restart Level"];
+        NSModalResponse r = [a runModal];
+        if (r == NSAlertFirstButtonReturn) {
+            _paused = NO;
+        } else if (r == NSAlertSecondButtonReturn) {
+            [self showControls:nil];
+            _paused = YES;
+        } else if (r == NSAlertThirdButtonReturn) {
+            [self showPreferences:nil];
+            _paused = YES;
+        } else {
+            [self restartLevel:nil];
+            _paused = NO;
+        }
+        [self refreshTitle];
+    }
+}
+
+- (void)showLaunchMenu {
+    _paused = YES;
+    [self refreshTitle];
+    BOOL choosing = YES;
+    while (choosing) {
+        NSAlert* a = [[NSAlert alloc] init];
+        a.messageText = @"Deimos Rising";
+        a.informativeText = @"Kepler Massif — Level 1\n\nThe original 1.0.6 front end exposed game controls and preferences before play. This recovered host now does the same instead of dropping directly into combat.";
+        [a addButtonWithTitle:@"Start Level"];
+        [a addButtonWithTitle:@"Controls…"];
+        [a addButtonWithTitle:@"Preferences…"];
+        [a addButtonWithTitle:@"Quit"];
+        NSModalResponse r = [a runModal];
+        if (r == NSAlertFirstButtonReturn) {
+            choosing = NO;
+        } else if (r == NSAlertSecondButtonReturn) {
+            [self showControls:nil];
+            _paused = YES;
+        } else if (r == NSAlertThirdButtonReturn) {
+            [self showPreferences:nil];
+            _paused = YES;
+        } else {
+            [NSApp terminate:nil];
+            return;
+        }
+    }
+    _paused = NO;
+    [self refreshTitle];
+}
+
+- (void)togglePause:(id)sender {
+    (void)sender;
+    if (!_source || !_source->live()) return;
+    if (_paused) {
+        _paused = NO;
+        [self refreshTitle];
+        return;
+    }
+    [self showPauseMenu];
+}
+
+- (void)restartLevel:(id)sender {
+    (void)sender;
+    if (!_source) return;
+    std::string description;
+    if (!_source->restart(description)) {
+        NSAlert* a = [[NSAlert alloc] init];
+        a.messageText = @"Could not restart level";
+        a.informativeText = [NSString stringWithUTF8String:description.c_str()];
+        [a runModal];
+        return;
+    }
+    _paused = NO;
+    NSString* detail = [NSString stringWithUTF8String:description.c_str()];
+    _baseTitle = [NSString stringWithFormat:@"Deimos Rising Remastered - %@", detail];
+    [self refreshTitle];
+    if (_host) (void)present_host(*_host, _source->frame());
+}
+
+- (void)showControls:(id)sender {
+    (void)sender;
+    BOOL wasPaused = _paused;
+    _paused = YES;
+    if (_source) _source->clear_control();
+    [self refreshTitle];
+
+    NSAlert* a = [[NSAlert alloc] init];
+    a.messageText = @"Deimos Rising Controls";
+    a.informativeText =
+        @"ORIGINAL 1.0.6 PLAYER-1 DEFAULTS\n"
+         @"Arrow Keys  Move\n"
+         @"Option      Fire Air Weapon\n"
+         @"Command     Fire Ground Weapon\n"
+         @"Space       Select / Cycle Air Weapon\n\n"
+         @"MODERN HOST ALIASES\n"
+         @"WASD        Move\n"
+         @"Z           Fire / hold to charge Air Weapon\n"
+         @"X or Shift  Fire Ground Weapon / Plasma Bomb\n"
+         @"C or Tab    Select / cycle Air Weapon\n"
+         @"Escape      Pause / Resume\n\n"
+         @"Ground weapon aiming uses the cyan targeting reticle ahead of the ship; it changes frame when a valid ground target is locked.";
+    [a addButtonWithTitle:@"Resume"];
+    [a runModal];
+    _paused = wasPaused;
+    [self refreshTitle];
+}
+
+- (void)showPreferences:(id)sender {
+    (void)sender;
+    BOOL wasPaused = _paused;
+    _paused = YES;
+    if (_source) _source->clear_control();
+    [self refreshTitle];
+
+    NSAlert* a = [[NSAlert alloc] init];
+    a.messageText = @"Deimos Rising Preferences";
+    a.informativeText =
+        @"The original 1.0.6 Preferences dialog exposed Full Screen, Interlacing, Bypass System Volume, Music Volume, Sound Volume, ESC Key Delay, Set Controls, and Set Gamepad Controls.\n\n"
+         @"This remaster currently uses the original 640×480 game presentation with nearest-neighbor scaling. Full Screen is available from the View menu. Audio/gamepad preference controls will become active as their recovered runtimes are connected.";
+    [a addButtonWithTitle:@"OK"];
+    [a addButtonWithTitle:@"Controls…"];
+    NSModalResponse r = [a runModal];
+    if (r == NSAlertSecondButtonReturn) [self showControls:nil];
+    _paused = wasPaused;
+    [self refreshTitle];
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification*)notification {
     (void)notification;
+    _paused = NO;
+    [self installApplicationMenus];
     _host = std::make_unique<deimos::AppleMetalHostView>();
     _source = std::make_unique<SmokeFrameSource>();
     std::string frameDescription;
@@ -407,7 +626,8 @@ int main(int argc, char* argv[]) {
                     backing:NSBackingStoreBuffered
                       defer:NO];
     NSString* detail = [NSString stringWithUTF8String:frameDescription.c_str()];
-    _window.title = [NSString stringWithFormat:@"Deimos Rising Remastered - %@", detail];
+    _baseTitle = [NSString stringWithFormat:@"Deimos Rising Remastered - %@", detail];
+    _window.title = _baseTitle;
     _window.delegate = self;
 
     NSView* metalView = (__bridge NSView*)_host->native_view_handle();
@@ -420,8 +640,9 @@ int main(int argc, char* argv[]) {
     // Use the key window responder path directly. The earlier local NSEvent
     // monitor could leave the app apparently playable while semantic weapon
     // input never reached the source. Keep physical-key mappings explicit and
-    // add Z as the conventional primary-fire key alongside Space.
+    // preserve the original Player-1 modifier/Space defaults while adding modern aliases.
     SmokeFrameSource* source = _source.get();
+    DeimosSmokeAppDelegate* delegate = self;
     DeimosGameWindow* gameWindow = (DeimosGameWindow*)_window;
     gameWindow.deimosKeyHandler = ^(NSEvent* event, BOOL pressedValue) {
         const bool pressed = pressedValue == YES;
@@ -442,18 +663,25 @@ int main(int argc, char* argv[]) {
             case 1:   // S
                 source->set_control_direction(SmokeFrameSource::ControlDirection::Down, pressed);
                 break;
-            case 49:  // Space
-            case 6:   // Z: primary air fire
+            case 6:   // Z: modern primary-air alias
+            case 58:  // Left Option: original Player-1 Fire Air Weapon
+            case 61:  // Right Option
                 source->set_weapon_action(SmokeFrameSource::WeaponAction::FireAir, pressed);
                 break;
-            case 7:   // X: ground weapon
-            case 56:  // Left Shift: secondary/ground fire alias
+            case 7:   // X: modern ground-weapon alias
+            case 56:  // Left Shift: secondary/ground alias
             case 60:  // Right Shift
+            case 55:  // Left Command: original Player-1 Fire Ground Weapon
+            case 54:  // Right Command
                 source->set_weapon_action(SmokeFrameSource::WeaponAction::FireGround, pressed);
                 break;
-            case 48:  // Tab
-            case 8:   // C: cycle air weapon
+            case 49:  // Space: original Player-1 Select Special Weapon
+            case 48:  // Tab: modern select alias
+            case 8:   // C
                 source->set_weapon_action(SmokeFrameSource::WeaponAction::SwitchAir, pressed);
+                break;
+            case 53:  // Escape: pause/resume
+                if (pressed) [delegate togglePause:nil];
                 break;
             default:
                 break;
@@ -463,6 +691,7 @@ int main(int argc, char* argv[]) {
 
     (void)_host->sync_drawable_geometry(&error);
     (void)present_host(*_host, _source->frame());
+    [self showLaunchMenu];
 
     if (_source->live()) {
         const NSTimeInterval interval = 1.0 / std::max(1.0, _source->fps());
@@ -477,7 +706,7 @@ int main(int argc, char* argv[]) {
 
 - (void)deimosLiveTick:(NSTimer*)timer {
     (void)timer;
-    if (!_host || !_source || !_source->live()) return;
+    if (!_host || !_source || !_source->live() || _paused) return;
     if (!_source->advance()) return;
     (void)present_host(*_host, _source->frame());
 }

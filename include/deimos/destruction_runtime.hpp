@@ -153,6 +153,17 @@ struct LegacyRemovalContext {
     LegacyRandom& random,
     LegacyRemovalTrace& trace);
 
+// PPC 0x34B90, called by player-death helper 0x27E50 before the death
+// spawn/money-drop sequence. Walks live members owned by the dying player in
+// original insertion order and directly invokes 0x36120 semantics when the
+// member's current state opts into owner destruction/deletion. The call passes
+// player_attributed=false, so cleanup cannot manufacture kill rewards.
+[[nodiscard]] LegacyRemovalTrace remove_legacy_player_owned_entities_on_death(
+    EntityWorld& world,
+    std::int8_t player_index,
+    LegacyRemovalContext& context,
+    LegacyRandom& random);
+
 // PPC 0x36610 outer inactive-member pass. This adds the consequences that sit
 // outside 0x36120 itself: obstacle creation, destroyed-child -> owner destruction,
 // deletion spawns, then group/member removal. One call is one original-style

@@ -2,6 +2,7 @@
 
 #include "deimos/entity_world.hpp"
 #include "deimos/particle_runtime.hpp"
+#include "deimos/spawn_runtime.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -79,6 +80,10 @@ struct CollisionDamageResult {
     bool hit_particle_executed = false;
     int score_award = 0;
     std::optional<FourCC> collision_spawn_due;
+    // PPC 0x1516C..0x1525C copies the canonical 44-byte constructor template
+    // and overwrites only Unit ID, target X/Y, target player-owner, and the
+    // damaged target's safe parent reference before calling 0x33220.
+    std::optional<SpawnRequestSeed> collision_spawn_request;
 };
 
 // Main entity tick 0x340BC..0x340E8 applies a viewport guard before building

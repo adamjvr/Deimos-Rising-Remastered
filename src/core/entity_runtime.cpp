@@ -95,6 +95,39 @@ int heading_from_velocity(float x, float y, int fallback) {
     return legacy_angle_between_integer_points(0, 0, sx, sy);
 }
 
+int wrap_direction_index(int direction, int count) {
+    if (count <= 1) return 0;
+    direction %= count;
+    if (direction < 0) direction += count;
+    return direction;
+}
+
+int state_animation_subframe(const EntityRuntime& entity, const CompiledUnitStateBehavior& state) {
+    const int frames = std::max(1, state.frames_per_direction);
+    if (state.number_of_directions <= 1) {
+        // Static states are allowed to select an arbitrary atlas frame even
+        // when FramesPerDirection is 1 (e.g. nosw -> noti frame 4).
+        if (state.frame_delta == 0 && !state.continuous_frame_randomisation) {
+            return entity.sprite_frame;
+        }
+        return std::clamp(entity.sprite_frame, 0, frames - 1);
+    }
+    const int base = entity.animation_direction_index * frames;
+    return std::clamp(entity.sprite_frame - base, 0, frames - 1);
+}
+
+int target_direction_index(const EntityRuntime& entity, int number_of_directions) {
+    if (!entity.has_active_target || number_of_directions <= 1) {
+        return entity.animation_direction_index;
+    }
+    const int x1 = static_cast<int>(std::trunc(entity.x));
+    const int y1 = static_cast<int>(std::trunc(entity.y));
+    const int x2 = static_cast<int>(std::trunc(entity.target_player_x));
+    const int y2 = static_cast<int>(std::trunc(entity.target_player_y));
+    const int heading = legacy_angle_between_integer_points(x1, y1, x2, y2);
+    return legacy_direction_index_for_heading(heading, number_of_directions);
+}
+
 void initialize_state_spawn_runtime(
     EntityRuntime& entity,
     const UnitDefinition& unit,
@@ -159,6 +192,7 @@ void enter_entity_state_impl(
     entity.state_particle_burst_count = 0;
 
     initialize_entity_state_motion(entity, unit, previous_state_index);
+    initialize_entity_state_animation(entity, current_tick);
     initialize_state_spawn_runtime(entity, unit, state_index, current_tick, random);
 
     if (!entry.counter_threshold_reached) return;
@@ -631,6 +665,155 @@ int choose_initial_member_heading(
     return wrap_heading_once_or_zero(heading);
 }
 
+bool advance_entity_group_delay_gate(EntityRuntime& entity) {
+    if (entity.group_delay_ticks <= 0) return true;
+    --entity.group_delay_ticks;
+    return entity.group_delay_ticks <= 0;
+}
+
+int legacy_direction_index_for_heading(
+    int heading_degrees,
+    int number_of_directions) {
+    const int directions = std::max(1, number_of_directions);
+    int heading = heading_degrees % 360;
+    if (heading < 0) heading += 360;
+    // PPC 0x16230 maps the [0,360) heading domain linearly into the
+    // directional frame domain. Exact recovered examples:
+    // 24 directions: 105 deg -> 7, 255 deg -> 17.
+    return static_cast<int>(
+        (static_cast<long long>(heading) * directions) / 360LL);
+}
+
+void initialize_entity_state_animation(
+    EntityRuntime& entity,
+    std::uint32_t current_tick) {
+    if (entity.state.current_state >= entity.behavior.states.size()) {
+        throw std::out_of_range("animation state outside compiled Unit Definition");
+    }
+    const auto& state = entity.behavior.states[entity.state.current_state];
+    const int directions = std::max(1, state.number_of_directions);
+    const int frames = std::max(1, state.frames_per_direction);
+
+    entity.last_animation_tick = current_tick;
+    entity.animation_stopped = false;
+
+    if (directions > 1) {
+        entity.animation_direction_index =
+            legacy_direction_index_for_heading(entity.heading_degrees, directions);
+        // The shipped directional states use one frame per direction. Keep a
+        // local subframe for mod compatibility without letting serialized
+        // absolute frame minima (often 18 on directional states) defeat the
+        // heading-derived direction.
+        const int local = frames > 1
+            ? std::clamp(state.sprite_frame_min, 0, frames - 1)
+            : 0;
+        entity.sprite_frame =
+            entity.animation_direction_index * frames + local;
+    } else {
+        entity.animation_direction_index = 0;
+        // Preserve the serialized absolute entry frame. This is required for
+        // static atlas selectors such as Shield Warning (noti frame 4).
+        entity.sprite_frame = state.sprite_frame_min;
+    }
+}
+
+void advance_entity_animation(
+    EntityRuntime& entity,
+    std::uint32_t current_tick,
+    LegacyRandom& random) {
+    if (entity.lifecycle != EntityLifecycle::active) return;
+    if (entity.state.current_state >= entity.behavior.states.size()) {
+        throw std::out_of_range("animation state outside compiled Unit Definition");
+    }
+
+    const auto& state = entity.behavior.states[entity.state.current_state];
+    const auto delay = static_cast<std::uint32_t>(std::max(0, state.frame_delay));
+    // Recovered PPC 0x15930 comparison is strict greater-than.
+    if (current_tick <= entity.last_animation_tick + delay) return;
+    entity.last_animation_tick = current_tick;
+
+    const int directions = std::max(1, state.number_of_directions);
+    const int frames = std::max(1, state.frames_per_direction);
+
+    // PPC 0x172D0 changes only the visual direction. The target facts used
+    // here are the previous 0x15280 refresh because animation precedes that
+    // dispatcher in the current tick.
+    if (state.rotate_to_target && directions > 1 && entity.has_active_target) {
+        const int target = target_direction_index(entity, directions);
+        int current = wrap_direction_index(entity.animation_direction_index, directions);
+        int difference = target - current;
+        const int half = directions / 2;
+        if (difference > half) difference -= directions;
+        else if (difference < -half) difference += directions;
+
+        if (difference != 0) {
+            if (difference > 0) ++current;
+            else --current; // recovered <=0 branch sign after equality guard
+            current = wrap_direction_index(current, directions);
+            const int local = state_animation_subframe(entity, state);
+            entity.animation_direction_index = current;
+            entity.sprite_frame = current * frames + local;
+        }
+    }
+
+    if (state.continuous_frame_randomisation) {
+        const int local = frames <= 1
+            ? 0
+            : choose_inclusive_integer(0, frames - 1, random);
+        entity.sprite_frame =
+            entity.animation_direction_index * frames + local;
+        entity.animation_stopped = false;
+        return;
+    }
+
+    if (state.frame_delta <= 0 || entity.animation_stopped) return;
+
+    const int base = entity.animation_direction_index * frames;
+    const int first = base;
+    const int last = base + frames - 1;
+    int current = entity.sprite_frame;
+    if (current < first || current > last) {
+        // Animated states use their serialized entry frame as a local frame in
+        // canonical data; clamp malformed/modded input to the directional span.
+        current = std::clamp(current, first, last);
+    }
+
+    const int delta = std::max(1, state.frame_delta);
+    if (state.animate_backwards) {
+        const int next = current - delta;
+        if (state.loop_animation) {
+            if (next < first) {
+                const int span = frames;
+                int local = (next - first) % span;
+                if (local < 0) local += span;
+                entity.sprite_frame = first + local;
+            } else {
+                entity.sprite_frame = next;
+            }
+        } else if (next <= first) {
+            entity.sprite_frame = first;
+            entity.animation_stopped = true;
+        } else {
+            entity.sprite_frame = next;
+        }
+    } else {
+        const int next = current + delta;
+        if (state.loop_animation) {
+            if (next > last) {
+                const int span = frames;
+                entity.sprite_frame = first + ((next - first) % span);
+            } else {
+                entity.sprite_frame = next;
+            }
+        } else if (next >= last) {
+            entity.sprite_frame = last;
+            entity.animation_stopped = true;
+        } else {
+            entity.sprite_frame = next;
+        }
+    }
+}
+
 void enter_entity_state(
     EntityRuntime& entity,
     const UnitDefinition& unit,
@@ -843,9 +1026,10 @@ EntityTickResult advance_entity_runtime(
         if (entity.lifecycle != EntityLifecycle::active) return result;
     }
 
-    // Animation processing sits here in the original.  Until sprite animation
-    // is reconstructed, the caller supplies facts representing the post-
-    // animation state used by the rule predicates.
+    // PPC 0x15930 animation runs after the timer and before the five ordered
+    // rule slots. A finite animation can therefore set animationStopped and
+    // trigger its rule transition in this same tick.
+    advance_entity_animation(entity, context.current_tick, random);
     if (context.facts_for_rule) {
         const auto state_index = entity.state.current_state;
         const auto& state = entity.behavior.states[state_index];
@@ -888,8 +1072,15 @@ EntityTickResult advance_entity_runtime(
         if (entity.lifecycle != EntityLifecycle::active) return result;
     }
 
+    // PPC main tick 0x33FEC reaches the movement/lifetime routine after the
+    // target/motion dispatcher. Hosts own screen-space integration and bounds.
+    if (context.movement_lifetime_phase) {
+        context.movement_lifetime_phase(entity);
+        if (entity.lifecycle != EntityLifecycle::active) return result;
+    }
+
     // PPC 0x3401C..0x34054: owner-location Lock/Link/Orbit is evaluated
-    // after range handling and before the spawn scheduler at 0x15B40. State
+    // after range handling/movement and before the spawn scheduler at 0x15B40. State
     // changes above have invalidated the owner-location state marker, allowing
     // the world phase to run the 0x33600 initializer for the newly current state.
     if (context.owner_location_phase) {
@@ -910,7 +1101,9 @@ EntityTickResult advance_entity_runtime(
         throw std::runtime_error("live entity spawn-runtime count does not match Unit Definition");
     }
 
-    auto schedule_context = context.spawn_schedule;
+    auto schedule_context = context.spawn_schedule_context_phase
+        ? context.spawn_schedule_context_phase(entity)
+        : context.spawn_schedule;
     schedule_context.current_rotation_pause_ticks = entity.rotation_pause_ticks;
     for (std::size_t i = 0; i < state_definition.spawn_sets.size(); ++i) {
         auto step = advance_spawn_set_schedule(

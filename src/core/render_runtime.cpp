@@ -178,6 +178,39 @@ LegacyVisualTickResult tick_legacy_visual_scalars(LegacySpriteVisualRuntime& run
     return result;
 }
 
+void trigger_legacy_collision_glow(
+    LegacySpriteVisualRuntime& runtime,
+    Rgb24 color,
+    int step,
+    bool restart) {
+    // PPC 0x12BC0 returns early when a pulse is already active and r6==0.
+    if (runtime.collision_glow_active && !restart) return;
+
+    runtime.collision_glow_active = true;
+    runtime.collision_glow_amount_0_to_32 = 32;
+    runtime.collision_glow_toward_peak = true;
+    runtime.collision_glow_step = std::max(step, 0);
+    runtime.collision_glow_color = color;
+}
+
+void tick_legacy_collision_glow(LegacySpriteVisualRuntime& runtime) {
+    if (!runtime.collision_glow_active) return;
+
+    if (runtime.collision_glow_toward_peak) {
+        runtime.collision_glow_amount_0_to_32 -= runtime.collision_glow_step;
+        if (runtime.collision_glow_amount_0_to_32 > 4) return;
+        runtime.collision_glow_amount_0_to_32 = 4;
+        runtime.collision_glow_toward_peak = false;
+        return;
+    }
+
+    runtime.collision_glow_amount_0_to_32 += runtime.collision_glow_step;
+    if (runtime.collision_glow_amount_0_to_32 < 32) return;
+    runtime.collision_glow_amount_0_to_32 = 32;
+    runtime.collision_glow_toward_peak = true;
+    runtime.collision_glow_active = false;
+}
+
 bool refresh_legacy_sprite_geometry(
     LegacySpriteVisualRuntime& runtime,
     LegacySpriteCache& cache,

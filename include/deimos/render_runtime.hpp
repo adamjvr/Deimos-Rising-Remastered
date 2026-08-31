@@ -53,11 +53,13 @@ struct LegacySpriteVisualRuntime {
     // Reset to zero by 0x126E0..0x1273C.
     std::uint32_t last_terrain_submit_sequence = 0;
 
-    bool collision_glow_active = false;
+    bool collision_glow_active = false;       // sprite-base +0x74
+    bool collision_glow_toward_peak = false; // +0x75: true subtracts toward amount 4
     // Live +0x78 is already in the renderer's legacy 0..32 transparency
     // domain; it is not a percentage.
-    int collision_glow_amount_0_to_32 = 0;
-    Rgb24 collision_glow_color{};
+    int collision_glow_amount_0_to_32 = 0;   // +0x78
+    int collision_glow_step = 0;             // +0x7C
+    Rgb24 collision_glow_color{};             // +0x80 packed xRGB1555 in PPC
 };
 
 struct LegacyVisualTickResult {
@@ -133,6 +135,17 @@ void apply_legacy_state_visual_targets(
 // Exact scalar movement semantics recovered from 0x12750/0x12840.
 [[nodiscard]] LegacyVisualTickResult tick_legacy_visual_scalars(
     LegacySpriteVisualRuntime& runtime);
+
+// Shared sprite/player hit-feedback pulse at PPC 0x12BC0 + 0x12C10. Trigger
+// starts at request amount 32, walks toward peak effect amount 4 by `step`,
+// then returns to 32 and disables. When already active, restart=false matches
+// 0x12BC0 r6=0 and leaves the existing pulse untouched.
+void trigger_legacy_collision_glow(
+    LegacySpriteVisualRuntime& runtime,
+    Rgb24 color,
+    int step = 6,
+    bool restart = false);
+void tick_legacy_collision_glow(LegacySpriteVisualRuntime& runtime);
 
 // 0x12940 geometry refresh. A `none` face clears half-extents but leaves the
 // stale width/height words untouched, exactly as the PPC routine does. Normal

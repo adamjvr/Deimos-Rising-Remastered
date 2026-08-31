@@ -67,6 +67,12 @@ LivePlayerWeaponSlot plasma() {
     out.maximum_level_available = 9999;
     out.auto_repeat = false;
     out.delay_between_launches = 8;
+    out.crosshair_face = id('p','b','t','a');
+    out.crosshair_frame = 0;
+    out.crosshair_locked_face = id('p','b','t','a');
+    out.crosshair_locked_frame = 1;
+    out.crosshair_x_offset = 0;
+    out.crosshair_y_offset = -121;
     out.spawns = { WeaponSpawn{"bomb", id('p','l','b','m'), 0, 6, false, 0} };
     return out;
 }
@@ -86,6 +92,14 @@ int main() {
     initialize_live_player_weapon_state(state, catalog, 1);
     require(state.selected_air == 0, "level 1 selects canonical Ion Cannon");
     require(state.selected_ground == 0, "default ground weapon selected");
+    require(selected_live_ground_weapon(catalog, state)->crosshair_face == id('p','b','t','a'),
+            "Plasma Bomb preserves canonical pbta crosshair face");
+    require(selected_live_ground_weapon(catalog, state)->crosshair_frame == 0 &&
+            selected_live_ground_weapon(catalog, state)->crosshair_locked_frame == 1,
+            "Plasma Bomb preserves normal/locked crosshair frames");
+    require(selected_live_ground_weapon(catalog, state)->crosshair_x_offset == 0 &&
+            selected_live_ground_weapon(catalog, state)->crosshair_y_offset == -121,
+            "Plasma Bomb preserves canonical targeting offset");
     require(selected_live_air_weapon(catalog, state)->score_bar_preview_face == id('w','e','s','y'),
             "selected weapon preserves score-bar preview face");
     require(selected_live_air_weapon(catalog, state)->score_bar_preview_frame == 0,
@@ -162,6 +176,26 @@ int main() {
     result = advance_live_player_weapons(catalog, charge_state, fire, player, 119, 1);
     require(result.air_power_level == 2, "charge advances one level per configured interval");
     require(result.air_power_percentage == 10.0f, "charge exposes percentage for HUD power meter");
+
+    // Shipped handler 0x3B3C0 does not consume serialized OverloadTime as an
+    // automatic-release timer. PPC Lab with OverloadTime=1 and DoReleaseOnMax
+    // false remains in charged state at max/100 even far beyond that time.
+    auto no_overload_catalog = catalog;
+    no_overload_catalog.air[0].powerup_air_overload_time = 1;
+    no_overload_catalog.air[0].powerup_air_time_between_power_level_changes = 1;
+    no_overload_catalog.air[0].powerup_air_max_power_level = 2;
+    no_overload_catalog.air[0].powerup_air_do_release_on_max_power_level = false;
+    LivePlayerWeaponState no_overload_state;
+    initialize_live_player_weapon_state(no_overload_state, no_overload_catalog, 1);
+    (void)advance_live_player_weapons(no_overload_catalog, no_overload_state, fire, player, 200, 1);
+    for (std::uint32_t tick = 201; tick <= 240; ++tick) {
+        result = advance_live_player_weapons(no_overload_catalog, no_overload_state, fire, player, tick, 1);
+    }
+    require(result.air_power_level == 2, "charge clamps at max power after serialized overload time");
+    require(result.air_power_percentage == 100.0f, "max charge remains visible at 100 percent");
+    require(!result.air_powerup_released && result.powerup_requests.empty(),
+            "OverloadTime alone does not auto-release shipped 0x3B3C0 handler");
+    require(!result.air_powerup_overloaded, "handler does not emit fabricated overload state");
 
     result = advance_live_player_weapons(catalog, charge_state, released, player, 120, 1);
     require(result.air_powerup_released, "releasing charged weapon starts release stream");

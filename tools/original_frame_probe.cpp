@@ -194,13 +194,13 @@ int main(int argc, char** argv) {
     if (world_initial_members != 2 || world_initial_active != 2 ||
         world_initial_placements != 2 || world->activated_level_placements() != 3 ||
         first_level_activation_tick != 36 ||
-        world->entity_world().members().size() != 16 ||
-        world->entity_world().groups().size() != 10 ||
+        world->entity_world().members().size() != 15 ||
+        world->entity_world().groups().size() != 9 ||
         collision_total != 0 || collision_spawn_total != 0 || removal_total != 9 ||
         removal_consequence_total != 12 || removal_spawn_total != 1 ||
         player_effect_spawn_total != 1 || far_offscreen_cull_total != 2 ||
         pruned_member_total != 9 || max_active_particles != 25 ||
-        max_active != 20 ||
+        max_active != 18 ||
         world_initial_hash != deimos::kLiveWorldIntegrationInitialFrameFnv64 ||
         world_fire_hash != deimos::kLiveWorldIntegrationFireTick1FrameFnv64 ||
         world_soak_hash != deimos::kLiveWorldIntegrationTick120FrameFnv64) {

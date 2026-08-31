@@ -400,6 +400,38 @@ bool remove_legacy_group_member(
     return group_should_be_removed;
 }
 
+LegacyRemovalTrace remove_legacy_player_owned_entities_on_death(
+    EntityWorld& world,
+    std::int8_t player_index,
+    LegacyRemovalContext& context,
+    LegacyRandom& random) {
+    LegacyRemovalTrace trace;
+
+    // Shipped 0x34B90 scans the world in list order, compares live +0xD8
+    // against the signed player index, then tests current-state +0x329 before
+    // +0x32A. Each accepted member goes straight through 0x36120 with
+    // player-attributed=false. The clean world keeps stable records allocated,
+    // so direct removal is safe during collision traversal and preserves the
+    // original immediate owner-cleanup boundary.
+    for (std::size_t i = 0; i < world.members().size(); ++i) {
+        auto& member = world.members()[i];
+        if (member.removal_processed || member.player_owner_index != player_index) continue;
+        const auto* state = current_state(member);
+        if (!state) continue;
+
+        if (state->can_be_destroyed_on_owner_destruction) {
+            auto& group = require_group(world, member);
+            (void)remove_legacy_group_member(
+                world, group, member, true, false, context, random, trace);
+        } else if (state->can_be_deleted_on_owner_deletion) {
+            auto& group = require_group(world, member);
+            (void)remove_legacy_group_member(
+                world, group, member, false, false, context, random, trace);
+        }
+    }
+    return trace;
+}
+
 LegacyRemovalTrace finalize_legacy_pending_removals(
     EntityWorld& world,
     LegacyRemovalContext& context,

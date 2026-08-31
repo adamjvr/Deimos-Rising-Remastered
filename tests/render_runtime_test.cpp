@@ -210,6 +210,24 @@ int main() {
     assert(deimos::legacy_tint_effect_transparency_0_to_32(25.0f, 100.0f) == 24);
     assert(deimos::legacy_tint_effect_transparency_0_to_32(25.0f, 80.0f) == 25);
 
+    // Shared PPC 0x12BC0/0x12C10 collision/pickup glow pulse. Amount 32 is
+    // the no-effect endpoint, 4 is the peak, and rate 6 gives the shipped
+    // 32->26->20->14->8->4->10->16->22->28->32 sequence.
+    deimos::LegacySpriteVisualRuntime glow;
+    deimos::trigger_legacy_collision_glow(glow, {255, 255, 255});
+    assert(glow.collision_glow_active && glow.collision_glow_amount_0_to_32 == 32);
+    const int expected_glow[] = {26,20,14,8,4,10,16,22,28,32};
+    for (int expected : expected_glow) {
+        deimos::tick_legacy_collision_glow(glow);
+        assert(glow.collision_glow_amount_0_to_32 == expected);
+    }
+    assert(!glow.collision_glow_active);
+    deimos::trigger_legacy_collision_glow(glow, {255,255,255});
+    deimos::tick_legacy_collision_glow(glow);
+    deimos::trigger_legacy_collision_glow(glow, {1,2,3}, 6, false);
+    assert(glow.collision_glow_amount_0_to_32 == 26);
+    assert(glow.collision_glow_color.red == 255);
+
     // Wrapper order is shadow before main. Normal base, tint, and glow are
     // independently generated; stateDoColorise suppresses only the base pass.
     runtime.visibility_percent = 80.0f;

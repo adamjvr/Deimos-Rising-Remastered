@@ -174,9 +174,6 @@ The current live host still does not claim closure of:
 - `Animation Stopped` rule timing;
 - instruction-closing the exact low-level address arithmetic inside `0xFEE0`; the live
   binding currently derives the exact integral resource scale from the original level/mask pair;
-- visible live particle-system execution/rendering for collision/destruction particles;
-- constructing surfaced collision-spawn requests in the owning world layer once the
-  original spawn-position/ownership call contract is instruction-closed;
 - complete reward/score/audio/UI consequence consumption;
 - full Player lifecycle/game-over orchestration in the native session;
 - original film/InputSprocket action-bit assignments, replay playback, controller/touch, and two-player host behavior;
@@ -201,7 +198,7 @@ The live sequence now includes player lifecycle and effects around the earlier w
 3. scroll terrain / activate placement rows / shift existing entities and obstacles;
 4. launch canonical air or ground weapon requests (macOS X or Shift is the secondary/ground action);
 5. update active members with state-rule/motion/spawn and inline state-particle execution;
-6. apply a deliberately generous one-viewport far-offscreen playable-host deletion guard pending exact PPC outer-list-cull closure;
+6. immediately after movement apply shipped PPC `0x12CA0` main-tick lifetime predicate with margin 128 and its asymmetric extent rules; false marks the member deleted before obstacle/state/collision work;
 7. run entity/entity and entity/player collisions with inline hit/destruction particles and capture player hit/death/pickup consequences;
 8. finalize recovered removal semantics and construct removal/player consequence objects only after traversal;
 9. update/prune particle systems;
@@ -225,4 +222,13 @@ Canonical Weapon Definitions expose the full air-powerup data contract. The live
 
 Pressing primary still performs the ordinary serialized weapon launch. Holding crosses the activation delay, constructs the canonical activation Unit and increments the live power level at the configured interval. The original score-bar power consumer receives `100 * level / maxLevel`. Releasing transitions the player-owned activation Unit into the state whose `stateUseThisStateOnWeaponPowerupRelease_BOOL` field is true and starts canonical `icps` release spawns.
 
-The exact PPC caller around repeated release-spawn count is still open. The current host mapping (one `icps` request per attained level, spaced by the serialized release interval) is explicit and isolated; it is not claimed as instruction-closed until that caller is recovered.
+Shipped handler `0x3B3C0` is instruction-closed for the repeated release slice: it emits one `ReleaseSpawn_ID` per attained power level at the serialized `TimeBetweenReleaseSpawns`, decrementing the stored power level once per emission. `DoReleaseOnMaxPowerLevel` is the proven max-charge automatic-release switch; `OverloadTime` is preserved from data but does not force release in this handler.
+
+
+## WIP6 native secondary + persistent ground reticle
+
+The native secondary path is now closed across input, presentation, targeting and damage. AppKit modifier changes are handled through `flagsChanged:` so either Shift key reaches `OriginalGameLiveInput::weapons.fire_ground`; X remains equivalent. The external Level-1 gate aligns the player with the opening left `bsde`, observes canonical `pbta`, fires `plbo`, and requires shields 4.0 -> 3.6.
+
+The reticle mirrors the shipped persistent weapon-controller sprite. `0x3B3C0` loads selected-ground crosshair face/frame, `0x3BAB0(...,1)` selects its locked frame, player update `0x3BB00` anchors controller position to Player 1, and `0x3C4F0` closes the offset sign. Canonical Plasma Bomb uses `pbta`, normal frame 0, locked frame 1, `(x,y)` offset `(0,-121)`, on sprite layer `defa`. The clean target-lock bridge flips to the locked frame when the reticle AABB overlaps an active ground-domain member hittable by player projectiles.
+
+The respawn presentation defect is also closed at its real source. State visuals now begin at serialized `stateSpriteFrameMin`; therefore `nosw` Shield Warning selects `noti` frame 4 instead of accidental frame 0 GET READY. Player death mirrors original `0x27E50 -> 0x34B90` owner cleanup before death consequences, destroying/deleting owned members according to current-state owner flags. Rendered post-respawn frames through tick 320 contain no persistent GET READY text.

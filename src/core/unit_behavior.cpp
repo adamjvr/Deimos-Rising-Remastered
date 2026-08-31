@@ -1,5 +1,7 @@
 #include "deimos/unit_behavior.hpp"
 
+#include <algorithm>
+
 namespace deimos {
 namespace {
 std::string_view field_string(const UnitStateDefinition& state, std::string_view key) {
@@ -146,10 +148,20 @@ CompiledUnitBehavior compile_unit_behavior(const UnitDefinition& unit) {
     for (const auto& state : unit.states) {
         CompiledUnitStateBehavior compiled;
         compiled.range = field_float(state, "stateOnRange_FLOAT");
+        compiled.animate_backwards = field_bool(state, "stateDoAnimateBackwards_BOOL");
+        compiled.loop_animation = field_bool(state, "stateDoLoopAnimation_BOOL");
+        compiled.continuous_frame_randomisation =
+            field_bool(state, "stateContinuousFrameRandomisation_BOOL");
+        compiled.rotate_to_target = field_bool(state, "stateDoRotateToTarget_BOOL");
         compiled.sprite_face = field_id(state, "stateSpriteFace_ID");
+        compiled.number_of_directions = std::max(1, field_int(state, "stateNumDirections_INT"));
         compiled.sprite_frame_min = field_int(state, "stateSpriteFrameMin_INT");
         compiled.sprite_frame_max = field_int(state, "stateSpriteFrameMax_INT");
+        compiled.frames_per_direction = std::max(1, field_int(state, "stateFramesPerDirection_INT"));
+        compiled.frame_delay = field_int(state, "stateFrameDelay_INT");
+        compiled.frame_delta = field_int(state, "stateFrameDelta_INT");
         compiled.use_parent_direction = field_bool(state, "stateUseParentDirection_BOOL");
+        compiled.pause_vertical_scrolling = field_bool(state, "statePauseVerticalScrolling_BOOL");
         compiled.required_visibility_percent = field_int(state, "stateRequiredVisibilityPercent_INT");
         compiled.visibility_delta_percent = field_int(state, "stateVisibilityDeltaPercent_INT");
         compiled.required_scale_percent = field_int(state, "stateRequiredScalePercent_INT");

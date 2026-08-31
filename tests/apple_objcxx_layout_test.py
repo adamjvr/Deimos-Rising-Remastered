@@ -43,13 +43,27 @@ if interface_pos < close_pos or implementation_pos < close_pos:
 # Input is routed through the key window responder so weapon presses reach the
 # semantic live-world input path even when no local event monitor is installed.
 for token in (
-    'PLAYABLE WIP 3',
+    'PLAYABLE WIP 7 / FRONT END',
     'live-world bootstrap failed:',
     '@interface DeimosGameWindow : NSWindow',
     '- (void)keyDown:(NSEvent*)event',
+    '- (void)flagsChanged:(NSEvent*)event',
     'WeaponAction::FireAir',
     'case 49:  // Space',
-    'case 6:   // Z: primary air fire',
+    'case 6:   // Z: modern primary-air alias',
+    'case 7:   // X: modern ground-weapon alias',
+    'NSEventModifierFlagShift',
+    'NSEventModifierFlagOption',
+    'NSEventModifierFlagCommand',
+    'case 53:  // Escape: pause/resume',
+    '- (void)showLaunchMenu',
+    '- (void)showPauseMenu',
+    'Deimos Rising Controls',
+    'ORIGINAL 1.0.6 PLAYER-1 DEFAULTS',
+    'Option      Fire Air Weapon',
+    'Command     Fire Ground Weapon',
+    'Space       Select / Cycle Air Weapon',
+    'WeaponAction::FireGround',
     'Deimos AIR FIRE accepted',
 ):
     if token not in smoke_text:

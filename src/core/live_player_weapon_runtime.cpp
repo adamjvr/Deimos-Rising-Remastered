@@ -197,6 +197,14 @@ LivePlayerWeaponCatalog compile_live_player_weapon_catalog(
             def.fields.int_value("powerup_Air_TimeBetweenReleaseSpawns_INT").value_or(0);
         slot.powerup_air_do_release_on_max_power_level =
             def.fields.bool_value("powerup_Air_DoReleaseOnMaxPowerLevel_BOOL").value_or(false);
+        slot.crosshair_face = def.fields.id_value("crosshairFace_ID").value_or(FourCC{});
+        slot.crosshair_frame = def.fields.int_value("crosshairFrame_INT").value_or(0);
+        slot.crosshair_locked_face = def.fields.id_value("crosshairLockedFace_ID").value_or(FourCC{});
+        slot.crosshair_locked_frame = def.fields.int_value("crosshairLockedFrame_INT").value_or(0);
+        slot.crosshair_x_offset = def.fields.int_value("crosshairXOffset_INT").value_or(0);
+        slot.crosshair_y_offset = def.fields.int_value("crosshairYOffset_INT").value_or(0);
+        slot.crosshair_spawn_on_activation =
+            def.fields.id_value("crosshairSpawnOnActivation_ID").value_or(FourCC{});
         slot.player1_appearance_face = def.fields.id_value("player1AppearanceFace_ID").value_or(FourCC{});
         slot.player2_appearance_face = def.fields.id_value("player2AppearanceFace_ID").value_or(FourCC{});
         slot.score_bar_preview_face = def.fields.id_value("scoreBarPreviewFace_ID").value_or(FourCC{});
@@ -298,11 +306,13 @@ LivePlayerWeaponStepResult advance_live_player_weapons(
                     const bool max_release =
                         air->powerup_air_do_release_on_max_power_level &&
                         state.air_power_level >= air->powerup_air_max_power_level;
-                    const bool overload_release =
-                        air->powerup_air_overload_time > 0 &&
-                        charging_ticks >= static_cast<std::uint32_t>(air->powerup_air_overload_time);
-                    if (max_release || overload_release) {
-                        result.air_powerup_overloaded = overload_release;
+                    // Direct PPC-Lab execution of shipped handler 0x3B3C0 with
+                    // OverloadTime=1, a long-expired hold, max power attained,
+                    // and DoReleaseOnMaxPowerLevel=false leaves the handler in
+                    // charged state 1 at 100%. The serialized +0x1F8 field is
+                    // preserved in the definition model, but this handler does
+                    // not consume it as an automatic-release timer.
+                    if (max_release) {
                         schedule_powerup_release(*air, state, current_tick, result);
                         emit_due_powerup_release_spawns(*air, state, player, current_tick, result);
                     }

@@ -295,6 +295,50 @@ int main() {
         }
     }
 
+    // Player-death helper 0x27E50 calls 0x34B90(playerIndex) before the
+    // death spawn. The owner sweep prioritizes destroy-on-owner over
+    // delete-on-owner, invokes 0x36120 immediately, and never awards player
+    // kill rewards for cleanup.
+    {
+        deimos::EntityWorld world;
+        auto destroy_with_player = entity(45, 445, 4545, id("odst"));
+        destroy_with_player.player_owner_index = 1;
+        destroy_with_player.behavior.states[0].can_be_destroyed_on_owner_destruction = true;
+        destroy_with_player.behavior.states[0].can_be_deleted_on_owner_deletion = true;
+        destroy_with_player.behavior.destruction_coin_count = 3;
+        destroy_with_player.behavior.destruction_coin = id("coin");
+        add_group(world, std::move(destroy_with_player));
+
+        auto delete_with_player = entity(46, 446, 4646, id("odel"));
+        delete_with_player.player_owner_index = 1;
+        delete_with_player.behavior.states[0].can_be_deleted_on_owner_deletion = true;
+        add_group(world, std::move(delete_with_player));
+
+        auto other_player = entity(47, 447, 4747, id("othr"));
+        other_player.player_owner_index = 0;
+        other_player.behavior.states[0].can_be_destroyed_on_owner_destruction = true;
+        add_group(world, std::move(other_player));
+
+        deimos::LegacyRemovalContext context;
+        context.random_bonus_config = config;
+        deimos::LegacyRandom random(1);
+        const auto trace = deimos::remove_legacy_player_owned_entities_on_death(
+            world, 1, context, random);
+
+        assert(world.find_member(45)->removal_processed);
+        assert(world.find_member(45)->lifecycle == deimos::EntityLifecycle::destroyed);
+        assert(world.find_member(46)->removal_processed);
+        assert(world.find_member(46)->lifecycle == deimos::EntityLifecycle::deleted);
+        assert(!world.find_member(47)->removal_processed);
+        assert(trace.removals.size() == 2);
+        assert(trace.removals[0].member == 45 && trace.removals[0].destruction);
+        assert(trace.removals[1].member == 46 && !trace.removals[1].destruction);
+        for (const auto& event : trace.consequences) {
+            assert(event.kind != deimos::LegacyRemovalConsequenceKind::ordinary_coin_spawn);
+            assert(event.kind != deimos::LegacyRemovalConsequenceKind::group_kill_coin_spawn);
+        }
+    }
+
     // 0x36610 outer pass: a destroyed child can destruct its still-active
     // owner via current-state +0x32D; a later-position owner is then finalized
     // in the same traversal. Deleted entities get deletionSpawn, and obstacle

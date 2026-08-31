@@ -44,6 +44,18 @@ struct LivePlayerWeaponSlot {
     int powerup_air_time_between_release_spawns = 0;
     bool powerup_air_do_release_on_max_power_level = false;
 
+    // Shipped ground-weapon targeting reticle contract. PPC weapon runtime
+    // 0x3B3C0 copies +0x168/+0x16C into its persistent sprite every tick;
+    // target acquisition calls 0x3BAB0 to select +0x170/+0x174. 0x3C4F0
+    // proves the position is player/controller position plus +0x178/+0x17C.
+    FourCC crosshair_face{};
+    int crosshair_frame = 0;
+    FourCC crosshair_locked_face{};
+    int crosshair_locked_frame = 0;
+    int crosshair_x_offset = 0;
+    int crosshair_y_offset = 0;
+    FourCC crosshair_spawn_on_activation{};
+
     FourCC player1_appearance_face{};
     FourCC player2_appearance_face{};
     FourCC score_bar_preview_face{};

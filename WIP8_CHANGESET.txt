@@ -1,0 +1,27 @@
+Deimos Rising WIP8 changes relative to WIP7
+Frozen 2026-08-30
+
+Documentation / freeze metadata:
+- FULL_SEND_WIP_README.md
+- PLAYABLE_FIX_README.md
+- README.md
+- WIP8_FREEZE_README.md
+- docs/RESEARCH_LOG.md
+- docs/ROADMAP.md
+- docs/STATUS.md
+- docs/TESTING_VALIDATION.md
+- docs/WIP8_ANIMATION_AI_ORDERING.md
+
+Runtime / model:
+- include/deimos/entity_runtime.hpp
+- include/deimos/original_game_frame_preview.hpp
+- include/deimos/unit_behavior.hpp
+- src/core/entity_runtime.cpp
+- src/core/original_game_frame_preview.cpp
+- src/core/unit_behavior.cpp
+
+Regression / oracle updates:
+- tests/entity_runtime_test.cpp
+- tests/unit_behavior_test.cpp
+- tools/original_frame_probe.cpp
+- tools/playable_runtime_probe.cpp

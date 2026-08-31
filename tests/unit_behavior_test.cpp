@@ -89,6 +89,36 @@ int main() {
     assert(deimos::evaluate_unit_rule_condition(K::more_of_these_entities_active, facts, 2));
     assert(!deimos::evaluate_unit_rule_condition(K::unknown, facts, 0));
 
+    // WIP8 animation/orientation/scroll-state compiler fields are source data,
+    // not host-side presentation guesses. Freeze the exact field names here.
+    deimos::UnitDefinition animated_unit;
+    animated_unit.states.resize(1);
+    animated_unit.states[0].name = "Animated";
+    auto add = [&](const char* key, deimos::DefinitionValue value, const char* raw) {
+        animated_unit.states[0].fields.add({key, std::move(value), raw, 1});
+    };
+    add("stateDoAnimateBackwards_BOOL", true, "TRUE");
+    add("stateDoLoopAnimation_BOOL", true, "TRUE");
+    add("stateContinuousFrameRandomisation_BOOL", true, "TRUE");
+    add("stateDoRotateToTarget_BOOL", true, "TRUE");
+    add("stateNumDirections_INT", 24, "24");
+    add("stateSpriteFrameMin_INT", 3, "3");
+    add("stateSpriteFrameMax_INT", 7, "7");
+    add("stateFramesPerDirection_INT", 8, "8");
+    add("stateFrameDelay_INT", 2, "2");
+    add("stateFrameDelta_INT", 1, "1");
+    add("stateUseParentDirection_BOOL", true, "TRUE");
+    add("statePauseVerticalScrolling_BOOL", true, "TRUE");
+    const auto animated = deimos::compile_unit_behavior(animated_unit);
+    assert(animated.states.size() == 1);
+    const auto& a = animated.states[0];
+    assert(a.animate_backwards && a.loop_animation &&
+           a.continuous_frame_randomisation && a.rotate_to_target);
+    assert(a.number_of_directions == 24 && a.sprite_frame_min == 3 &&
+           a.sprite_frame_max == 7 && a.frames_per_direction == 8 &&
+           a.frame_delay == 2 && a.frame_delta == 1);
+    assert(a.use_parent_direction && a.pause_vertical_scrolling);
+
     // PPC fcmpu equality is exact.  NaN must not count as "at required level".
     facts.visibility = std::numeric_limits<float>::quiet_NaN();
     facts.required_visibility = facts.visibility;

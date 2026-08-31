@@ -428,6 +428,20 @@ CollisionDamageResult apply_collision_damage(
         // PPC 0x151A8 skips only when current < last+delay: equality is due.
         if (repetition_allows && tick >= spawn_gate) {
             result.collision_spawn_due = state_before.collision_spawn;
+
+            // PPC 0x1516C..0x1525C begins from the global 44-byte default
+            // request (owner=-1, no heading/flags, velocity multiplier 1.0),
+            // then stamps the damaged live member into the request before
+            // 0x33220: ID, exact current x/y, owner byte, parent pointer and
+            // parent serial. SpawnRequestSeed defaults mirror that template.
+            SpawnRequestSeed request;
+            request.unit_id = state_before.collision_spawn;
+            request.x = target.x;
+            request.y = target.y;
+            request.player_owner_index = target.player_owner_index;
+            request.parent = {target.handle, target.serial};
+            result.collision_spawn_request = request;
+
             target.last_collision_spawn_tick = tick;
             ++target.collision_spawn_count;
         }

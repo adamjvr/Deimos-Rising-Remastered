@@ -46,16 +46,22 @@ Deimos AIR FIRE accepted at tick ...: +5 members
 - X — selected ground weapon
 - Tab or C — cycle level-available air weapons
 
-## Regression
+## Current WIP8 regression
 
 - synthetic suite: 53/53 PASS
 - canonical Game.pak clean-core validation: PASS
 - original-data full-frame/live probe: PASS
 - live initial members: 2
-- first air-fire construction: +5 members
-- live hashes after Level-1 HUD correction:
-  - initial: `0x1eb1e07d4b6d038d`
-  - first air-fire tick: `0x1e24b6143cd762ec`
-  - tick 120: `0x13c37d4b847666f9`
+- first air-fire construction remains live and deterministic
+- static preview hashes remain unchanged
+- WIP8 live hashes after animation/orientation + ordering closure:
+  - initial: `0xcd72678207b195b7`
+  - first air-fire tick: `0x800f06651d29406a`
+  - tick 120: `0x267609db3ba6dbcc`
+- tick 120: 15 resident members / 9 groups, max active 18
+- playable lifecycle: dying@171 / respawn@252
+- Plasma Bomb: `bsde` 4.0 -> 3.6 and `pbta` normal/locked reticle PASS
+- Ion Cannon: 15-tick charge activation and `icps` release PASS
+- stress3000 bounded at maxResident=96 / finalResident=27 / pruned=1871 / farCulled=213
 
 Original PAK data is intentionally not included in this archive.

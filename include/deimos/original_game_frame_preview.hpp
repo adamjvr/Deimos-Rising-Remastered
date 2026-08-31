@@ -58,14 +58,16 @@ inline constexpr std::uint64_t kCanonicalOriginalGameRightTick1FrameFnv64 =
 
 // First full live-world integration oracles. These are regression witnesses for
 // the clean Level-1 entity/weapon/collision bridge, not claims of original
-// executable screenshot capture. They deliberately remain distinct from the
-// canonical static/no-input frame hashes above.
+// executable screenshot capture. WIP6 restores the shipped persistent pbta
+// ground-weapon reticle, so these live-only hashes include that presentation
+// layer. They deliberately remain distinct from the canonical static/no-input
+// frame hashes above.
 inline constexpr std::uint64_t kLiveWorldIntegrationInitialFrameFnv64 =
-    0x1eb1e07d4b6d038dull;
+    0xcd72678207b195b7ull;
 inline constexpr std::uint64_t kLiveWorldIntegrationFireTick1FrameFnv64 =
-    0xa0fc41ac06687be2ull;
+    0x800f06651d29406aull;
 inline constexpr std::uint64_t kLiveWorldIntegrationTick120FrameFnv64 =
-    0x055b51228f651199ull;
+    0x267609db3ba6dbccull;
 
 struct OriginalGameFrameTickResult {
     std::uint64_t tick_index = 0;
@@ -99,6 +101,16 @@ struct OriginalGameLiveTickResult {
     std::size_t particle_systems = 0;
     std::size_t active_particles = 0;
     std::size_t level_placements_activated = 0;
+
+    // Persistent ground-weapon crosshair owned by the player weapon
+    // controller in shipped PPC 0x3B3C0/0x3BAB0/0x3BD00. Coordinates are
+    // world-space sprite-center coordinates after serialized offsets.
+    bool ground_crosshair_enabled = false;
+    bool ground_crosshair_locked = false;
+    FourCC ground_crosshair_face{};
+    int ground_crosshair_frame = 0;
+    float ground_crosshair_x = 0.0f;
+    float ground_crosshair_y = 0.0f;
 };
 
 class OriginalGameFramePreview {
@@ -224,6 +236,10 @@ private:
     int live_level_number_ = 1;
     bool live_world_enabled_ = false;
 
+    // statePauseVerticalScrolling_BOOL is OR'd from processed live members and
+    // suppresses the outer terrain-scroll boundary on the following frame.
+    bool pause_vertical_scrolling_latched_ = false;
+
     [[nodiscard]] bool construct_live_entity_group(
         const SpawnRequestSeed& request,
         std::size_t* groups_created,
@@ -240,8 +256,14 @@ private:
     [[nodiscard]] bool refresh_live_score_bar_weapon_previews(
         bool mark_changed,
         std::string* error);
+    [[nodiscard]] bool refresh_live_ground_crosshair(std::string* error);
 
     LegacySpriteVisualRuntime player_visual_{};
+    LegacySpriteVisualRuntime ground_crosshair_visual_{};
+    bool ground_crosshair_enabled_ = false;
+    bool ground_crosshair_locked_ = false;
+    float ground_crosshair_x_ = 0.0f;
+    float ground_crosshair_y_ = 0.0f;
     float player_x_ = 0.0f;
     float player_y_ = 0.0f;
 

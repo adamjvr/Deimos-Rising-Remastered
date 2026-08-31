@@ -290,6 +290,14 @@ struct EntityRuntime {
     int orbit_angle_degrees = 0;
     std::optional<std::size_t> owner_location_initialized_state;
 
+    // Live sprite-animation/orientation state recovered from PPC 0x146F0,
+    // 0x15930, 0x16230 and 0x172D0. This is intentionally separate from
+    // physical heading: RotateToTarget changes visual direction only.
+    int sprite_frame = 0;
+    int animation_direction_index = 0;
+    std::uint32_t last_animation_tick = 0;
+    bool animation_stopped = false;
+
     EntityLifecycle lifecycle = EntityLifecycle::active;
     CompiledUnitBehavior behavior;
     UnitStateRuntime state;
@@ -422,6 +430,28 @@ void converge_entity_velocity(
     EntityRuntime& entity,
     const UnitDefinition& unit);
 
+// PPC 0x16230 heading-to-direction mapping. Heading 0 maps to direction 0;
+// the returned index is always in [0, number_of_directions).
+// PPC 0x33A54..0x33A78 group-delay gate. A delayed member whose
+// counter changes 1 -> 0 is eligible for the remainder of the same tick.
+[[nodiscard]] bool advance_entity_group_delay_gate(EntityRuntime& entity);
+
+[[nodiscard]] int legacy_direction_index_for_heading(
+    int heading_degrees,
+    int number_of_directions);
+
+// State-entry animation initialization (PPC 0x146F0) and per-tick animation
+// update (PPC 0x15930). Animation uses the strict legacy cadence gate
+// currentTick > lastAnimationTick + FrameDelay.
+void initialize_entity_state_animation(
+    EntityRuntime& entity,
+    std::uint32_t current_tick);
+
+void advance_entity_animation(
+    EntityRuntime& entity,
+    std::uint32_t current_tick,
+    LegacyRandom& random);
+
 struct EntityTickContext {
     std::uint32_t current_tick = 0;
 
@@ -444,11 +474,21 @@ struct EntityTickContext {
     // Lock/Link/Orbit, which the caller performs immediately afterward.
     std::function<void(EntityRuntime&)> post_range_motion_phase;
 
+    // Shipped main update runs the screen-position/lifetime routine after the
+    // target/motion decision and before owner attachment/spawn scheduling.
+    // Hosts install this phase because culling depends on presentation bounds.
+    std::function<void(EntityRuntime&)> movement_lifetime_phase;
+
     // Main member update 0x3401C..0x34054 executes Lock/Link/Orbit owner
-    // location behavior after range handling and before spawn scheduling. The
-    // portable world layer installs this phase without coupling the core state
-    // interpreter to a particular world/container implementation.
+    // location behavior after movement/range handling and before spawn
+    // scheduling. The portable world layer installs this phase without
+    // coupling the core state interpreter to a particular world/container.
     std::function<void(EntityRuntime&)> owner_location_phase;
+
+    // If present, sample spawn-scheduler host facts after movement/owner
+    // phases. This prevents Don'tSpawnOffscreen from observing stale
+    // pre-movement screen coordinates.
+    std::function<SpawnScheduleContext(const EntityRuntime&)> spawn_schedule_context_phase;
 
     // Recovered 0x43340 particle producer bridge. A missing context preserves
     // bounded headless execution while still advancing the original producer
@@ -475,8 +515,8 @@ struct EntityTickResult {
 
 // Recovered headless subset of the 1.0.6 per-member update order:
 // state-particle producer -> timer -> animation/world facts -> first matching rule -> target/Hunt/no-player
-// phase -> range -> Hold/Cyclic/Flee/convergence -> owner Lock/Link/Orbit ->
-// spawn scheduling. State actions refresh current state immediately, so later
+// phase -> range -> Hold/Cyclic/Flee/convergence -> movement/lifetime ->
+// owner Lock/Link/Orbit -> spawn scheduling. State actions refresh current state immediately, so later
 // phases in the same tick observe the new state.
 [[nodiscard]] EntityTickResult advance_entity_runtime(
     EntityRuntime& entity,

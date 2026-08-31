@@ -105,7 +105,7 @@ Already implemented from binary-confirmed behavior:
 Exit criteria:
 
 - bind recovered player lifecycle spawn/audio/UI facts into full world orchestration and finish remaining destruction orchestration; validate `deimos_apple_host` in real macOS/iPadOS view hierarchies with CPU-oracle screenshot parity and map the same completed modern presentation packet to Vulkan/D3D swapchains without changing the canonical xRGB1555 frame;
-- continue hardening the now-live scheduled world/entity construction, movement, weapons and collision slice; placement-row activation, state-rule world facts, lethal destruction effects, outer group/member removal, real decoded Media Mask water classification, and lossless collision-pair aggregation are now hosted. Next priorities are consume destruction reward/score/audio/UI consequences, instruction-close and construct surfaced collision-spawn requests, attach live particle systems with correct shared-RNG startup/order, integrate the already-recovered full player lifecycle/game-over path, then replay action bits, controller/touch, two-player behavior, menus/preferences, and remaining timing/audio triggers;
+- continue hardening the now-live scheduled world/entity construction, movement, weapons and collision slice; placement-row activation, state-rule world facts, lethal destruction effects, outer group/member removal, real decoded Media Mask water classification, and lossless collision-pair aggregation are now hosted. Next priorities are consume destruction reward/score/audio/UI consequences, consume the now-constructed collision-spawn effects and, attach live particle systems with correct shared-RNG startup/order, integrate the already-recovered full player lifecycle/game-over path, then replay action bits, controller/touch, two-player behavior, menus/preferences, and remaining timing/audio triggers;
 - feed v10005 recordings into the clean simulation as deterministic regression oracles;
 - retain original assets as the canonical content tier.
 
@@ -161,10 +161,10 @@ The first native Level-1 gameplay slice is no longer a fixture-only player over 
 
 ### Playable-host immediate follow-ons after WIP 3
 
-- recover the exact PPC outer live-list/offscreen cull caller and replace the current conservative one-viewport host guard with proven thresholds/order;
+- [x] recover the exact PPC main live-member offscreen/lifetime caller (`0x12CA0`) and replace the conservative one-viewport host guard with its proven 128px asymmetric thresholds and early ordering;
 - recover the weapon-power/power-up producer so the original HUD power meter becomes gameplay-driven rather than deliberately neutral at zero;
 - route pickup/coin and destruction audio/notice feedback into the native host;
-- close collision-spawn construction position/ownership and remaining score/reward consumers;
+- [x] close collision-spawn construction position/ownership from `0x14F10`; continue remaining score/reward/audio/UI consumers;
 - continue full Player game-over / level-completion orchestration and menu/control UI toward complete-game parity.
 
 ### Playable-host WIP 4 — charge/HUD closure
@@ -173,7 +173,42 @@ The first native Level-1 gameplay slice is no longer a fixture-only player over 
 - [x] Drive the original score-bar power meter from actual held-weapon charge state.
 - [x] Construct charge activation/release Units and release the activation visual through its serialized release state.
 - [x] Add original-data charge regression to the playable runtime probe.
-- [ ] Instruction-close the PPC caller that converts power level into release-spawner count/overload behavior; replace the current isolated host orchestration if needed.
+- [x] Instruction-close shipped weapon handler `0x3B3C0`: one release spawner per attained level at the serialized cadence; `DoReleaseOnMaxPowerLevel` controls max auto-release and `OverloadTime` does not force release in this handler.
 - [ ] Recover native audio/notice consumption for weapon charge, pickups, destruction and player warnings.
-- [ ] Close collision-spawn position/ownership and remaining pickup/reward feedback.
+- [x] Close collision-spawn position/ownership/parent request construction from `0x14F10`; continue remaining pickup/reward/audio/UI feedback.
 - [ ] Continue level completion/game-over/menu orchestration toward full-game parity.
+
+
+### Playable-host WIP 6 — secondary/respawn/reticle closure
+
+- [x] Route left/right Shift through native AppKit `flagsChanged:` while retaining X as ground fire.
+- [x] Upgrade the Plasma Bomb regression from launch-only to actual canonical ground-target damage.
+- [x] Enter live state visuals at serialized `stateSpriteFrameMin`; correct `nosw` Shield Warning away from `noti` frame 0 / GET READY.
+- [x] Mirror shipped player-death owner cleanup `0x27E50 -> 0x34B90`.
+- [x] Restore canonical `pbta` targeting reticle at `(0,-121)`, frame 0 normal / frame 1 locked, on `defa`.
+- [x] Framebuffer-validate the post-respawn sequence with no persistent GET READY text.
+- [ ] Recover and route native pickup/destruction/player-warning audio and notice lifetimes.
+- [ ] Continue game-over / level-completion / menu orchestration.
+
+### WIP7 front-end restoration checkpoint
+
+- [x] Recover 1.0.6 MBAR/MENU/DLOG/DITL/STR#/tset front-end evidence.
+- [x] Restore discoverable launch and pause menus on macOS.
+- [x] Restore original Player-1 keyboard defaults alongside modern aliases.
+- [x] Add Controls / Preferences / Restart Level / Full Screen host surfaces.
+- [ ] Recreate pixel-identical classic dialog/menu artwork only after higher-priority gameplay/audio lifecycle closure.
+- [ ] Activate Music/Sound volume and gamepad/HID preference controls when those backends are integrated.
+
+### WIP8 animation/orientation + AI-ordering checkpoint
+
+- [x] Compile recovered state animation/direction fields into the live unit behavior model.
+- [x] Implement directional initialization, strict frame cadence, finite stop, same-tick Animation-Stopped rules, and visual-only RotateToTarget.
+- [x] Correct the delayed-member `1 -> 0` same-tick activation gate.
+- [x] Reorder rule/target/motion -> movement/lifetime -> owner -> spawn -> obstacle-stop according to recovered main-loop witnesses.
+- [x] Wire `statePauseVerticalScrolling_BOOL` into a following-frame terrain-scroll latch.
+- [x] Audit Level-1 ground/spawn transforms and reject an unsupported global coordinate correction.
+- [x] Re-freeze only causally changed live oracles after isolating the old 185/266 crash timing.
+- [x] Final gates: 53/53 synthetic tests, canonical Game.pak, original-data frame probe, playable damage/charge/respawn probe, and bounded 3000-tick stress PASS.
+- [ ] Next: instruction-close remaining target/Hunt/flee/convergence edge semantics and enemy firing cadence before retuning any behavior by feel.
+- [ ] Next: route canonical pickup/destruction/player-warning audio and notices into the native host.
+- [ ] Next: close level-completion/game-over progression and continue classic front-end fidelity after gameplay lifecycle is stable.

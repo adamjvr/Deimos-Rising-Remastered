@@ -72,10 +72,20 @@ struct CompiledUnitStateBehavior {
     // 0x146F0 / 0x33E0C state-entry/update paths. Percent values are kept in
     // their serialized integer domain here; render_runtime converts scale
     // percentages to the original floating-point scale domain.
-    FourCC sprite_face{};                              // state +0x304
+    // Animation/orientation block recovered from PPC 0x146F0 / 0x15930.
+    bool animate_backwards = false;                   // state +0x300
+    bool loop_animation = false;                      // state +0x301
+    bool continuous_frame_randomisation = false;      // state +0x302
+    bool rotate_to_target = false;                    // state +0x303
+    FourCC sprite_face{};                             // state +0x304
+    int number_of_directions = 1;                     // state +0x308
     int sprite_frame_min = 0;                         // state +0x30C
     int sprite_frame_max = 0;                         // state +0x310
+    int frames_per_direction = 1;                     // state +0x314
+    int frame_delay = 0;                              // state +0x318
+    int frame_delta = 1;                              // state +0x31C
     bool use_parent_direction = false;                // state +0x324
+    bool pause_vertical_scrolling = false;            // statePauseVerticalScrolling_BOOL
     int required_visibility_percent = 0;              // state +0x3C4
     int visibility_delta_percent = 0;                 // state +0x3C8
     int required_scale_percent = 0;                   // state +0x3BC

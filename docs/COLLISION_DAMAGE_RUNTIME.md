@@ -173,3 +173,8 @@ The ordinary destruction/group consequence graph has moved to
 UnitDef `+0x4B2/+0x4B3/+0x4B4` are no longer opaque: they are proven as
 `destructCreateObstacle_BOOL`, `destructDrawToTerrain_BOOL`, and
 `destructReleaseRandomBonus_BOOL` respectively.
+
+
+## PPC Lab closure: collision-spawn constructor request (2026-08-30)
+
+Direct disassembly/execution work against the recovered shipped 1.0.6 PEF closes `0x1516C..0x1525C`. When the pre-hit state's collision-spawn gate fires, the routine copies the canonical 44-byte default spawn-request template, then overwrites only: `+0x00` Unit ID, `+0x04/+0x08` damaged target x/y, `+0x14` damaged target player-owner byte, and `+0x20/+0x24` the damaged target pointer/serial safe reference. The remaining defaults are no world-Y subtraction, no explicit heading, non-stationary, terrain-effects disabled, and initial velocity multiplier 1.0. The clean `CollisionDamageResult` now returns that complete `SpawnRequestSeed`, and the owning world constructs requests after stable collision traversal in exact pair-leg order.

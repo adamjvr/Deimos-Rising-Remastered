@@ -16,6 +16,7 @@
 #include <array>
 #include <cctype>
 #include <filesystem>
+#include <iterator>
 #include <optional>
 #include <span>
 #include <string>
@@ -498,13 +499,18 @@ bool OriginalGameFramePreview::refresh_live_entity_visual(
         record.handle = entity.handle;
         record.state_index = entity.state.current_state;
         record.visual = initialise_legacy_sprite_visual(
-            entity.behavior, entity.state.current_state, visual_random_, 0);
+            entity.behavior, entity.state.current_state, visual_random_,
+            entity.sprite_frame);
         live_visuals_.push_back(std::move(record));
         it = std::prev(live_visuals_.end());
     } else if (it->state_index != entity.state.current_state) {
+        const auto& visual_state = entity.behavior.states[entity.state.current_state];
         apply_legacy_state_visual_targets(
-            it->visual, entity.behavior.states[entity.state.current_state], 0);
+            it->visual, visual_state, entity.sprite_frame);
         it->state_index = entity.state.current_state;
+    } else if (it->visual.sprite_frame != entity.sprite_frame) {
+        it->visual.sprite_frame = entity.sprite_frame;
+        it->visual.bounds_dirty = true;
     }
 
     if (!ensure_sprite_loaded(sprite_cache_, *game_pak_, it->visual.sprite_face, error)) return false;
@@ -513,6 +519,72 @@ bool OriginalGameFramePreview::refresh_live_entity_visual(
     }
     entity.collision_half_width = it->visual.half_width;
     entity.collision_half_height = it->visual.half_height;
+    return true;
+}
+
+bool OriginalGameFramePreview::refresh_live_ground_crosshair(std::string* error) {
+    ground_crosshair_enabled_ = false;
+    ground_crosshair_locked_ = false;
+
+    if (!live_world_enabled_ || !game_pak_) return true;
+    const auto* weapon = selected_live_ground_weapon(weapon_catalog_, weapon_state_);
+    if (!weapon || absent(weapon->crosshair_face)) return true;
+
+    // Shipped sprite-base constructor 0x12650 seeds layer 'defa'. The weapon
+    // controller at 0x3B3C0 then copies selected-ground +0x168/+0x16C into
+    // that persistent sprite. 0x3C4F0 proves the sprite center is controller
+    // (player) position plus the serialized +0x178/+0x17C offsets: it computes
+    // playerY-crosshairY and divides by abs(+0x17C) for ground launch geometry.
+    ground_crosshair_x_ = player_runtime_.x + static_cast<float>(weapon->crosshair_x_offset);
+    ground_crosshair_y_ = player_runtime_.y + static_cast<float>(weapon->crosshair_y_offset);
+
+    if (!ensure_sprite_loaded(sprite_cache_, *game_pak_, weapon->crosshair_face, error)) return false;
+
+    LegacySpriteVisualRuntime probe;
+    probe.sprite_face = weapon->crosshair_face;
+    probe.sprite_frame = weapon->crosshair_frame;
+    probe.draw_layer = fourcc('d','e','f','a');
+    probe.world_space = true;
+    probe.visibility_percent = 100.0f;
+    probe.required_visibility_percent = 100.0f;
+    probe.scale = 1.0f;
+    probe.required_scale = 1.0f;
+    probe.bounds_dirty = true;
+    if (!refresh_legacy_sprite_geometry(probe, sprite_cache_)) {
+        return fail(error, "failed to resolve ground crosshair sprite geometry: " + weapon->crosshair_face.str());
+    }
+
+    // PPC target scan calls 0x3BAB0(controller,1) when the reticle rectangle
+    // overlaps an eligible ground entity. Mirror the proven AABB decision in
+    // the clean stable-handle world; projectiles/effects that are not hittable
+    // by player projectiles are intentionally excluded.
+    for (const auto& entity : entity_world_.members()) {
+        if (entity.lifecycle != EntityLifecycle::active) continue;
+        if (entity.behavior.collision_domain != fourcc('g','r','n','d')) continue;
+        if (!entity.behavior.can_be_hit_by_player_projectile) continue;
+        const float dx = std::abs(entity.x - ground_crosshair_x_);
+        const float dy = std::abs(entity.y - ground_crosshair_y_);
+        if (dx <= static_cast<float>(entity.collision_half_width + probe.half_width) &&
+            dy <= static_cast<float>(entity.collision_half_height + probe.half_height)) {
+            ground_crosshair_locked_ = true;
+            break;
+        }
+    }
+
+    const FourCC face = ground_crosshair_locked_ && !absent(weapon->crosshair_locked_face)
+        ? weapon->crosshair_locked_face : weapon->crosshair_face;
+    const int frame = ground_crosshair_locked_
+        ? weapon->crosshair_locked_frame : weapon->crosshair_frame;
+    if (!ensure_sprite_loaded(sprite_cache_, *game_pak_, face, error)) return false;
+
+    ground_crosshair_visual_ = probe;
+    ground_crosshair_visual_.sprite_face = face;
+    ground_crosshair_visual_.sprite_frame = frame;
+    ground_crosshair_visual_.bounds_dirty = true;
+    if (!refresh_legacy_sprite_geometry(ground_crosshair_visual_, sprite_cache_)) {
+        return fail(error, "failed to resolve locked ground crosshair sprite geometry: " + face.str());
+    }
+    ground_crosshair_enabled_ = true;
     return true;
 }
 
@@ -641,6 +713,7 @@ bool OriginalGameFramePreview::enable_live_world(std::string* error) {
     entity_world_ = {};
     player_world_ = {};
     live_visuals_.clear();
+    pause_vertical_scrolling_latched_ = false;
     entity_identities_ = {};
     entity_random_ = LegacyRandom{1};
     visual_random_ = LegacyRandom{1};
@@ -700,6 +773,10 @@ bool OriginalGameFramePreview::enable_live_world(std::string* error) {
     }
 
     live_world_enabled_ = true;
+    if (!refresh_live_ground_crosshair(error)) {
+        live_world_enabled_ = false;
+        return false;
+    }
     return true;
 }
 
@@ -714,6 +791,13 @@ OriginalGameLiveTickResult OriginalGameFramePreview::tick_live(
     // coordinates all consume this same object during the tick. player_runtime_
     // is only the public/static-preview mirror at the live boundary.
     auto& live_player = player_world_.slots()[0];
+
+    // PPC 0x12C10 advances the shared sprite-base hit/pickup glow once per
+    // game tick. Trigger calls occur later in collision/pickup processing, so
+    // a newly requested pulse renders first at amount 32 and begins becoming
+    // visible on the following tick, matching the shipped update order.
+    tick_legacy_collision_glow(player_visual_);
+    for (auto& record : live_visuals_) tick_legacy_collision_glow(record.visual);
 
     std::vector<SpawnRequestSeed> player_effect_spawns;
     const auto queue_player_effect = [&](FourCC id, const PlayerRuntimeSlot& player, int count = 1) {
@@ -752,13 +836,21 @@ OriginalGameLiveTickResult OriginalGameFramePreview::tick_live(
     const std::size_t pre_scroll_member_count = entity_world_.members().size();
     const std::size_t placements_before_scroll = level_activation_.activated_count();
     bool activation_ok = true;
-    result.frame.terrain_reached_end = tick_legacy_terrain_scroll(
-        terrain_runtime_, persistent_terrain_, [&](int world_y) {
-            if (!activation_ok) return;
-            activation_ok = activate_live_level_row(
-                world_y, &result.constructed_groups, &result.constructed_members, error);
-        });
-    if (!activation_ok) return result;
+    if (!pause_vertical_scrolling_latched_) {
+        result.frame.terrain_reached_end = tick_legacy_terrain_scroll(
+            terrain_runtime_, persistent_terrain_, [&](int world_y) {
+                if (!activation_ok) return;
+                activation_ok = activate_live_level_row(
+                    world_y, &result.constructed_groups, &result.constructed_members, error);
+            });
+        if (!activation_ok) return result;
+    } else {
+        // The pause latch lives outside the terrain runtime in the shipped
+        // outer loop. Do not consume vertical progress or activate rows while
+        // held, and explicitly clear the per-frame camera delta.
+        terrain_runtime_.applied_vertical_delta = 0;
+        result.frame.terrain_reached_end = terrain_runtime_.reached_end;
+    }
     result.level_placements_activated =
         level_activation_.activated_count() - placements_before_scroll;
     const int terrain_delta = terrain_runtime_.applied_vertical_delta;
@@ -858,16 +950,14 @@ OriginalGameLiveTickResult OriginalGameFramePreview::tick_live(
     }
 
     std::vector<SpawnRequestSeed> pending_spawns;
+    bool pause_vertical_scrolling_this_frame = false;
     const std::size_t update_count = entity_world_.members().size();
     for (std::size_t i = 0; i < update_count; ++i) {
         auto& entity = entity_world_.members()[i];
         if (entity.lifecycle != EntityLifecycle::active) continue;
         const auto* unit = game_definitions_->find_unit(entity.unit_id);
         if (!unit) continue;
-        if (entity.group_delay_ticks > 0) {
-            --entity.group_delay_ticks;
-            continue;
-        }
+        if (!advance_entity_group_delay_gate(entity)) continue;
 
         // The air-weapon charge activation object is explicitly player-owned
         // and its current state is Lock-to-owner. The clean EntityReference
@@ -894,17 +984,8 @@ OriginalGameLiveTickResult OriginalGameFramePreview::tick_live(
             }
         }
 
-        // Strongly corpus-corroborated screen integration: heading 0 is +Y in
-        // the legacy velocity vector and player projectiles with heading 0 move
-        // north, so visible-screen Y subtracts velocity Y.
-        advance_live_entity_screen_position(entity);
-
-        // Main member tick 0x344F8..0x34578 queries the persistent obstacle
-        // list after movement for non-stationary ground-domain members. A hit
-        // zeros velocity and latches stationary without rolling position back.
-        (void)apply_legacy_ground_obstacle_stop(entity, ground_obstacles_);
-
         const auto previous_state = entity.state.current_state;
+        const int previous_sprite_frame = entity.sprite_frame;
         EntityTickContext context;
         context.current_tick = static_cast<std::uint32_t>(ticks_elapsed_);
         context.particle_execution = {&particle_runtime_, &particle_tuning_};
@@ -932,22 +1013,49 @@ OriginalGameLiveTickResult OriginalGameFramePreview::tick_live(
             rule_world.scale = visual_for_rules->visual.scale;
             rule_world.required_scale = visual_for_rules->visual.required_scale;
         }
-        context.facts_for_rule = [rule_world](const CompiledStateRule& rule, std::size_t) {
-            return build_unit_rule_world_facts(rule, rule_world);
+        context.facts_for_rule = [rule_world, &entity](
+                                     const CompiledStateRule& rule, std::size_t) mutable {
+            auto current = rule_world;
+            // Animation is advanced inside advance_entity_runtime(), after this
+            // host context is assembled, so sample the live stopped bit here.
+            current.animation_stopped = entity.animation_stopped;
+            return build_unit_rule_world_facts(rule, current);
         };
 
-        context.spawn_schedule.parent_is_fleeing = entity.fleeing;
-        context.spawn_schedule.parent_is_onscreen =
-            entity.x + entity.collision_half_width >= 0.0f &&
-            entity.x - entity.collision_half_width < static_cast<float>(presentation_config_.visible_game_width) &&
-            entity.y + entity.collision_half_height >= 0.0f &&
-            entity.y - entity.collision_half_height < static_cast<float>(presentation_config_.visible_game_height);
-        context.spawn_schedule.current_rotation_pause_ticks = entity.rotation_pause_ticks;
+        context.movement_lifetime_phase = [&](EntityRuntime& live) {
+            // Strongly corpus-corroborated screen integration: heading 0 is +Y
+            // in velocity space and visible-screen Y subtracts velocity Y.
+            advance_live_entity_screen_position(live);
+            if (!legacy_live_entity_within_main_tick_bounds(
+                    live,
+                    presentation_config_.visible_game_width,
+                    presentation_config_.visible_game_height,
+                    128)) {
+                live.lifecycle = EntityLifecycle::deleted;
+                live.destroyed_by_owner_index = -1;
+                ++result.far_offscreen_culled;
+            }
+        };
+
+        context.spawn_schedule_context_phase = [&](const EntityRuntime& live) {
+            SpawnScheduleContext schedule;
+            schedule.parent_is_fleeing = live.fleeing;
+            schedule.parent_is_onscreen =
+                live.x + live.collision_half_width >= 0.0f &&
+                live.x - live.collision_half_width <
+                    static_cast<float>(presentation_config_.visible_game_width) &&
+                live.y + live.collision_half_height >= 0.0f &&
+                live.y - live.collision_half_height <
+                    static_cast<float>(presentation_config_.visible_game_height);
+            schedule.current_rotation_pause_ticks = live.rotation_pause_ticks;
+            return schedule;
+        };
 
         const auto tick_result = advance_entity_runtime_with_players(
             entity_world_, entity, *unit, context, player_world_, entity_random_, entity_trig_);
         if (entity.lifecycle != EntityLifecycle::active) continue;
-        if (previous_state != entity.state.current_state) {
+        if (previous_state != entity.state.current_state ||
+            previous_sprite_frame != entity.sprite_frame) {
             if (!refresh_live_entity_visual(entity, error)) return result;
         } else {
             auto visual = std::find_if(live_visuals_.begin(), live_visuals_.end(), [&](const auto& record) {
@@ -981,32 +1089,26 @@ OriginalGameLiveTickResult OriginalGameFramePreview::tick_live(
                 pending_spawns.push_back(*seed);
             }
         }
+
+        // PPC 0x344F8..0x34578 performs ground-obstacle stopping in the later
+        // main-tick slot. Building due spawn requests above deliberately sees
+        // the pre-stop stationary/terrain-effect state.
+        (void)apply_legacy_ground_obstacle_stop(entity, ground_obstacles_);
+
+        if (entity.lifecycle == EntityLifecycle::active &&
+            entity.state.current_state < entity.behavior.states.size()) {
+            pause_vertical_scrolling_this_frame =
+                pause_vertical_scrolling_this_frame ||
+                entity.behavior.states[entity.state.current_state].pause_vertical_scrolling;
+        }
     }
+
+    // This frame's state OR controls the next frame's outer terrain boundary.
+    pause_vertical_scrolling_latched_ = pause_vertical_scrolling_this_frame;
 
     for (const auto& request : pending_spawns) {
         if (!construct_live_entity_group(
                 request, &result.constructed_groups, &result.constructed_members, error)) return result;
-    }
-
-    // The classic engine owns intrusive live lists and does not keep entities
-    // travelling indefinitely many screens away. The exact outer-list cull
-    // caller is not instruction-closed yet, so use a deliberately generous
-    // one-full-viewport guard band in the portable playable host. Nothing
-    // near the visible/activation boundary is touched; only objects that are
-    // completely more than one screen away are marked for normal deletion and
-    // then pass through the recovered outer removal transaction below.
-    const int cull_x_margin = presentation_config_.visible_game_width;
-    const int cull_y_margin = presentation_config_.visible_game_height;
-    for (auto& entity : entity_world_.members()) {
-        if (entity.lifecycle != EntityLifecycle::active) continue;
-        const auto bounds = legacy_collision_bounds(entity);
-        if (bounds.max_x < -cull_x_margin ||
-            bounds.min_x > presentation_config_.visible_game_width + cull_x_margin ||
-            bounds.max_y < -cull_y_margin ||
-            bounds.min_y > presentation_config_.visible_game_height + cull_y_margin) {
-            entity.lifecycle = EntityLifecycle::deleted;
-            ++result.far_offscreen_culled;
-        }
     }
 
     const auto definition_for_unit = [this](FourCC id) -> const UnitDefinition* {
@@ -1037,6 +1139,7 @@ OriginalGameLiveTickResult OriginalGameFramePreview::tick_live(
     // recovered 0x43340 bridge at their inline collision/destruction sites.
 
     LegacyRemovalTrace collision_removal_trace;
+    std::vector<SpawnRequestSeed> pending_collision_spawns;
     const std::size_t collision_scan_count = entity_world_.members().size();
     for (std::size_t i = 0; i < collision_scan_count; ++i) {
         auto& entity = entity_world_.members()[i];
@@ -1047,8 +1150,29 @@ OriginalGameLiveTickResult OriginalGameFramePreview::tick_live(
             &removal_context, &collision_removal_trace);
         result.collisions += collision.collisions_applied;
         for (const auto& pair : collision.pairs) {
-            if (pair.first_damage.collision_spawn_due) ++result.collision_spawns_due;
-            if (pair.second_damage.collision_spawn_due) ++result.collision_spawns_due;
+            const auto trigger_entity_hit_glow = [&](const CollisionDamageResult& damage, EntityHandle target) {
+                if (!damage.collision_glow_due || target == kNoEntityHandle) return;
+                const auto visual = std::find_if(
+                    live_visuals_.begin(), live_visuals_.end(),
+                    [&](const auto& record) { return record.handle == target; });
+                if (visual != live_visuals_.end()) {
+                    // 0x14F10 calls 0x12BC0(target, 0x7FFF, 6, 0).
+                    trigger_legacy_collision_glow(visual->visual, {255,255,255}, 6, false);
+                }
+            };
+            trigger_entity_hit_glow(pair.first_damage, pair.first_damage_target);
+            trigger_entity_hit_glow(pair.second_damage, pair.second_damage_target);
+
+            const auto queue_collision_spawn = [&](const CollisionDamageResult& damage) {
+                if (!damage.collision_spawn_request) return;
+                pending_collision_spawns.push_back(*damage.collision_spawn_request);
+                ++result.collision_spawns_due;
+            };
+            // 0x14F10 executes first-leg then second-leg damage in this order;
+            // preserve that constructor-request order while deferring actual
+            // vector-growing construction until stable collision traversal ends.
+            queue_collision_spawn(pair.first_damage);
+            queue_collision_spawn(pair.second_damage);
 
             // PPC 0x14F10 produces the target Unit score exactly when shields
             // deplete. Route that already-recovered fact to the owning player
@@ -1070,12 +1194,38 @@ OriginalGameLiveTickResult OriginalGameFramePreview::tick_live(
         callbacks.try_pickup = [this, &queue_player_effect](PlayerRuntimeSlot& player, const EntityRuntime& pickup) {
             const auto picked = apply_legacy_player_pickup(player, pickup, player_definition_);
             if (picked.spawn_due) queue_player_effect(*picked.spawn_due, player);
+            if (picked.feedback_due) {
+                // Coin pickup path 0x37674..0x37688 calls the same shared
+                // 0x12BC0 pulse as ordinary collision glow: white, rate 6,
+                // no restart while an existing pulse is active.
+                trigger_legacy_collision_glow(player_visual_, {255,255,255}, 6, false);
+            }
             return picked.accepted;
         };
-        callbacks.apply_player_damage = [this, &queue_player_effect](PlayerRuntimeSlot& player, float damage, std::uint32_t tick) {
+        callbacks.apply_player_damage = [this, &queue_player_effect, &removal_context, &collision_removal_trace](PlayerRuntimeSlot& player, float damage, std::uint32_t tick) {
             const auto damaged = apply_legacy_player_damage(
                 player, player_definition_, damage, tick,
                 player_runtime_globals_.delay_between_hit_spawns, &player_runtime_resources_);
+
+            // Shipped player-death helper 0x27E50 calls 0x34B90(playerIndex)
+            // before constructing the death spawn and money drops. That pass
+            // immediately destroys/deletes player-owned effects whose current
+            // states opt into owner cleanup (including Shield Warning `nosw`).
+            // Preserve those consequences in the same stable collision trace;
+            // no vector-growing constructors execute until traversal finishes.
+            if (damaged.death_entered) {
+                auto owner_cleanup = remove_legacy_player_owned_entities_on_death(
+                    entity_world_, player.player_index, removal_context, entity_random_);
+                collision_removal_trace.consequences.insert(
+                    collision_removal_trace.consequences.end(),
+                    std::make_move_iterator(owner_cleanup.consequences.begin()),
+                    std::make_move_iterator(owner_cleanup.consequences.end()));
+                collision_removal_trace.removals.insert(
+                    collision_removal_trace.removals.end(),
+                    std::make_move_iterator(owner_cleanup.removals.begin()),
+                    std::make_move_iterator(owner_cleanup.removals.end()));
+            }
+
             if (damaged.spawn_on_hit_due) queue_player_effect(*damaged.spawn_on_hit_due, player);
             if (damaged.shield_warning_due) queue_player_effect(*damaged.shield_warning_due, player);
             if (damaged.death_spawn_due) queue_player_effect(*damaged.death_spawn_due, player);
@@ -1086,13 +1236,47 @@ OriginalGameLiveTickResult OriginalGameFramePreview::tick_live(
         LegacyPlayerCollisionViewport viewport{
             presentation_config_.visible_game_width,
             presentation_config_.visible_game_height};
-        (void)scan_legacy_player_collisions(
+        const auto player_collision = scan_legacy_player_collisions(
             entity_world_, entity, player_world_, viewport,
             static_cast<std::uint32_t>(ticks_elapsed_), definition_for_unit,
             entity_random_, callbacks,
             player_runtime_globals_.impact_damage_to_entities,
             player_runtime_globals_.entity_hit_delay_ticks,
             &removal_context, &collision_removal_trace);
+
+        // The player-impact path invokes the same 0x14F10 entity damage
+        // routine as entity/entity collision. Preserve its returned glow,
+        // collision-spawn constructor request and score attribution rather
+        // than discarding the aggregate PlayerCollisionScanResult.
+        for (const auto& event : player_collision.events) {
+            const auto& damage = event.entity_damage;
+            if (damage.collision_glow_due && event.entity_damage_target != kNoEntityHandle) {
+                const auto visual = std::find_if(
+                    live_visuals_.begin(), live_visuals_.end(),
+                    [&](const auto& record) { return record.handle == event.entity_damage_target; });
+                if (visual != live_visuals_.end()) {
+                    trigger_legacy_collision_glow(visual->visual, {255,255,255}, 6, false);
+                }
+            }
+            if (damage.collision_spawn_request) {
+                pending_collision_spawns.push_back(*damage.collision_spawn_request);
+                ++result.collision_spawns_due;
+            }
+            if (damage.score_award != 0 && event.player_index == live_player.player_index) {
+                const auto score = apply_legacy_player_score(
+                    live_player, player_definition_, player_score_globals_, damage.score_award);
+                if (score.life_spawn_due) queue_player_effect(*score.life_spawn_due, live_player);
+            }
+        }
+    }
+
+    // Collision Spawn_ID construction is inline inside shipped damage routine
+    // 0x14F10, but the clean EntityWorld stores members in a vector. Construct
+    // only after all collision/player-collision traversal has released live
+    // references, retaining exact pair/leg request order without invalidation.
+    for (const auto& request : pending_collision_spawns) {
+        if (!construct_live_entity_group(
+                request, &result.constructed_groups, &result.constructed_members, error)) return result;
     }
 
     // PPC 0x36610 is a distinct outer pass over now-inactive members. Keep it
@@ -1171,6 +1355,13 @@ OriginalGameLiveTickResult OriginalGameFramePreview::tick_live(
     player_runtime_ = live_player;
     player_x_ = live_player.x;
     player_y_ = live_player.y;
+    if (!refresh_live_ground_crosshair(error)) return result;
+    result.ground_crosshair_enabled = ground_crosshair_enabled_;
+    result.ground_crosshair_locked = ground_crosshair_locked_;
+    result.ground_crosshair_face = ground_crosshair_visual_.sprite_face;
+    result.ground_crosshair_frame = ground_crosshair_visual_.sprite_frame;
+    result.ground_crosshair_x = ground_crosshair_x_;
+    result.ground_crosshair_y = ground_crosshair_y_;
     advance_legacy_score_bar_player(
         score_bar_player_, player_runtime_, score_bar_weapon_input_, score_bar_config_);
     score_bar_weapon_input_.previews_changed = false;
@@ -1205,6 +1396,17 @@ bool OriginalGameFramePreview::render(
     render_context.world_y_origin = terrain_runtime_.source_view.top;
     render_context.render_sequence = render_sequence_++;
     render_context.immediate = false;
+
+    if (live_world_enabled_ && ground_crosshair_enabled_ &&
+        player_runtime_.enabled &&
+        player_runtime_.status == static_cast<int>(LegacyPlayerStatus::active)) {
+        LegacyRenderOrchestrationContext crosshair_context = render_context;
+        crosshair_context.world_x = ground_crosshair_x_;
+        crosshair_context.world_y = ground_crosshair_y_;
+        (void)submit_legacy_sprite_render(
+            ground_crosshair_visual_, sprite_cache_, shadow_config_, crosshair_context,
+            render_queue_, game_surface_, persistent_terrain_, {}, {}, {});
+    }
 
     if (!live_world_enabled_ ||
         (player_runtime_.enabled &&

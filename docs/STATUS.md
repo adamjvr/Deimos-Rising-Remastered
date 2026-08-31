@@ -398,7 +398,7 @@ Native playtesting exposed four host-integration gaps that did not show up in th
 The playable host now closes those gaps as follows:
 
 - `EntityWorld::prune_finalized_history()` removes only inactive members whose recovered outer removal pass has completed, then removes genuinely empty finalized groups. This mirrors the original intrusive-list lifetime instead of retaining every dead projectile/member in portable vectors forever.
-- `tick_live()` additionally applies a **conservative playable-host far-offscreen bound**: an entity must be completely more than one full visible viewport beyond the game rectangle before it is marked for ordinary deletion. The exact PPC outer-list cull caller is not yet instruction-closed, so this guard is documented as a bounded host policy rather than claimed original threshold semantics.
+- `tick_live()` now mirrors the shipped main-tick lifetime gate instead of using a host safety bound. PPC Lab execution of original 1.0.6 routine `0x12CA0` proves the main caller passes margin **128** after movement and deletes immediately on false. Boundary sweeps close the asymmetric predicate: left uses `x+halfWidth >= -128`, right `x-halfWidth <= width+128`, top uses origin `y >= -128`, and bottom uses `y-halfHeight <= height+128`; equality survives. The gate now runs before obstacle/state/collision work, matching the original ordering.
 - the recovered particle producer bridge is live for state, collision-hit and destruction producers; `0x438C0` update/prune runs every live tick and the world renderer now receives the live particle-system span.
 - player-collision orchestration now consumes `LegacyPlayerDamageResult` and `LegacyPlayerPickupResult` consequences instead of dropping them. `active_SpawnOnHit`, shield-warning object, `death_Spawn`, extra-life/entry spawn, and death money-drop objects are deferred safely until collision traversal completes.
 - `advance_legacy_player_lifecycle()` is now part of the live host. Dying Player 1 cannot move/fire, the ship sprite is hidden during non-active states, death timing decrements lives, respawn restores the canonical entry location/default shield, and entry effects are constructed.
@@ -408,15 +408,15 @@ The playable host now closes those gaps as follows:
 External canonical-Pak playable-runtime validation now proves:
 
 - deliberate opening-lane ram: first dying status at tick 185, respawn at tick 266, lives 3 -> 2, shield restored to 100, seven player-effect object spawns, and visible particle activity;
-- 3000-tick continuous primary-fire / periodic-ground-fire stress: max 91 resident/active members, 14 final resident members, 1762 finalized member records pruned and 201 conservative far-offscreen deletions on the current deterministic run;
+- 3000-tick continuous primary-fire / periodic-ground-fire stress after exact `0x12CA0` lifetime closure: max 114 resident/active members, 10 final resident members, 1862 finalized member records pruned and 236 original-threshold far-offscreen deletions on the current deterministic run;
 - the same stress dropped from roughly 14.5 s before the offscreen bound to roughly 3.6-3.8 s headless in the current container while preserving gameplay placement boundaries.
 
-All 53 repository tests pass. `deimos_reference_probe` passes the canonical Game.pak corpus. `deimos_original_frame_probe` preserves the four pre-live canonical frame hashes and now freezes the live witness at initial `0x1eb1e07d4b6d038d`, first-fire `0xa0fc41ac06687be2`, and tick-120 `0x055b51228f651199`, with 16 resident members / 10 resident groups at tick 120, 9 removals, 12 removal consequences, one player-effect spawn, two conservative far-offscreen deletions, nine pruned finalized members, and max 25 active particles.
+All 53 repository tests pass. `deimos_reference_probe` passes the canonical Game.pak corpus. `deimos_original_frame_probe` preserves the four pre-live canonical frame hashes and now freezes the live witness at initial `0x1eb1e07d4b6d038d`, first-fire `0xa0fc41ac06687be2`, and tick-120 `0x055b51228f651199`, with 16 resident members / 10 resident groups at tick 120, 9 removals, 12 removal consequences, one player-effect spawn, two exact `0x12CA0` far-offscreen deletions, nine pruned finalized members, max 25 active particles, and max 19 active live members.
 
 ### 2026-08-30 live weapon-charge / HUD-power checkpoint
 
 - The live air-weapon bridge now compiles the canonical `powerup_Air_*` fields from Weapon Definitions instead of leaving them unused.
-- Level-1 Ion Cannon data drives hold-to-charge behavior: activation delay 15 ticks, activation Unit `icpo`, power-level interval 2 ticks, maximum level 20, overload timer 180, release Unit `icps`, release cadence 1 tick.
+- Level-1 Ion Cannon data drives hold-to-charge behavior: activation delay 15 ticks, activation Unit `icpo`, power-level interval 2 ticks, maximum level 20, serialized `OverloadTime` 180, release Unit `icps`, release cadence 1 tick. Direct PPC Lab execution of shipped handler `0x3B3C0` proves `OverloadTime` does **not** force an automatic release in this handler.
 - The recovered score-bar power meter is now fed from live charge percentage rather than being held at a deliberately neutral zero.
 - Charged release transitions the matching player-owned activation Unit into the state marked `stateUseThisStateOnWeaponPowerupRelease_BOOL` and schedules canonical release-spawner Units.
 - The player-owned Lock-to-owner bridge is intentionally restricted to the selected weapon's activation Unit; broad player-owner locking was rejected because it perturbed established live-world oracles.
@@ -424,4 +424,39 @@ All 53 repository tests pass. `deimos_reference_probe` passes the canonical Game
 - Current playable stress with continuous primary charge plus periodic Plasma Bomb: max resident 111, final resident 18, 2,264 finalized members pruned, 269 far-offscreen members culled on the reference host.
 - Baseline live-frame integration hashes remain unchanged for initial, first ordinary fire and tick 120.
 
-Fidelity note: the serialized power-up field meanings and Unit identities are original-data-backed; the exact PPC outer caller that maps attained power level to repeated release-spawner count is not yet instruction-closed. The clean host currently emits one canonical release spawner per attained power level at the serialized cadence, kept isolated behind the live weapon bridge for later exact replacement.
+Fidelity note: shipped handler `0x3B3C0` is now instruction-closed for this charge/release slice. It emits one `ReleaseSpawn_ID` per attained power level at `TimeBetweenReleaseSpawns`, decrementing the stored level once per emitted spawner. `DoReleaseOnMaxPowerLevel` is the proven max-charge automatic-release switch; the serialized `OverloadTime` field is preserved but is not consumed as an automatic-release timer by this handler.
+
+### 2026-08-30 PPC WIP5 hit/pickup feedback closure
+
+- Shipped sprite/player feedback helpers `0x12BC0` / `0x12C10` are now live. Canonical collision/coin pulse is white (`0x7FFF`), rate 6, and follows raw legacy effect amounts `32 -> 26 -> 20 -> 14 -> 8 -> 4 -> 10 -> 16 -> 22 -> 28 -> 32/off`.
+- Entity/entity damage triggers the recovered collision-glow pass when the pre-hit state permits it; accepted coin pickup triggers the same pulse on Player 1.
+- Player-vs-entity impact no longer discards its returned `CollisionDamageResult`: ram hits now consume entity glow, instruction-closed collision-spawn requests, and player-attributed score before reciprocal player damage continues.
+- Regression remains 53/53 PASS; all original/static/live frame hashes remain unchanged; playable crash remains dying@185 / respawn@266, Plasma Bomb and charge gates pass, and the 3000-tick stress remains bounded at maxResident 114 / finalResident 10 / pruned 1862 / exact culls 236.
+
+
+### 2026-08-30 WIP6 secondary / respawn / reticle closure
+
+- macOS left/right Shift now reaches ground fire through AppKit `flagsChanged:`; X remains a ground-fire key.
+- the canonical Plasma Bomb gate proves real ground damage (`bsde` shields 4.0 -> 3.6), not merely request construction.
+- state visuals enter at `stateSpriteFrameMin`, so Shield Warning `nosw` uses `noti` frame 4 rather than GET READY frame 0.
+- player death mirrors shipped `0x27E50 -> 0x34B90` owner cleanup before death consequences, preventing player-owned warnings/effects from surviving their owner when the state requests destruction/deletion.
+- the canonical `pbta` ground reticle is persistent on layer `defa`, anchored at player plus serialized offset `(0,-121)`, normal frame 0 and locked frame 1 on eligible ground-target overlap.
+- framebuffer verification across ticks 266..320 confirms the stale GET READY presentation is gone after respawn.
+- live-only frame witnesses with restored reticle: `0xbdf7558de9357ff7`, `0x036bb03279ae5b48`, `0x8e4063956c4df5cc`; static witnesses are unchanged.
+- repository synthetic suite: **53/53 PASS**.
+
+### 2026-08-30 — WIP7 front-end/control restoration
+
+The playable macOS host no longer drops directly into combat with undocumented controls. Original 1.0.6 resource-fork evidence closes the Player-1 keyboard defaults (Arrows, Option=Air, Command=Ground, Space=Select) and the shipped Preferences/Controls surface. The native host now has launch, pause, Game/View/Help menus, control discovery, restart, fullscreen access, and preference documentation while pausing the simulation safely. Modern WASD/Z/X/Shift/C/Tab aliases remain available. Exact classic DLOG/DITL artwork rendering and active audio/gamepad preference backends remain open.
+
+## 2026-08-30 — WIP8 animation/orientation + AI ordering closure
+
+The live entity layer now implements the recovered `0x146F0`/`0x15930` state-animation block instead of treating sprite frame and `Animation Stopped` as static presentation data. Directional states initialize from physical/editor heading, `0x16230` heading-to-frame mapping is regression-tested, finite animation can drive `This Entity's Animation Has Stopped` rules in the same tick, and `0x172D0` RotateToTarget changes visual direction without mutating physical heading. Static atlas selectors still honor serialized `stateSpriteFrameMin`, preserving the WIP7 Shield Warning / GET READY correction.
+
+The main live-member host now places movement/lifetime after animation/rules/target/motion, retains owner Lock/Link/Orbit before spawn scheduling, and moves ground-obstacle stopping to the proven later slot after due child spawn requests are built. Delayed groups now implement the shipped `1 -> 0` same-tick activation rule. `statePauseVerticalScrolling_BOOL` is OR'd into a following-frame terrain-scroll latch; long Level-1 encounter holds reappear in the same regions found during PPC research.
+
+The ground-placement audit rejected a global coordinate correction. Level placements deliberately subtract the terrain world origin during construction, whereas child absolute spawn sets deliberately start from zero and leave the constructor subtract flag clear; relative/rotated child spawns use the recovered parent-based geometry. Moving all ground objects would break that binary-confirmed distinction.
+
+Regression investigation showed the old dying@185 / respawn@266 playable timing is not stable once the previously missing animation/orientation/Animation-Stopped layer executes: full WIP8 is dying@171 / respawn@252. Disabling animation while retaining WIP8 ordering yields 184/265; additionally restoring the WIP7 delay gate yields exactly 185/266, isolating the shift rather than blindly accepting it. Static preview hashes are unchanged. WIP8 live-only hashes are initial `0xcd72678207b195b7`, first air-fire `0x800f06651d29406a`, tick-120 `0x267609db3ba6dbcc`; the 120-tick probe ends at 15 resident members / 9 groups and peaks at 18 active. See `docs/WIP8_ANIMATION_AI_ORDERING.md`.
+
+Final WIP8 post-documentation freeze gate: repository rebuild PASS; synthetic suite **53/53 PASS**; canonical Game.pak clean-core probe PASS; original-data frame probe PASS with unchanged static hashes and live `0xcd72678207b195b7` / `0x800f06651d29406a` / `0x267609db3ba6dbcc`; playable-runtime probe PASS at dying@171 / respawn@252, Plasma Bomb `bsde` 4.0 -> 3.6, Ion Cannon activation=15 ticks / `icps` release, and stress3000 maxResident=96 / finalResident=27 / maxActive=96 / pruned=1871 / farCulled=213.
