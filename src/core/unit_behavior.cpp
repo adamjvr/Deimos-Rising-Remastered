@@ -101,6 +101,8 @@ CompiledUnitBehavior compile_unit_behavior(const UnitDefinition& unit) {
     out.initial_visibility_percent = core_int(unit, "initialVisibilityPercent_INT");
     out.draw_layer = core_id(unit, "drawLayer_ID");
     out.adjust_shadow_location_for_scaling = core_bool(unit, "adjustShadowLocForScaling_BOOL");
+    out.flees_north_on_no_active_players = core_bool(unit, "fleesNorthOnNoActivePlayers_BOOL");
+    out.flees_south_on_no_active_players = core_bool(unit, "fleesSouthOnNoActivePlayers_BOOL");
     out.collision_domain = core_bool(unit, "isGroundBased_BOOL")
         ? fourcc('g', 'r', 'n', 'd')
         : fourcc('a', 'i', 'r', ' ');
@@ -160,6 +162,7 @@ CompiledUnitBehavior compile_unit_behavior(const UnitDefinition& unit) {
         compiled.frames_per_direction = std::max(1, field_int(state, "stateFramesPerDirection_INT"));
         compiled.frame_delay = field_int(state, "stateFrameDelay_INT");
         compiled.frame_delta = field_int(state, "stateFrameDelta_INT");
+        compiled.flee_mode = field_id(state, "stateFlee_ID");
         compiled.use_parent_direction = field_bool(state, "stateUseParentDirection_BOOL");
         compiled.pause_vertical_scrolling = field_bool(state, "statePauseVerticalScrolling_BOOL");
         compiled.required_visibility_percent = field_int(state, "stateRequiredVisibilityPercent_INT");

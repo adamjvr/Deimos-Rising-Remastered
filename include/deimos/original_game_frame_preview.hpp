@@ -102,6 +102,16 @@ struct OriginalGameLiveTickResult {
     std::size_t active_particles = 0;
     std::size_t level_placements_activated = 0;
 
+    // WIP9 differential witnesses for PPC 0x15280/0x17510/0x161C0. These
+    // counts expose when authored flee behavior and live-frame-relative spawn
+    // rotation actually participate in a host tick without changing gameplay.
+    std::size_t flee_activations = 0;
+    std::size_t explicit_state_flee_activations = 0;
+    std::size_t no_player_flee_activations = 0;
+    std::size_t spawn_events_due = 0;
+    std::size_t rotation_adjusted_spawn_events = 0;
+    std::size_t rotation_heading_differences = 0;
+
     // Persistent ground-weapon crosshair owned by the player weapon
     // controller in shipped PPC 0x3B3C0/0x3BAB0/0x3BD00. Coordinates are
     // world-space sprite-center coordinates after serialized offsets.
@@ -185,6 +195,7 @@ public:
 private:
     OriginalGameFramePreviewInfo info_{};
     LegacyPresentationConfig presentation_config_{};
+    EntityHeadlessConstructionContext::FleeTargetConfig flee_target_config_{};
     LegacyTerrainSurfaceConfig terrain_config_{};
     LegacyTerrainSurfaceRuntime terrain_runtime_{};
     LegacyHorizontalViewRuntime horizontal_view_{};

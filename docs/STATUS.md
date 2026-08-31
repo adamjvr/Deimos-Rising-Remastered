@@ -460,3 +460,31 @@ The ground-placement audit rejected a global coordinate correction. Level placem
 Regression investigation showed the old dying@185 / respawn@266 playable timing is not stable once the previously missing animation/orientation/Animation-Stopped layer executes: full WIP8 is dying@171 / respawn@252. Disabling animation while retaining WIP8 ordering yields 184/265; additionally restoring the WIP7 delay gate yields exactly 185/266, isolating the shift rather than blindly accepting it. Static preview hashes are unchanged. WIP8 live-only hashes are initial `0xcd72678207b195b7`, first air-fire `0x800f06651d29406a`, tick-120 `0x267609db3ba6dbcc`; the 120-tick probe ends at 15 resident members / 9 groups and peaks at 18 active. See `docs/WIP8_ANIMATION_AI_ORDERING.md`.
 
 Final WIP8 post-documentation freeze gate: repository rebuild PASS; synthetic suite **53/53 PASS**; canonical Game.pak clean-core probe PASS; original-data frame probe PASS with unchanged static hashes and live `0xcd72678207b195b7` / `0x800f06651d29406a` / `0x267609db3ba6dbcc`; playable-runtime probe PASS at dying@171 / respawn@252, Plasma Bomb `bsde` 4.0 -> 3.6, Ion Cannon activation=15 ticks / `icps` release, and stress3000 maxResident=96 / finalResident=27 / maxActive=96 / pruned=1871 / farCulled=213.
+
+## 2026-08-30 — WIP9 flee targets / target-motion / enemy-fire heading closure
+
+The original 1.0.6 PowerPC PEF was recovered again from the canonical StuffIt -> SMI ->
+HFS evidence chain (2,045,976-byte data fork, SHA-256
+`8e436c3babc582f1407ae6fed47e9749f1c930335ce4c794947e40b06b85eb29`) and used to
+close the remaining shipped target/flee edge behavior before changing the clean runtime.
+
+PPC `0x17510` proves `stateFlee_ID` selects authored destinations, and `0x16CC0` accelerates
+toward those destinations using the flee speed/delta pair. Canonical Game data contains
+17 explicit flee states, eight north-on-no-player Unit Definitions and one south-on-no-player
+Unit Definition. State entry consumes flee-target RNG before spawn-runtime RNG; entering a
+flee state through the range handler installs the target immediately but does ordinary
+convergence for the rest of that tick, entering the flee early path on the next tick.
+
+PPC `0x161C0` proves rotated child-spawn geometry derives heading from the current sprite
+frame/direction geometry rather than the stale construction heading. The existing
+`0x15B40` / `0x17CB0` scheduler was re-audited and remains the canonical enemy-fire cadence
+mechanism; no host-side firing-rate tuning was added. In the deterministic 3000-tick WIP9
+soak, 1,092 rotation-adjusted spawn events occur and 48 use a visual heading different from
+the construction heading. Twenty-three explicit flee activations are exercised.
+
+WIP8's early oracles remain unchanged: static hashes, live initial/fire/tick120 hashes, and
+dying@171 / respawn@252 all survive WIP9. The long-run bounded-world profile changes to
+maxResident 84 / finalResident 15 / maxActive 84 / pruned 1773 / farCulled 136. A four-way
+temporary build matrix isolates that shift completely to the two PPC-backed WIP9 changes;
+restoring both WIP8 paths reproduces 96/27/1871/213 exactly. See
+`docs/WIP9_FLEE_TARGET_FIRE_HEADING.md`.

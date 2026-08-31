@@ -288,6 +288,22 @@ std::optional<OriginalGameFramePreview> OriginalGameFramePreview::load(
     const auto score_cfg = compile_legacy_score_bar_config(*game_floats, *game_rects, error);
     if (!presentation || !terrain_cfg || !shadow_cfg || !score_cfg) return std::nullopt;
     out.presentation_config_ = *presentation;
+    out.flee_target_config_.visible_width = static_cast<float>(presentation->visible_game_width);
+    out.flee_target_config_.visible_height = static_cast<float>(presentation->visible_game_height);
+    const auto game_float = [&](std::string_view key, float fallback) {
+        const auto it = std::find_if(game_floats->begin(), game_floats->end(), [&](const auto& item) {
+            return item.first == key;
+        });
+        return it == game_floats->end() ? fallback : it->second;
+    };
+    out.flee_target_config_.north = game_float(
+        "Game_EntityFleeNorthLocation", out.flee_target_config_.north);
+    out.flee_target_config_.south = game_float(
+        "Game_EntityFleeSouthLocation", out.flee_target_config_.south);
+    out.flee_target_config_.west = game_float(
+        "Game_EntityFleeWestLocation", out.flee_target_config_.west);
+    out.flee_target_config_.east = game_float(
+        "Game_EntityFleeEastLocation", out.flee_target_config_.east);
     out.terrain_config_ = *terrain_cfg;
     out.shadow_config_ = *shadow_cfg;
     out.score_bar_config_ = *score_cfg;
@@ -603,6 +619,7 @@ bool OriginalGameFramePreview::construct_live_entity_group(
     context.preflight.same_unit_type_already_exists = entity_world_.has_active_unit(request.unit_id);
     context.preflight.player_gate.qualifying_player_present = player_world_.any_active_player();
     context.world_y_origin = terrain_runtime_.source_view.top;
+    context.flee_targets = flee_target_config_;
     context.hunt_target_provider = [this](EntityPoint position) -> std::optional<EntityPoint> {
         const auto closest = player_world_.closest_active_player(position.x, position.y);
         return closest ? std::optional<EntityPoint>{closest->position} : std::nullopt;
@@ -986,6 +1003,8 @@ OriginalGameLiveTickResult OriginalGameFramePreview::tick_live(
 
         const auto previous_state = entity.state.current_state;
         const int previous_sprite_frame = entity.sprite_frame;
+        const bool previous_fleeing = entity.fleeing;
+        const bool players_active_for_motion = player_world_.any_active_player();
         EntityTickContext context;
         context.current_tick = static_cast<std::uint32_t>(ticks_elapsed_);
         context.particle_execution = {&particle_runtime_, &particle_tuning_};
@@ -1053,6 +1072,21 @@ OriginalGameLiveTickResult OriginalGameFramePreview::tick_live(
 
         const auto tick_result = advance_entity_runtime_with_players(
             entity_world_, entity, *unit, context, player_world_, entity_random_, entity_trig_);
+
+        if (!previous_fleeing && entity.fleeing) {
+            ++result.flee_activations;
+            const bool explicit_state_flee =
+                entity.state.current_state < entity.behavior.states.size() &&
+                !absent(entity.behavior.states[entity.state.current_state].flee_mode);
+            if (explicit_state_flee) {
+                ++result.explicit_state_flee_activations;
+            } else if (!players_active_for_motion &&
+                       (entity.behavior.flees_north_on_no_active_players ||
+                        entity.behavior.flees_south_on_no_active_players)) {
+                ++result.no_player_flee_activations;
+            }
+        }
+
         if (entity.lifecycle != EntityLifecycle::active) continue;
         if (previous_state != entity.state.current_state ||
             previous_sprite_frame != entity.sprite_frame) {
@@ -1065,6 +1099,7 @@ OriginalGameLiveTickResult OriginalGameFramePreview::tick_live(
         }
 
         for (const auto& event : tick_result.spawns_due) {
+            ++result.spawn_events_due;
             if (event.state_index >= unit->states.size()) continue;
             const auto& state = unit->states[event.state_index];
             if (event.spawn_set_index >= state.spawn_sets.size()) continue;
@@ -1079,7 +1114,18 @@ OriginalGameLiveTickResult OriginalGameFramePreview::tick_live(
             if (visual != live_visuals_.end()) parent_scale = visual->visual.scale;
 
             SpawnRequestContext spawn_context;
-            spawn_context.placement = {entity.x, entity.y, parent_scale, entity.heading_degrees,
+            // PPC 0x15F7C calls 0x161C0 for rotation-adjusted child geometry.
+            // That helper derives rotation from the current live sprite frame,
+            // so a turret that visually tracks a player also launches along
+            // that visual bearing even though physical heading is unchanged.
+            const int visual_heading = legacy_current_entity_visual_heading(entity);
+            if (spawn_set.adjust_offset_for_unit_rotation) {
+                ++result.rotation_adjusted_spawn_events;
+                if (visual_heading != entity.heading_degrees) {
+                    ++result.rotation_heading_differences;
+                }
+            }
+            spawn_context.placement = {entity.x, entity.y, parent_scale, visual_heading,
                                        target->core_fields.bool_value("adjustInitialLocForOwnerScale_BOOL").value_or(false)};
             spawn_context.parent_is_stationary = entity.stationary;
             spawn_context.parent_terrain_effects_enabled = entity.terrain_effects_enabled;

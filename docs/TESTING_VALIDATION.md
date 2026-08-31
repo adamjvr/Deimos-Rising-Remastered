@@ -256,14 +256,14 @@ External canonical live witnesses after the level-availability HUD fix are initi
 
 ### Playable WIP 3 runtime gate (2026-08-30)
 
-`deimos_playable_runtime_probe /path/to/Paks` is the external-data gameplay gate for the native-host bugs reported after the first actually playable build. It uses canonical Level 1 and asserts the integrated player crash lifecycle (dying tick 185, respawn tick 266, lives 3 -> 2, shield reset, player-effect construction and non-zero particle execution), accepts canonical Plasma Bomb secondary fire, then performs a 3000-tick primary-fire/periodic-ground-fire soak. The soak requires resident live history to remain bounded (`maxResident <= 128`, `finalResident <= 32`), more than 1000 finalized records to have been physically pruned, and at least one shipped-`0x12CA0` 128px lifetime cull.
+`deimos_playable_runtime_probe /path/to/Paks` is the external-data gameplay gate for the native-host bugs reported after the first actually playable build. It uses canonical Level 1 and asserts the integrated player crash lifecycle (dying tick 171, respawn tick 252, lives 3 -> 2, shield reset, player-effect construction and non-zero particle execution), accepts canonical Plasma Bomb secondary fire, then performs a 3000-tick primary-fire/periodic-ground-fire soak. The soak requires resident live history to remain bounded (`maxResident <= 128`, `finalResident <= 32`), more than 1000 finalized records to have been physically pruned, and at least one shipped-`0x12CA0` 128px lifetime cull.
 
 `deimos_original_frame_probe` retains the historical static frame oracles unchanged. Its live integration witness now expects 16 resident members and 10 resident groups at tick 120 after finalized-history compaction; 9 removals / 12 consequences include two exact `0x12CA0` far-offscreen deletions; one player-hit effect is produced; max active particles is 25 and max active live members is 19. Live frame hashes are `0x1eb1e07d4b6d038d`, `0xa0fc41ac06687be2`, `0x055b51228f651199`. The first-fire hash change is intentional because playable live mode no longer drives the unrecovered weapon-power HUD channel toward a fabricated 100% target.
 
 
 ### Playable WIP 6 secondary/respawn/reticle gate (2026-08-30)
 
-`deimos_playable_runtime_probe /path/to/Paks` now requires the canonical Plasma Bomb crosshair to be enabled as `pbta`, remain exactly at Player 1 plus `(0,-121)`, expose normal frame 0 and locked frame 1 during the opening ground-target approach, accept the ground launch, and reduce the left `bsde` shields exactly 4.0 -> 3.6. Crash/respawn remains dying@185 / respawn@266 / lives=2, charge activates after 15 ticks and releases through `icps`, and the 3000-tick stress remains bounded.
+`deimos_playable_runtime_probe /path/to/Paks` now requires the canonical Plasma Bomb crosshair to be enabled as `pbta`, remain exactly at Player 1 plus `(0,-121)`, expose normal frame 0 and locked frame 1 during the opening ground-target approach, accept the ground launch, and reduce the left `bsde` shields exactly 4.0 -> 3.6. Crash/respawn remains dying@171 / respawn@252 / lives=2, charge activates after 15 ticks and releases through `icps`, and the 3000-tick stress remains bounded.
 
 The native Apple wrapper regression requires `flagsChanged:` handling for Shift ground fire. Destruction/runtime tests freeze the shipped `0x27E50 -> 0x34B90` player-owner cleanup and render/state tests freeze entry at `stateSpriteFrameMin`. Manual framebuffer dumps at ticks 266, 270, 276, 282, 300, 311, 312 and 320 verify no GET READY text remains after respawn.
 
@@ -282,3 +282,23 @@ The canonical static/external frame hashes remain unchanged at `0x9e8a7ec73b79b2
 `deimos_playable_runtime_probe` now freezes the investigated full-WIP8 opening-lane lifecycle at dying@171 / respawn@252. It still requires Plasma Bomb damage to the left `bsde` exactly 4.0 -> 3.6, `pbta` normal/locked reticle behavior at `(0,-121)`, 15-tick Ion Cannon charge activation plus `icps` release, and a bounded 3,000-tick stress run. The oracle change is justified by the isolation experiment documented in `WIP8_ANIMATION_AI_ORDERING.md`; it was not accepted merely because the number moved.
 
 Final rerun after documentation freeze: `cmake --build` PASS, **53/53** CTest PASS, `deimos_reference_probe` PASS, `deimos_original_frame_probe` PASS, and `deimos_playable_runtime_probe` PASS. The final stress witness is maxResident=96, finalResident=27, maxActive=96, pruned=1871, farCulled=213; crash/respawn remains 171/252.
+
+### WIP9 flee / target-motion / enemy-fire-heading gate (2026-08-30)
+
+WIP9 keeps the synthetic suite at **53/53 PASS** and extends motion/compiler coverage for
+`stateFlee_ID`, UnitDef no-player flee flags, PPC `0x17510` flee-target RNG order, the
+range-transition one-tick flee boundary, and PPC `0x161C0` live-frame heading derivation.
+
+The canonical `Game.pak` probe now cross-validates 17 explicit flee-mode states plus 8
+north / 1 south no-active-player-flee Unit Definitions. Static and early live external
+frame witnesses remain unchanged from WIP8. The playable probe retains dying@171 /
+respawn@252, Plasma Bomb 4.0 -> 3.6, and Ion Cannon release behavior. The full WIP9
+3000-tick diagnostic is maxResident=84, finalResident=15, maxActive=84, pruned=1773,
+farCulled=136, fleeActivations=23, explicitFlee=23, noPlayerFlee=0, spawnDue=1766,
+rotatedSpawns=1092, visualHeadingDiff=48 on the current deterministic container run.
+
+A four-way temporary differential proves the long-run population shift is entirely
+explained by authored flee behavior and live-frame spawn heading: restoring both WIP8
+behaviors reproduces 96/27/1871/213 exactly. These long-run counts are diagnostic
+witnesses rather than fixed executable-output claims; the bounded-world assertions remain
+structural while exact static/live frame hashes and crash timing remain the stronger gates.

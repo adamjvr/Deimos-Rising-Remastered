@@ -123,6 +123,42 @@ result = min + remainder
 
 Canonical `Level 8 - Mid 2[08m2]`, spawn set `Screws Mk 2 - Top`, contains `rate 110..20`. Its signed width is `-89`; the original consequently produces 110..198. The clean runtime preserves this malformed-data behavior.
 
+## Current visual heading helper (`0x161C0`)
+
+Rotation-adjusted child geometry does **not** use the member's construction/editor
+heading. The original derives a current visual heading from the live sprite frame and
+the current state's direction geometry:
+
+```text
+if NumDirections == 1:
+    heading = spriteFrame * (360 / FramesPerDirection)
+else:
+    direction = max(0, spriteFrame / FramesPerDirection)
+    heading = direction * (360 / NumDirections)
+```
+
+All divisions are integer divisions and the helper does not round or consult velocity.
+This is important for `stateDoRotateToTarget_BOOL`: a turret may visually rotate while
+its physical/construction heading stays unchanged, but its rotation-adjusted projectile
+offsets and relative set-heading values still follow the live visual bearing.
+
+## Enemy firing-cadence audit
+
+The canonical entity firing cadence is the same spawn-set scheduler described above;
+there is no separate host-side enemy-fire timer to tune. Re-disassembly of recovered
+1.0.6 PEF routines `0x15B40` and `0x17CB0` reconfirms the strict delay predicates,
+state-entry RNG order, repeat re-arm RNG order, final-member delay draw, and the fact
+that repeat re-arm does not emit a member on the same call. Canonical data contains no
+`stateSpawnSetPauseAnyRotationWhileSpawning_BOOL` sets and no non-zero rotation-pause
+durations, so that dormant compatibility branch cannot explain shipped firing behavior.
+
+The WIP9 Level-1 3000-tick diagnostic observes 1,766 entity spawn-due events. Of 1,092
+rotation-adjusted spawn events, 48 use a live visual heading different from the stale
+construction heading. These counts are clean-host differential witnesses, not claims
+that the original executable produces the same aggregate count under an identical host
+input stream. They prove that the recovered `0x161C0` correction materially affects
+shipped gameplay while leaving the already instruction-closed cadence machinery intact.
+
 ## Target Unit Definition gate (`0x15D8C..0x15DAC`)
 
 This gate is now tied directly to the original Unit Definition parser rather than inferred from names.

@@ -23,6 +23,12 @@ deimos::DefinitionField s(const char* key, const char* value) {
     return {key, std::string(value), value, 1};
 }
 
+deimos::DefinitionField idf(const char* key, const char* value) {
+    deimos::FourCC id{};
+    for (int n = 0; n < 4; ++n) id.bytes[static_cast<std::size_t>(n)] = value[n];
+    return {key, id, value, 1};
+}
+
 deimos::UnitStateDefinition state(
     const char* name, float range = 0.0f, const char* range_action = "No State") {
     deimos::UnitStateDefinition out;
@@ -136,7 +142,9 @@ int main() {
     assert(near(cyclic.velocity_x, 0.5f) && near(cyclic.velocity_y, -0.5f));
     assert(near(cyclic.velocity_delta_x, 0.5f) && near(cyclic.velocity_delta_y, -0.5f));
 
-    // Flee uses the independent Flee speed/delta pair and accelerates away.
+    // PPC 0x16CC0 uses the independent Flee speed/delta pair and accelerates
+    // toward the destination installed in live +0x11C/+0x120. It does not
+    // require an active-player target while +0xCC is set.
     auto flee_state = state("flee");
     set_float(flee_state, "stateFleeSpeed_FLOAT", 2.0f);
     set_float(flee_state, "stateFleeDelta_FLOAT", 0.75f);
@@ -144,11 +152,45 @@ int main() {
     deimos::EntityRuntime flee;
     prepare_live(flee, flee_unit);
     flee.fleeing = true;
-    flee.has_active_target = true;
+    flee.has_active_target = false;
     flee.x = -1.0f; flee.y = 1.0f;
     flee.target_player_x = 0.0f; flee.target_player_y = 0.0f;
     deimos::advance_entity_flee_motion(flee, flee_unit);
-    assert(near(flee.velocity_x, -0.75f) && near(flee.velocity_y, 0.75f));
+    assert(near(flee.velocity_x, 0.75f) && near(flee.velocity_y, -0.75f));
+
+    // PPC 0x17510 canonical target modes and RNG order. nora draws X in the
+    // visible 0..416 span, then stores the authored north boundary. cega is
+    // deterministic and therefore consumes no RNG.
+    deimos::EntityRuntime flee_target;
+    deimos::LegacyRandom flee_target_rng(1);
+    assert(deimos::initialize_entity_flee_target(
+        flee_target, deimos::FourCC{{'n','o','r','a'}}, flee_target_rng));
+    assert(flee_target.fleeing);
+    assert(near(flee_target.target_player_x,
+        deimos::choose_legacy_float(0.0f, 416.0f, 16838u)));
+    assert(near(flee_target.target_player_y, -1000.0f));
+    assert(flee_target_rng.seed() == 1103527590u);
+    const auto before_centre = flee_target_rng.seed();
+    assert(deimos::initialize_entity_flee_target(
+        flee_target, deimos::FourCC{{'c','e','g','a'}}, flee_target_rng));
+    assert(near(flee_target.target_player_x, 208.0f));
+    assert(near(flee_target.target_player_y, 240.0f));
+    assert(flee_target_rng.seed() == before_centre);
+
+    // 0x161C0 derives spawn rotation from the live sprite frame. Multi-
+    // direction states divide by FramesPerDirection; the one-direction path
+    // instead treats sprite frame as the rotational index across that span.
+    deimos::EntityRuntime visual_heading;
+    visual_heading.behavior.states.resize(1);
+    visual_heading.state.current_state = 0;
+    visual_heading.behavior.states[0].number_of_directions = 24;
+    visual_heading.behavior.states[0].frames_per_direction = 2;
+    visual_heading.sprite_frame = 14; // direction 7 * 15 degrees
+    assert(deimos::legacy_current_entity_visual_heading(visual_heading) == 105);
+    visual_heading.behavior.states[0].number_of_directions = 1;
+    visual_heading.behavior.states[0].frames_per_direction = 36;
+    visual_heading.sprite_frame = 5;
+    assert(deimos::legacy_current_entity_visual_heading(visual_heading) == 50);
 
     // Ordinary convergence is component-wise and stationary zeros the complete
     // motion block.
@@ -228,6 +270,65 @@ int main() {
     assert(no_target_hunt.lifecycle == deimos::EntityLifecycle::active);
     assert(!no_target_hunt.has_active_target);
     assert(no_target_rng.seed() == 2524885223u);
+
+    // UnitDef no-player flee flags invoke 0x17510 and return from 0x15280
+    // immediately. The first tick installs the destination only; acceleration
+    // starts through the pre-existing-flee early path on the following tick.
+    auto no_player_flee_state = state("no-player-flee");
+    set_float(no_player_flee_state, "stateFleeSpeed_FLOAT", 4.0f);
+    set_float(no_player_flee_state, "stateFleeDelta_FLOAT", 0.5f);
+    auto no_player_flee_unit = unit_with(std::move(no_player_flee_state));
+    no_player_flee_unit.core_fields.add(b("fleesNorthOnNoActivePlayers_BOOL", true));
+    no_player_flee_unit.core_fields.add(b("fleesSouthOnNoActivePlayers_BOOL", false));
+    deimos::EntityRuntime no_player_flee;
+    prepare_live(no_player_flee, no_player_flee_unit);
+    no_player_flee.x = 100.0f;
+    no_player_flee.y = 100.0f;
+    deimos::LegacyRandom no_player_flee_rng(1);
+    (void)deimos::advance_entity_runtime_with_players(
+        world, no_player_flee, no_player_flee_unit, tick,
+        empty_players, no_player_flee_rng, trig);
+    assert(no_player_flee.fleeing);
+    assert(near(no_player_flee.target_player_y, -1000.0f));
+    assert(near(no_player_flee.velocity_x, 0.0f));
+    assert(near(no_player_flee.velocity_y, 0.0f));
+    assert(no_player_flee_rng.seed() == 1103527590u);
+    tick.current_tick = 2;
+    (void)deimos::advance_entity_runtime_with_players(
+        world, no_player_flee, no_player_flee_unit, tick,
+        empty_players, no_player_flee_rng, trig);
+    assert(near(no_player_flee.velocity_y, -0.5f));
+
+    // A range transition into an explicit flee state installs the flee target
+    // during state entry, but PPC 0x1550C performs ordinary convergence for
+    // the rest of that dispatch. Flee acceleration begins on the next tick.
+    auto range_flee_a = state("range-A", 20.0f, "range-flee");
+    auto range_flee_b = state("range-flee");
+    range_flee_b.fields.add(idf("stateFlee_ID", "cega"));
+    set_float(range_flee_b, "stateMaxSpeed_FLOAT", 1.0f);
+    set_float(range_flee_b, "stateDelta_FLOAT", 0.25f);
+    set_float(range_flee_b, "stateFleeSpeed_FLOAT", 5.0f);
+    set_float(range_flee_b, "stateFleeDelta_FLOAT", 1.0f);
+    deimos::UnitDefinition range_flee_unit;
+    range_flee_unit.states.push_back(std::move(range_flee_a));
+    range_flee_unit.states.push_back(std::move(range_flee_b));
+    deimos::EntityRuntime range_flee;
+    prepare_live(range_flee, range_flee_unit);
+    range_flee.spawn_runtime_by_state.resize(2);
+    deimos::PlayerWorld close_player;
+    close_player.slots()[0] = {4, 10.0f, 0.0f, 0};
+    deimos::LegacyRandom range_flee_rng(1);
+    tick.current_tick = 3;
+    const auto range_flee_result = deimos::advance_entity_runtime_with_players(
+        world, range_flee, range_flee_unit, tick,
+        close_player, range_flee_rng, trig);
+    assert(range_flee_result.range_action_processed);
+    assert(range_flee.state.current_state == 1);
+    assert(range_flee.fleeing);
+    assert(near(range_flee.target_player_x, 208.0f));
+    assert(near(range_flee.target_player_y, 240.0f));
+    assert(near(range_flee.velocity_x, 0.0f));
+    assert(near(range_flee.velocity_y, 0.25f));
 
     return 0;
 }

@@ -1,4 +1,4 @@
-# Deimos Rising Full-Send Playable WIP — 2026-08-30
+# Deimos Rising Full-Send Playable WIP9 — 2026-08-30
 
 This cumulative source snapshot includes the current live Level-1 playable-host work through:
 
@@ -66,3 +66,29 @@ stress3000: maxResident=96 finalResident=27 maxActive=96 pruned=1871 farCulled=2
 ```
 
 The exact binary caller that determines charged release count remains an isolated fidelity item; all Units/timers/IDs used here come directly from the original Weapon/Unit Definitions.
+
+## WIP9 target/flee + enemy-fire-heading checkpoint
+
+WIP9 keeps every WIP8 early deterministic witness while correcting two PPC-confirmed
+long-run behavior paths:
+
+- authored `stateFlee_ID` destinations and no-player flee behavior from `0x17510`/`0x15280`;
+- rotation-adjusted entity spawns use current visual heading from `0x161C0`, not stale construction heading.
+
+The enemy-fire scheduler itself remains the already instruction-closed `0x15B40` /
+`0x17CB0` state spawn scheduler; no hand-tuned fire-rate logic was introduced.
+
+Current validation:
+
+- 53/53 synthetic tests PASS
+- canonical Game.pak PASS, including 17 explicit flee states and 8 north / 1 south no-player flee Units
+- static hashes unchanged
+- live initial/fire/tick120 hashes unchanged from WIP8
+- crash remains dying@171 / respawn@252
+- Plasma Bomb actual damage remains 4.0 -> 3.6
+- Ion Cannon charge/release remains PASS
+- stress3000: maxResident=84, finalResident=15, maxActive=84, pruned=1773, farCulled=136
+- stress diagnostics: fleeActivations=23, spawnDue=1766, rotatedSpawns=1092, visualHeadingDiff=48
+
+See `docs/WIP9_FLEE_TARGET_FIRE_HEADING.md` for the recovered PEF evidence and the
+four-way WIP8/WIP9 causal differential. Original PAK/SMI/PEF data is not included.

@@ -1,0 +1,27 @@
+Deimos Rising Remastered WIP8 -> WIP9 changeset
+Date: 2026-08-30 (America/New_York)
+
+Primary closure: authored flee targets / target-motion edge semantics / live visual heading for rotated spawns.
+
+MODIFIED FULL_SEND_WIP_README.md -> FULL_SEND_WIP_README.md
+MODIFIED PLAYABLE_FIX_README.md -> PLAYABLE_FIX_README.md
+MODIFIED README.md -> README.md
+ADDED WIP9_FREEZE_README.md
+MODIFIED docs/RESEARCH_LOG.md -> docs/RESEARCH_LOG.md
+MODIFIED docs/ROADMAP.md -> docs/ROADMAP.md
+MODIFIED docs/STATUS.md -> docs/STATUS.md
+MODIFIED docs/TESTING_VALIDATION.md -> docs/TESTING_VALIDATION.md
+ADDED docs/WIP9_FLEE_TARGET_FIRE_HEADING.md
+MODIFIED include/deimos/entity_runtime.hpp -> include/deimos/entity_runtime.hpp
+MODIFIED include/deimos/original_game_frame_preview.hpp -> include/deimos/original_game_frame_preview.hpp
+MODIFIED include/deimos/unit_behavior.hpp -> include/deimos/unit_behavior.hpp
+MODIFIED reverse/formats/PLAYER_TARGET_MOTION_RUNTIME.md -> reverse/formats/PLAYER_TARGET_MOTION_RUNTIME.md
+MODIFIED reverse/formats/SPAWN_RUNTIME.md -> reverse/formats/SPAWN_RUNTIME.md
+MODIFIED src/core/entity_runtime.cpp -> src/core/entity_runtime.cpp
+MODIFIED src/core/entity_world.cpp -> src/core/entity_world.cpp
+MODIFIED src/core/original_game_frame_preview.cpp -> src/core/original_game_frame_preview.cpp
+MODIFIED src/core/unit_behavior.cpp -> src/core/unit_behavior.cpp
+MODIFIED tests/player_motion_test.cpp -> tests/player_motion_test.cpp
+MODIFIED tests/unit_behavior_test.cpp -> tests/unit_behavior_test.cpp
+MODIFIED tools/playable_runtime_probe.cpp -> tools/playable_runtime_probe.cpp
+MODIFIED tools/reference_probe.cpp -> tools/reference_probe.cpp

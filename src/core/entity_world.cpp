@@ -414,6 +414,24 @@ EntityTickResult advance_entity_runtime_with_players(
                 live.lifecycle = EntityLifecycle::destroyed;
                 return std::nullopt;
             }
+
+            // PPC 0x15344..0x15388: UnitDef +0x126/+0x127 use the same
+            // 0x17510 initializer as explicit stateFlee_ID, with north taking
+            // precedence if malformed content enables both flags. The
+            // dispatcher returns immediately after installing the destination;
+            // flee acceleration begins on the following entity tick.
+            if (live.behavior.flees_north_on_no_active_players) {
+                (void)initialize_entity_flee_target(
+                    live, FourCC{{'n','o','r','a'}}, random);
+                fleeing_early_path = true;
+                return std::nullopt;
+            }
+            if (live.behavior.flees_south_on_no_active_players) {
+                (void)initialize_entity_flee_target(
+                    live, FourCC{{'s','o','r','a'}}, random);
+                fleeing_early_path = true;
+                return std::nullopt;
+            }
         }
 
         // Hunt is independent of whether closest-player lookup succeeded; the
@@ -425,12 +443,13 @@ EntityTickResult advance_entity_runtime_with_players(
 
     world_context.post_range_motion_phase = [&](EntityRuntime& live) {
         if (fleeing_early_path) return;
-        // A range transition above may have entered a new state; every helper
-        // intentionally reloads live.state.current_state.
+        // A range transition above may have entered a new flee state. PPC
+        // 0x1550C checks +0xCC and deliberately falls through to ordinary
+        // 0x17A10 convergence for the remainder of that tick; 0x16CC0 is
+        // reached through the early flee path on the next call.
         advance_entity_hold_motion(live, unit);
         advance_entity_cyclic_motion(live, unit);
-        if (live.fleeing) advance_entity_flee_motion(live, unit);
-        else converge_entity_velocity(live, unit);
+        converge_entity_velocity(live, unit);
     };
 
     world_context.owner_location_phase = [&](EntityRuntime& live) {

@@ -92,6 +92,8 @@ int main() {
     // WIP8 animation/orientation/scroll-state compiler fields are source data,
     // not host-side presentation guesses. Freeze the exact field names here.
     deimos::UnitDefinition animated_unit;
+    animated_unit.core_fields.add({"fleesNorthOnNoActivePlayers_BOOL", true, "TRUE", 1});
+    animated_unit.core_fields.add({"fleesSouthOnNoActivePlayers_BOOL", false, "FALSE", 1});
     animated_unit.states.resize(1);
     animated_unit.states[0].name = "Animated";
     auto add = [&](const char* key, deimos::DefinitionValue value, const char* raw) {
@@ -107,6 +109,7 @@ int main() {
     add("stateFramesPerDirection_INT", 8, "8");
     add("stateFrameDelay_INT", 2, "2");
     add("stateFrameDelta_INT", 1, "1");
+    add("stateFlee_ID", deimos::FourCC{{'n','o','r','a'}}, "nora");
     add("stateUseParentDirection_BOOL", true, "TRUE");
     add("statePauseVerticalScrolling_BOOL", true, "TRUE");
     const auto animated = deimos::compile_unit_behavior(animated_unit);
@@ -117,7 +120,11 @@ int main() {
     assert(a.number_of_directions == 24 && a.sprite_frame_min == 3 &&
            a.sprite_frame_max == 7 && a.frames_per_direction == 8 &&
            a.frame_delay == 2 && a.frame_delta == 1);
+    const deimos::FourCC nora{{'n','o','r','a'}};
+    assert(a.flee_mode == nora);
     assert(a.use_parent_direction && a.pause_vertical_scrolling);
+    assert(animated.flees_north_on_no_active_players);
+    assert(!animated.flees_south_on_no_active_players);
 
     // PPC fcmpu equality is exact.  NaN must not count as "at required level".
     facts.visibility = std::numeric_limits<float>::quiet_NaN();

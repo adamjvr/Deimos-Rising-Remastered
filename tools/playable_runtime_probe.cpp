@@ -196,6 +196,12 @@ int main(int argc, char** argv) {
     std::size_t max_active = stress->entity_world().active_member_count();
     std::size_t total_pruned = 0;
     std::size_t total_far_culled = 0;
+    std::size_t total_flee_activations = 0;
+    std::size_t total_explicit_flee_activations = 0;
+    std::size_t total_no_player_flee_activations = 0;
+    std::size_t total_spawn_events_due = 0;
+    std::size_t total_rotation_adjusted_spawns = 0;
+    std::size_t total_rotation_heading_differences = 0;
     bool ground_launch_seen = false;
     const auto start = std::chrono::steady_clock::now();
     for (int i = 0; i < 3000; ++i) {
@@ -210,6 +216,12 @@ int main(int argc, char** argv) {
         ground_launch_seen = ground_launch_seen || tick.weapons.ground_launched;
         total_pruned += tick.pruned_members;
         total_far_culled += tick.far_offscreen_culled;
+        total_flee_activations += tick.flee_activations;
+        total_explicit_flee_activations += tick.explicit_state_flee_activations;
+        total_no_player_flee_activations += tick.no_player_flee_activations;
+        total_spawn_events_due += tick.spawn_events_due;
+        total_rotation_adjusted_spawns += tick.rotation_adjusted_spawn_events;
+        total_rotation_heading_differences += tick.rotation_heading_differences;
         max_resident = std::max(max_resident, stress->entity_world().members().size());
         max_active = std::max(max_active, tick.active_entities);
     }
@@ -247,6 +259,12 @@ int main(int argc, char** argv) {
               << " maxActive=" << max_active
               << " pruned=" << total_pruned
               << " farCulled=" << total_far_culled
+              << " fleeActivations=" << total_flee_activations
+              << " explicitFlee=" << total_explicit_flee_activations
+              << " noPlayerFlee=" << total_no_player_flee_activations
+              << " spawnDue=" << total_spawn_events_due
+              << " rotatedSpawns=" << total_rotation_adjusted_spawns
+              << " visualHeadingDiff=" << total_rotation_heading_differences
               << " elapsedMs=" << elapsed_ms << '\n';
     return 0;
 }

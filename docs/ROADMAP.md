@@ -209,6 +209,17 @@ The first native Level-1 gameplay slice is no longer a fixture-only player over 
 - [x] Audit Level-1 ground/spawn transforms and reject an unsupported global coordinate correction.
 - [x] Re-freeze only causally changed live oracles after isolating the old 185/266 crash timing.
 - [x] Final gates: 53/53 synthetic tests, canonical Game.pak, original-data frame probe, playable damage/charge/respawn probe, and bounded 3000-tick stress PASS.
-- [ ] Next: instruction-close remaining target/Hunt/flee/convergence edge semantics and enemy firing cadence before retuning any behavior by feel.
+- [x] WIP9: instruction-close canonical target/Hunt/flee/convergence edge semantics and enemy firing cadence; restore authored flee destinations and live-frame-relative spawn heading without behavior retuning.
+
+### WIP9 flee / target-motion / enemy-fire-heading checkpoint
+
+- [x] Recover the canonical 1.0.6 PEF again from the original StuffIt -> SMI -> HFS evidence chain and verify the historical PEF SHA-256.
+- [x] Decode all `stateFlee_ID` target modes from PPC `0x17510` and wire canonical `Game[gafl]` flee boundaries.
+- [x] Correct PPC `0x16CC0` flee acceleration toward authored destinations and preserve exact state-entry / range-transition timing.
+- [x] Wire UnitDef north/south no-active-player flee behavior with original dispatcher precedence.
+- [x] Recover PPC `0x161C0` visual-heading semantics and use it for rotation-adjusted entity spawn geometry.
+- [x] Re-audit `0x15B40` / `0x17CB0` and confirm enemy firing cadence is the existing instruction-closed state spawn scheduler, not a separate host timer.
+- [x] Isolate WIP8/WIP9 long-run changes with a four-way flee/heading differential and prove no unexplained third regression.
+- [x] Preserve WIP8 static/live tick-120 hashes and dying@171 / respawn@252 while improving the 3000-tick canonical behavior path.
 - [ ] Next: route canonical pickup/destruction/player-warning audio and notices into the native host.
 - [ ] Next: close level-completion/game-over progression and continue classic front-end fidelity after gameplay lifecycle is stable.

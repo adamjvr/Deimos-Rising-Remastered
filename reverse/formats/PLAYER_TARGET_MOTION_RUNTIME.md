@@ -28,14 +28,19 @@ Recovered `0x15280` ordering:
 
 1. if already fleeing, execute Flee update and leave the dispatcher early;
 2. otherwise refresh closest active player;
-3. apply no-player lifecycle behavior;
-4. execute Hunt;
-5. evaluate range transition;
-6. reload current state after any range transition;
-7. execute Hold Position / Cyclic Motion / Flee as applicable;
-8. perform ordinary velocity convergence.
+3. apply no-player Delete/Destruct behavior;
+4. if no player is active, apply UnitDef north/south flee flags and leave the dispatcher immediately;
+5. execute Hunt;
+6. evaluate range transition;
+7. reload current state after any range transition;
+8. execute Hold Position / Cyclic Motion;
+9. perform ordinary velocity convergence.
 
-The caller then performs Lock / Link / Orbit owner-location behavior and the spawn scheduler.
+A range transition may enter an explicit flee state in step 6. State entry raises the
+live flee latch immediately, but PPC `0x1550C` still performs ordinary convergence
+for the remainder of that dispatch. The next tick begins at step 1 and executes the
+flee accelerator. The caller then performs Lock / Link / Orbit owner-location behavior
+and the spawn scheduler.
 
 ## Hunt (`0x16FE0`)
 
@@ -63,9 +68,42 @@ Cyclic Motion uses `stateMaxSpeed_FLOAT` and `stateDelta_FLOAT`. Per-axis accele
 
 ## Flee (`0x16CC0`)
 
-The live fleeing flag selects the Flee path. Flee uses `stateFleeSpeed_FLOAT` / `stateFleeDelta_FLOAT` and accelerates each axis away from the stored target while clamping to the configured maximum.
+The live fleeing flag selects the Flee path. Flee uses `stateFleeSpeed_FLOAT` /
+`stateFleeDelta_FLOAT` and accelerates each axis **toward** the authored destination
+stored at live `+0x11C/+0x120`, clamping each velocity component to +/- flee speed.
+An active player target is not required while the latch is set. Equality takes the
+negative-delta branch, matching the PPC compare/branch sequence.
 
-The transition/caller that raises the runtime fleeing flag remains a separate compatibility-reconstruction target; the proven Flee motion itself is implemented.
+### Flee target initializer (`0x17510`)
+
+`stateFlee_ID` is executable behavior. The initializer raises live `+0xCC` first, then
+dispatches the FourCC and writes a destination using `Game[gafl]` world/viewport values:
+
+| FourCC | Destination |
+|---|---|
+| `nora` | random X in 0..visible width, north boundary |
+| `sora` | random X, south boundary |
+| `wera` | west boundary, random Y in 0..visible height |
+| `eara` | east boundary, random Y |
+| `noce` / `soce` | center X, north / south boundary |
+| `wece` / `eace` | west / east boundary, center Y |
+| `opve` | random X, opposite vertical edge from current half |
+| `opho` | opposite horizontal edge from current half, random Y |
+| `rave` | random north/south choice, then random X |
+| `raho` | random east/west choice, then random Y |
+| `cega` | center of the visible game area |
+
+Canonical 1.0.6 values are north=-1000, south=2000, west=-1000, east=2000,
+visible width=416 and visible height=480. The order of random draws is part of the
+shared replay RNG contract. Unknown FourCCs leave the flee latch set and preserve the
+previous destination, because the original raises the latch before dispatch.
+
+State entry at `0x146F0` invokes `0x17510` for non-`none` `stateFlee_ID` before
+spawn-runtime initialization. Entering a non-flee state clears the latch only if the
+state being left itself had an explicit flee ID; this preserves the independent
+UnitDef no-active-player flee latch. UnitDef `fleesNorthOnNoActivePlayers_BOOL` and
+`fleesSouthOnNoActivePlayers_BOOL` invoke `nora`/`sora` respectively, with north
+precedence if malformed content enables both.
 
 ## No-active-player lifecycle
 
@@ -82,6 +120,9 @@ Canonical 1.0.6 contains:
 - 30 Hunt states;
 - 7 Hold-to-target states;
 - 40 Cyclic-motion states;
+- 17 states with explicit non-`none` flee modes;
+- 8 Unit Definitions that flee north when no player is active;
+- 1 Unit Definition that flees south when no player is active;
 - 9 Delete-on-no-player states;
 - 9 Destruct-on-no-player states.
 
@@ -94,4 +135,9 @@ No first-tick removal in that regression comes from player targeting, Hunt/Hold/
 
 ## Remaining boundary
 
-Collision candidate scanning at `0x36CF0`, hit/damage/destruction consequences, the trigger that raises the fleeing runtime flag, and full integration with replay-driven world position updates remain the next behavior-reconstruction boundary.
+Canonical target/Hunt/Hold/Cyclic/flee/convergence behavior is now closed for shipped
+1.0.6 data. One state byte consulted by the non-flee branch of `0x16CC0` at compiled
+state `+0x349` remains intentionally unnamed; no canonical state enables it, so it has
+no shipped-game effect and is retained as a compatibility-research item rather than
+assigned a guessed semantic. Replay/InputSprocket-driven target behavior remains a
+separate host/input reconstruction boundary.

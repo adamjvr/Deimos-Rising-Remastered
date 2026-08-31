@@ -84,6 +84,7 @@ struct CompiledUnitStateBehavior {
     int frames_per_direction = 1;                     // state +0x314
     int frame_delay = 0;                              // state +0x318
     int frame_delta = 1;                              // state +0x31C
+    FourCC flee_mode{};                              // state +0x320
     bool use_parent_direction = false;                // state +0x324
     bool pause_vertical_scrolling = false;            // statePauseVerticalScrolling_BOOL
     int required_visibility_percent = 0;              // state +0x3C4
@@ -146,6 +147,12 @@ struct CompiledUnitBehavior {
     int initial_visibility_percent = 0;               // UnitDef +0x1B4
     FourCC draw_layer{};                              // UnitDef +0x2E0
     bool adjust_shadow_location_for_scaling = false;  // UnitDef +0x12C
+
+    // PPC 0x15280 uses these Unit Definition flags only when the closest-
+    // active-player query fails.  They invoke the same 0x17510 flee-target
+    // initializer as stateFlee_ID using the canonical nora/sora modes.
+    bool flees_north_on_no_active_players = false;    // UnitDef +0x126
+    bool flees_south_on_no_active_players = false;    // UnitDef +0x127
 
     // Unit-level collision contract. The original loader derives collision
     // domain +0x08 from isGroundBased_BOOL: FourCC 'grnd' or 'air '.

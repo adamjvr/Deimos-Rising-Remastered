@@ -46,7 +46,7 @@ Deimos AIR FIRE accepted at tick ...: +5 members
 - X — selected ground weapon
 - Tab or C — cycle level-available air weapons
 
-## Current WIP8 regression
+## Current WIP9 regression
 
 - synthetic suite: 53/53 PASS
 - canonical Game.pak clean-core validation: PASS
@@ -62,6 +62,13 @@ Deimos AIR FIRE accepted at tick ...: +5 members
 - playable lifecycle: dying@171 / respawn@252
 - Plasma Bomb: `bsde` 4.0 -> 3.6 and `pbta` normal/locked reticle PASS
 - Ion Cannon: 15-tick charge activation and `icps` release PASS
-- stress3000 bounded at maxResident=96 / finalResident=27 / pruned=1871 / farCulled=213
+- stress3000 bounded at maxResident=84 / finalResident=15 / pruned=1773 / farCulled=136
+- WIP9 live diagnostics: 23 explicit flee activations; 1,766 entity spawn-due events; 1,092 rotation-adjusted spawns; 48 visual-vs-construction heading differences
 
 Original PAK data is intentionally not included in this archive.
+
+
+WIP9 additionally closes PPC-authored flee destinations and routes rotation-adjusted
+spawn geometry through the current visual heading. Early WIP8 hashes and crash timing do
+not change; only the long-run behavior profile changes, and a four-way temporary build
+matrix isolates that change completely to the two recovered PPC paths.

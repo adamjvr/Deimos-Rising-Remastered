@@ -202,6 +202,8 @@ int main(int argc, char** argv) {
     std::size_t unit_terrain_effects = 0, unit_adjust_owner_scale = 0, unit_player_active_only = 0;
     std::size_t state_lock_owner = 0, state_link_owner = 0, state_orbit_owner = 0;
     std::size_t state_hunt = 0, state_hold = 0, state_cyclic = 0;
+    std::size_t state_flee_mode = 0;
+    std::size_t unit_flee_north_no_player = 0, unit_flee_south_no_player = 0;
     std::size_t state_delete_no_player = 0, state_destruct_no_player = 0;
     std::size_t state_collides = 0, state_pass_hits_owner = 0;
     std::size_t state_collision_invulnerable = 0, state_collides_players = 0;
@@ -368,10 +370,16 @@ int main(int argc, char** argv) {
                 behavior.destruction_sound.min_pitch != unit->core_fields.float_value("destructSound_MinPitch_FLOAT").value_or(0.0f) ||
                 behavior.destruction_sound.max_pitch != unit->core_fields.float_value("destructSound_MaxPitch_FLOAT").value_or(0.0f) ||
                 !(behavior.pickup_type == unit->core_fields.id_value("pickup_Type_ID").value_or(deimos::FourCC{})) ||
-                behavior.pickup_value != unit->core_fields.int_value("pickup_Value_INT").value_or(0)) {
+                behavior.pickup_value != unit->core_fields.int_value("pickup_Value_INT").value_or(0) ||
+                behavior.flees_north_on_no_active_players != unit->core_fields.bool_value(
+                    "fleesNorthOnNoActivePlayers_BOOL").value_or(false) ||
+                behavior.flees_south_on_no_active_players != unit->core_fields.bool_value(
+                    "fleesSouthOnNoActivePlayers_BOOL").value_or(false)) {
                 std::cerr << entry.path << ": compiled visual/collision/destruction UnitDef fields disagree with parsed source\n";
                 return 19;
             }
+            unit_flee_north_no_player += behavior.flees_north_on_no_active_players;
+            unit_flee_south_no_player += behavior.flees_south_on_no_active_players;
             unit_ground_collision_domain += ground;
             unit_air_collision_domain += !ground;
             unit_harmless += behavior.harmless_to_players;
@@ -472,6 +480,7 @@ int main(int argc, char** argv) {
                 const auto expected_tint_color = state.fields.color_value("stateTintColor_COLOR").value_or(deimos::Rgb24{});
                 const bool expected_colorise = state.fields.bool_value("stateDoColorise_BOOL").value_or(false);
                 const bool expected_draw_to_terrain = state.fields.bool_value("stateDrawToTerrain_BOOL").value_or(false);
+                const auto expected_flee_mode = state.fields.id_value("stateFlee_ID").value_or(deimos::FourCC{});
                 if (!(compiled_state.sprite_face == expected_sprite_face) ||
                     compiled_state.sprite_frame_min != expected_frame_min ||
                     compiled_state.sprite_frame_max != expected_frame_max ||
@@ -499,7 +508,8 @@ int main(int argc, char** argv) {
                     !(compiled_state.collision_spawn == expected_spawn) ||
                     compiled_state.can_be_destroyed_on_owner_destruction != expected_destroy_with_owner ||
                     compiled_state.can_be_deleted_on_owner_deletion != expected_delete_with_owner ||
-                    compiled_state.destroy_owner_on_destruction != expected_destroy_owner) {
+                    compiled_state.destroy_owner_on_destruction != expected_destroy_owner ||
+                    !(compiled_state.flee_mode == expected_flee_mode)) {
                     std::cerr << entry.path << ": compiled visual/collision/destruction state fields disagree with parsed source\n";
                     return 20;
                 }
@@ -529,6 +539,7 @@ int main(int argc, char** argv) {
                 state_link_owner += link_owner;
                 state_orbit_owner += orbit_owner;
                 state_hunt += state.fields.bool_value("stateHunts_BOOL").value_or(false);
+                state_flee_mode += !(expected_flee_mode == deimos::FourCC{}) && expected_flee_mode.str() != "none";
                 state_hold += state.fields.bool_value("stateHoldPositionToTarget_BOOL").value_or(false);
                 state_cyclic += state.fields.bool_value("stateCyclicMotion_BOOL").value_or(false);
                 state_delete_no_player += state.fields.bool_value("stateDeleteOnNoActivePlayers_BOOL").value_or(false);
@@ -1252,6 +1263,9 @@ int main(int argc, char** argv) {
               << "    Hunt states: " << state_hunt << '\n'
               << "    Hold-to-target states: " << state_hold << '\n'
               << "    Cyclic-motion states: " << state_cyclic << '\n'
+              << "    Explicit flee-mode states: " << state_flee_mode << '\n'
+              << "    No-player flee units: north=" << unit_flee_north_no_player
+              << " south=" << unit_flee_south_no_player << '\n'
               << "    Delete-on-no-player states: " << state_delete_no_player << '\n'
               << "    Destruct-on-no-player states: " << state_destruct_no_player << '\n'
               << "    Collision-enabled states: " << state_collides << '\n'

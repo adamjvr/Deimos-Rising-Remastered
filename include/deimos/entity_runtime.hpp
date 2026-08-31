@@ -151,9 +151,9 @@ struct EntityInitialMotionResult {
     float target_player_distance = 0.0f;
     bool has_active_target = false;
 
-    // Live-member +0xCC selects PPC 0x16CC0, the recovered Flee motion path.
-    // The transition that raises this runtime flag is kept separate until its
-    // caller is fully mapped; canonical code can still execute the proven path.
+    // Live-member +0xCC selects PPC 0x16CC0.  State entry 0x146F0 raises it
+    // through stateFlee_ID -> 0x17510; 0x15280 can also raise it from the two
+    // UnitDef no-active-player flee flags.
     bool fleeing = false;
 
     int heading_degrees = 0;
@@ -177,6 +177,17 @@ struct EntityHeadlessConstructionContext {
     // each randomized group member while retaining motion_facts as a fallback
     // for isolated synthetic tests.
     std::function<std::optional<EntityPoint>(EntityPoint)> hunt_target_provider;
+
+    // Global Game float-list values consumed by PPC 0x17510. Defaults are the
+    // canonical 1.0.6 values; a live host can replace them from Game[gafl].
+    struct FleeTargetConfig {
+        float north = -1000.0f;
+        float south = 2000.0f;
+        float west = -1000.0f;
+        float east = 2000.0f;
+        float visible_width = 416.0f;
+        float visible_height = 480.0f;
+    } flee_targets{};
 };
 
 enum class EntityGroupBuildStatus {
@@ -244,10 +255,12 @@ struct EntityRuntime {
     float target_player_distance = 0.0f;
     bool has_active_target = false;
 
-    // Live-member +0xCC selects PPC 0x16CC0, the recovered Flee motion path.
-    // The transition that raises this runtime flag is kept separate until its
-    // caller is fully mapped; canonical code can still execute the proven path.
+    // Live-member +0xCC selects PPC 0x16CC0. While this flag is set, live
+    // +0x11C/+0x120 hold the destination installed by PPC 0x17510 rather than
+    // the latest player position.
     bool fleeing = false;
+
+    EntityHeadlessConstructionContext::FleeTargetConfig flee_targets{};
 
     int heading_degrees = 0;
     int group_delay_ticks = 0; // original live member +0xB0
@@ -426,6 +439,14 @@ void advance_entity_flee_motion(
     EntityRuntime& entity,
     const UnitDefinition& unit);
 
+// PPC 0x17510. Raises live +0xCC and installs an authored flee destination in
+// live +0x11C/+0x120. The six modes used by canonical 1.0.6 content are
+// supported exactly, including RNG consumption/order for random modes.
+[[nodiscard]] bool initialize_entity_flee_target(
+    EntityRuntime& entity,
+    FourCC flee_mode,
+    LegacyRandom& random);
+
 void converge_entity_velocity(
     EntityRuntime& entity,
     const UnitDefinition& unit);
@@ -439,6 +460,12 @@ void converge_entity_velocity(
 [[nodiscard]] int legacy_direction_index_for_heading(
     int heading_degrees,
     int number_of_directions);
+
+// PPC 0x161C0. Rotated spawn geometry uses the live sprite frame as the
+// entity's current visual rotation. This is intentionally separate from
+// physical heading/velocity because RotateToTarget changes only sprite facing.
+[[nodiscard]] int legacy_current_entity_visual_heading(
+    const EntityRuntime& entity);
 
 // State-entry animation initialization (PPC 0x146F0) and per-tick animation
 // update (PPC 0x15930). Animation uses the strict legacy cadence gate

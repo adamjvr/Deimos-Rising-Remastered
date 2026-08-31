@@ -799,3 +799,24 @@ Re-entered the WIP7 host ordering against the `0x33850` main-loop witnesses. Scr
 A long Level-1 audit exercised all 36 Flipper Mk2 and Screw Mk3 directional frames and reproduced the scripted multi-state scroll holds around the same tick regions found in PPC-Lab research. Investigation of apparently extreme Flipper frames separated the animated `raso` south-flight state from the directional Hunt state; Hunt frames agreed with player target geometry. The ground-position audit retained the already-closed absolute/relative spawn transform and rejected a global coordinate shift.
 
 The playable crash timing moved to 171/252. Isolation proved that WIP8 ordering with animation disabled is 184/265 and restoring the old delayed-member gate on top of that is exactly 185/266, while full animation/orientation + stopped-rule behavior supplies the larger trajectory shift. Static frame hashes did not move; only live-world hashes were re-frozen after the cause was understood.
+
+## 2026-08-30 — WIP9 original-PEF flee/heading closure
+
+Recovered the canonical 1.0.6 executable data fork again from the original StuffIt archive.
+The method-15 Arsenic stream expands to an 81,788,928-byte SMI; HFS extraction yields the
+2,045,976-byte `Joy!peffpwpc` application data fork with SHA-256
+`8e436c3babc582f1407ae6fed47e9749f1c930335ce4c794947e40b06b85eb29`, matching the
+historical witness. This restored direct disassembly access for the WIP9 behavior questions.
+
+`0x146F0`, `0x15280`, `0x16CC0` and `0x17510` close explicit flee state entry, no-player flee,
+range-transition timing and authored destination semantics. `nora/sora/wera/eara`, center,
+opposite-edge, random-edge and center-game-area modes are now decoded. Flee accelerates
+toward live `+0x11C/+0x120`; the previous away-from-player placeholder was wrong.
+
+`0x161C0` closes current visual heading: rotation-adjusted spawn geometry is keyed from
+live sprite frame plus NumDirections/FramesPerDirection. Re-disassembly of `0x15B40` and
+`0x17CB0` reconfirms the existing scheduler's cadence and RNG order, so no separate enemy
+fire-rate heuristic is warranted. A Level-1 diagnostic observes 1,766 spawn-due events,
+1,092 rotation-adjusted events and 48 cases where visual and construction headings differ.
+A controlled four-way WIP8/WIP9 differential isolates all long-run population changes to
+the recovered flee and heading paths.

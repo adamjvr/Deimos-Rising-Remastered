@@ -10,6 +10,19 @@ namespace {
 
 constexpr FourCC kNoneFourCC{{'n', 'o', 'n', 'e'}};
 constexpr FourCC kGroundFourCC{{'g', 'r', 'n', 'd'}};
+constexpr FourCC kFleeNorthRandom{{'n', 'o', 'r', 'a'}};
+constexpr FourCC kFleeSouthRandom{{'s', 'o', 'r', 'a'}};
+constexpr FourCC kFleeWestRandom{{'w', 'e', 'r', 'a'}};
+constexpr FourCC kFleeEastRandom{{'e', 'a', 'r', 'a'}};
+constexpr FourCC kFleeNorthCentre{{'n', 'o', 'c', 'e'}};
+constexpr FourCC kFleeSouthCentre{{'s', 'o', 'c', 'e'}};
+constexpr FourCC kFleeWestCentre{{'w', 'e', 'c', 'e'}};
+constexpr FourCC kFleeEastCentre{{'e', 'a', 'c', 'e'}};
+constexpr FourCC kFleeOppositeVertical{{'o', 'p', 'v', 'e'}};
+constexpr FourCC kFleeOppositeHorizontal{{'o', 'p', 'h', 'o'}};
+constexpr FourCC kFleeRandomVertical{{'r', 'a', 'v', 'e'}};
+constexpr FourCC kFleeRandomHorizontal{{'r', 'a', 'h', 'o'}};
+constexpr FourCC kFleeCentreGameArea{{'c', 'e', 'g', 'a'}};
 
 bool fourcc_is_none_or_empty(FourCC id) {
     return id == FourCC{} || id == kNoneFourCC;
@@ -193,6 +206,22 @@ void enter_entity_state_impl(
 
     initialize_entity_state_motion(entity, unit, previous_state_index);
     initialize_entity_state_animation(entity, current_tick);
+
+    // PPC 0x14D7C..0x14DB4: explicit state flee modes install their target
+    // before 0x17CB0 initializes spawn records, so any random target draw is
+    // part of the state-entry RNG stream ahead of spawn-rate/volley draws.
+    // Entering a non-flee state clears +0xCC only when the state being left
+    // itself carried a non-none flee ID; this deliberately preserves the
+    // separate UnitDef no-active-player flee latch across ordinary states.
+    const bool previous_state_had_flee_mode =
+        previous_state_index && *previous_state_index < entity.behavior.states.size() &&
+        !fourcc_is_none_or_empty(entity.behavior.states[*previous_state_index].flee_mode);
+    if (!fourcc_is_none_or_empty(compiled.flee_mode)) {
+        (void)initialize_entity_flee_target(entity, compiled.flee_mode, random);
+    } else if (entity.fleeing && previous_state_had_flee_mode) {
+        entity.fleeing = false;
+    }
+
     initialize_state_spawn_runtime(entity, unit, state_index, current_tick, random);
 
     if (!entry.counter_threshold_reached) return;
@@ -605,16 +634,92 @@ void advance_entity_flee_motion(
     EntityRuntime& entity,
     const UnitDefinition& unit) {
     const auto state_index = entity.state.current_state;
-    if (state_index >= unit.states.size() || !entity.fleeing || !entity.has_active_target) return;
+    if (state_index >= unit.states.size() || !entity.fleeing) return;
 
-    const float maximum = std::fabs(state_float(unit, state_index, "stateFleeSpeed_FLOAT", 0.0f));
-    const float delta = std::fabs(state_float(unit, state_index, "stateFleeDelta_FLOAT", 0.0f));
-    entity.velocity_delta_x = entity.x < entity.target_player_x ? -delta : delta;
-    entity.velocity_delta_y = entity.y < entity.target_player_y ? -delta : delta;
-    entity.velocity_x = std::clamp(static_cast<float>(entity.velocity_x + entity.velocity_delta_x), -maximum, maximum);
-    entity.velocity_y = std::clamp(static_cast<float>(entity.velocity_y + entity.velocity_delta_y), -maximum, maximum);
-    entity.target_velocity_x = entity.velocity_x;
-    entity.target_velocity_y = entity.velocity_y;
+    // PPC 0x16CC0 selects stateFleeSpeed/stateFleeDelta while live +0xCC is
+    // set. +0x11C/+0x120 are an authored destination, not the player point.
+    // Each axis accelerates *toward* that destination and is clamped directly
+    // to +/- flee speed. Equality follows the >= branch and therefore uses a
+    // negative delta for that tick.
+    const float maximum = state_float(unit, state_index, "stateFleeSpeed_FLOAT", 0.0f);
+    const float delta = state_float(unit, state_index, "stateFleeDelta_FLOAT", 0.0f);
+    entity.velocity_delta_x = entity.x < entity.target_player_x ? delta : -delta;
+    entity.velocity_delta_y = entity.y < entity.target_player_y ? delta : -delta;
+
+    entity.velocity_x = static_cast<float>(entity.velocity_x + entity.velocity_delta_x);
+    if (entity.velocity_x > maximum) entity.velocity_x = maximum;
+    else if (entity.velocity_x < -maximum) entity.velocity_x = -maximum;
+
+    entity.velocity_y = static_cast<float>(entity.velocity_y + entity.velocity_delta_y);
+    if (entity.velocity_y > maximum) entity.velocity_y = maximum;
+    else if (entity.velocity_y < -maximum) entity.velocity_y = -maximum;
+}
+
+bool initialize_entity_flee_target(
+    EntityRuntime& entity,
+    FourCC flee_mode,
+    LegacyRandom& random) {
+    // PPC 0x17510 raises +0xCC before dispatching the FourCC. Unknown modes
+    // therefore still leave the entity flagged as fleeing with its previous
+    // target coordinates intact.
+    entity.fleeing = true;
+    const auto& cfg = entity.flee_targets;
+    constexpr float kHalf = 0.5f;
+
+    const auto random_x = [&]() {
+        return choose_legacy_float(0.0f, cfg.visible_width, random);
+    };
+    const auto random_y = [&]() {
+        return choose_legacy_float(0.0f, cfg.visible_height, random);
+    };
+    const float centre_x = static_cast<float>(cfg.visible_width * kHalf);
+    const float centre_y = static_cast<float>(cfg.visible_height * kHalf);
+
+    if (flee_mode == kFleeNorthRandom) {
+        entity.target_player_x = random_x();
+        entity.target_player_y = cfg.north;
+    } else if (flee_mode == kFleeSouthRandom) {
+        entity.target_player_x = random_x();
+        entity.target_player_y = cfg.south;
+    } else if (flee_mode == kFleeWestRandom) {
+        entity.target_player_x = cfg.west;
+        entity.target_player_y = random_y();
+    } else if (flee_mode == kFleeEastRandom) {
+        entity.target_player_x = cfg.east;
+        entity.target_player_y = random_y();
+    } else if (flee_mode == kFleeNorthCentre) {
+        entity.target_player_x = centre_x;
+        entity.target_player_y = cfg.north;
+    } else if (flee_mode == kFleeSouthCentre) {
+        entity.target_player_x = centre_x;
+        entity.target_player_y = cfg.south;
+    } else if (flee_mode == kFleeWestCentre) {
+        entity.target_player_x = cfg.west;
+        entity.target_player_y = centre_y;
+    } else if (flee_mode == kFleeEastCentre) {
+        entity.target_player_x = cfg.east;
+        entity.target_player_y = centre_y;
+    } else if (flee_mode == kFleeOppositeVertical) {
+        entity.target_player_x = random_x();
+        entity.target_player_y = entity.y > centre_y ? cfg.north : cfg.south;
+    } else if (flee_mode == kFleeOppositeHorizontal) {
+        entity.target_player_x = entity.x > centre_x ? cfg.west : cfg.east;
+        entity.target_player_y = random_y();
+    } else if (flee_mode == kFleeRandomVertical) {
+        const int north = choose_inclusive_integer(0, 1, random);
+        entity.target_player_x = random_x();
+        entity.target_player_y = north != 0 ? cfg.north : cfg.south;
+    } else if (flee_mode == kFleeRandomHorizontal) {
+        const int east = choose_inclusive_integer(0, 1, random);
+        entity.target_player_x = east != 0 ? cfg.east : cfg.west;
+        entity.target_player_y = random_y();
+    } else if (flee_mode == kFleeCentreGameArea) {
+        entity.target_player_x = centre_x;
+        entity.target_player_y = centre_y;
+    } else {
+        return false;
+    }
+    return true;
 }
 
 void converge_entity_velocity(
@@ -682,6 +787,26 @@ int legacy_direction_index_for_heading(
     // 24 directions: 105 deg -> 7, 255 deg -> 17.
     return static_cast<int>(
         (static_cast<long long>(heading) * directions) / 360LL);
+}
+
+int legacy_current_entity_visual_heading(
+    const EntityRuntime& entity) {
+    if (entity.state.current_state >= entity.behavior.states.size()) return 0;
+    const auto& state = entity.behavior.states[entity.state.current_state];
+    const int directions = std::max(1, state.number_of_directions);
+    const int frames_per_direction = std::max(1, state.frames_per_direction);
+
+    // PPC 0x161C0 has a special one-direction path: sprite frame itself is
+    // treated as the rotational index across FramesPerDirection. Otherwise
+    // the directional index is spriteFrame / FramesPerDirection. Integer
+    // division is intentional; the original does not round or consult the
+    // physical heading/velocity fields here.
+    if (directions == 1) {
+        return entity.sprite_frame * (360 / frames_per_direction);
+    }
+    int direction = entity.sprite_frame / frames_per_direction;
+    if (direction < 0) direction = 0;
+    return direction * (360 / directions);
 }
 
 void initialize_entity_state_animation(
@@ -907,6 +1032,7 @@ EntityGroupBuildResult construct_entity_group_headless(
         member.unit_id = request.unit_id;
         member.stationary = request.stationary;
         member.terrain_effects_enabled = request.terrain_effects_enabled;
+        member.flee_targets = context.flee_targets;
 
         // 0x35EB4 runs before initial position/motion and may consume the
         // tolerance draw for request/editor headings even for stationary units.
